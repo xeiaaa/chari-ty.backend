@@ -2,15 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { ClerkService } from './clerk.service';
 import { User, Group, GroupMember } from '../../../generated/prisma';
-import {
-  OnboardingDto,
-  IndividualOnboardingDto,
-  TeamOnboardingDto,
-  NonprofitOnboardingDto,
-} from './dtos/onboarding.dto';
+import { OnboardingDto } from './dtos/onboarding.dto';
 
 /**
- * OnboardingService handles user onboarding logic
+ * OnboardingService handles user onboarding process
+ * for different account types (individual, team, nonprofit)
  */
 @Injectable()
 export class OnboardingService {
@@ -57,7 +53,7 @@ export class OnboardingService {
    */
   private async completeIndividualOnboarding(
     user: User,
-    data: IndividualOnboardingDto,
+    data: OnboardingDto,
   ): Promise<{ user: User }> {
     // Update user with individual account type and setup completion
     const updatedUser = await this.prisma.user.update({
@@ -81,8 +77,12 @@ export class OnboardingService {
    */
   private async completeTeamOnboarding(
     user: User,
-    data: TeamOnboardingDto,
+    data: OnboardingDto,
   ): Promise<{ user: User; group: Group; groupMember: GroupMember }> {
+    if (!data.teamName) {
+      throw new Error('Team name is required for team account type');
+    }
+
     // Use transaction to ensure data consistency
     const result = await this.prisma.$transaction(async (prisma) => {
       // Update user
@@ -99,7 +99,7 @@ export class OnboardingService {
       // Create group for team
       const group = await prisma.group.create({
         data: {
-          name: data.teamName,
+          name: data.teamName!, // Safe to use ! after runtime check
           description: data.mission,
           type: 'team',
           website: data.website,
@@ -143,8 +143,17 @@ export class OnboardingService {
    */
   private async completeNonprofitOnboarding(
     user: User,
-    data: NonprofitOnboardingDto,
+    data: OnboardingDto,
   ): Promise<{ user: User; group: Group; groupMember: GroupMember }> {
+    if (!data.organizationName) {
+      throw new Error(
+        'Organization name is required for nonprofit account type',
+      );
+    }
+    if (!data.ein) {
+      throw new Error('EIN is required for nonprofit account type');
+    }
+
     // Use transaction to ensure data consistency
     const result = await this.prisma.$transaction(async (prisma) => {
       // Update user
@@ -161,11 +170,11 @@ export class OnboardingService {
       // Create group for nonprofit
       const group = await prisma.group.create({
         data: {
-          name: data.organizationName,
+          name: data.organizationName!, // Safe to use ! after runtime check
           description: data.mission,
           type: 'nonprofit',
           website: data.website,
-          ein: data.ein,
+          ein: data.ein!, // Safe to use ! after runtime check
           documentsUrls: data.documentsUrls || [],
           verified: false, // Requires manual verification
         },

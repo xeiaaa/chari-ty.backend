@@ -5,7 +5,7 @@
 @baseUrl = http://localhost:3000
 @apiPrefix = api/v1
 @contentType = application/json
-@authToken = eyJhbGciOiJkZXYiLCJ0eXAiOiJKV1QifQ.eyJzdWIiOiJ1c2VyXzJ6T2hUUDh0Y0VJMkNTTU45WkpaNURrWkZMTSIsImVtYWlsIjoiY29zbWljZGV2Y3NAZ21haWwuY29tIiwiaWF0IjoxNzUxNjEyNDA1LCJleHAiOjE3NTE2OTg4MDUsImlzcyI6ImNsZXJrLWRldiJ9.ZGV2LXNpZ25hdHVyZS11c2VyXzJ6T2hUUDh0Y0VJMkNTTU45WkpaNURrWkZMTS0xNzUxNjEyNDA1Mjcy
+@authToken = eyJhbGciOiJkZXYiLCJ0eXAiOiJKV1QifQ.eyJzdWIiOiJ1c2VyXzJ6UVFKZGlwNlUzMDhoaDNNWFJ5ZkxQdHA4QiIsImVtYWlsIjoiY29zbWljZGV2Y3NAZ21haWwuY29tIiwiaWF0IjoxNzUxNjYwNzU0LCJleHAiOjE3NTE3NDcxNTQsImlzcyI6ImNsZXJrLWRldiJ9.ZGV2LXNpZ25hdHVyZS11c2VyXzJ6UVFKZGlwNlUzMDhoaDNNWFJ5ZkxQdHA4Qi0xNzUxNjYwNzU0NjA3
 
 # ========================================
 # DEVELOPMENT UTILITIES
@@ -19,7 +19,7 @@ GET {{baseUrl}}/{{apiPrefix}}/users/admin/test
 ### Generate Development Token by Email (DEVELOPMENT ONLY)
 # This endpoint generates an actual development token for testing
 # Response: { "token": "jwt-like-token", "clerkId": "user_123", "email": "user@example.com", "note": "..." }
-GET {{baseUrl}}/{{apiPrefix}}/users/clerk/token?email=john.doe@example.com
+GET {{baseUrl}}/{{apiPrefix}}/users/clerk/token?email=philjackson@gmail.com
 
 ###
 

@@ -171,7 +171,7 @@ Generate code, corrections, and refactorings that comply with the basic principl
 
 ### Testing
 
-- Use the standard Jest framework for testing.
+- Use the Jest framework in combination with Supertest for HTTP testing.
 - Write tests for each controller and service.
-- Write end to end tests for each api module.
+- Write end-to-end tests for each API module using Supertest to simulate HTTP requests.
 - Add a admin/test method to each controller as a smoke test.
