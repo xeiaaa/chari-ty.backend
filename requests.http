@@ -193,3 +193,224 @@ GET {{baseUrl}}/{{apiPrefix}}/users
 Authorization: Bearer invalid-token-123
 
 ###
+
+# =========================================
+# WEBHOOK TESTING
+# =========================================
+
+### Test Webhook Health Check (Public)
+POST {{baseUrl}}/{{apiPrefix}}/webhooks/test
+Content-Type: {{contentType}}
+
+###
+
+### Simulate Clerk user.created Webhook (Public)
+POST {{baseUrl}}/{{apiPrefix}}/webhooks/clerk
+Content-Type: {{contentType}}
+clerk-signature: mock-signature-for-dev
+
+{
+  "object": "event",
+  "type": "user.created",
+  "timestamp": 1733586140,
+  "data": {
+    "id": "user_2webhook123new456",
+    "object": "user",
+    "username": null,
+    "first_name": "Alice",
+    "last_name": "Smith",
+    "image_url": "https://images.clerk.dev/uploaded/alice-smith.jpg",
+    "has_image": true,
+    "primary_email_address_id": "idn_2email123abc456",
+    "primary_phone_number_id": null,
+    "primary_web3_wallet_id": null,
+    "password_enabled": true,
+    "two_factor_enabled": false,
+    "totp_enabled": false,
+    "backup_code_enabled": false,
+    "email_addresses": [
+      {
+        "id": "idn_2email123abc456",
+        "object": "email_address",
+        "email_address": "alice.smith@example.com",
+        "verification": {
+          "status": "verified",
+          "strategy": "ticket"
+        },
+        "linked_to": [],
+        "created_at": 1733586100,
+        "updated_at": 1733586100
+      }
+    ],
+    "phone_numbers": [],
+    "web3_wallets": [],
+    "external_accounts": [],
+    "saml_accounts": [],
+    "public_metadata": {
+      "accountType": "individual",
+      "bio": "Marketing specialist interested in environmental causes"
+    },
+    "private_metadata": {},
+    "unsafe_metadata": {},
+    "external_id": null,
+    "last_sign_in_at": null,
+    "banned": false,
+    "locked": false,
+    "lockout_expires_in_seconds": null,
+    "verification_attempts_remaining": null,
+    "created_at": 1733586100,
+    "updated_at": 1733586100,
+    "delete_self_enabled": true,
+    "create_organization_enabled": true,
+    "last_active_at": null
+  }
+}
+
+###
+
+### Simulate Clerk user.updated Webhook (Public)
+POST {{baseUrl}}/{{apiPrefix}}/webhooks/clerk
+Content-Type: {{contentType}}
+clerk-signature: mock-signature-for-dev
+
+{
+  "object": "event",
+  "type": "user.updated",
+  "timestamp": 1733586200,
+  "data": {
+    "id": "user_2webhook123new456",
+    "object": "user",
+    "username": null,
+    "first_name": "Alice",
+    "last_name": "Smith-Wilson",
+    "image_url": "https://images.clerk.dev/uploaded/alice-smith-updated.jpg",
+    "has_image": true,
+    "primary_email_address_id": "idn_2email123abc456",
+    "primary_phone_number_id": null,
+    "primary_web3_wallet_id": null,
+    "password_enabled": true,
+    "two_factor_enabled": false,
+    "totp_enabled": false,
+    "backup_code_enabled": false,
+    "email_addresses": [
+      {
+        "id": "idn_2email123abc456",
+        "object": "email_address",
+        "email_address": "alice.smith@example.com",
+        "verification": {
+          "status": "verified",
+          "strategy": "ticket"
+        },
+        "linked_to": [],
+        "created_at": 1733586100,
+        "updated_at": 1733586100
+      }
+    ],
+    "phone_numbers": [],
+    "web3_wallets": [],
+    "external_accounts": [],
+    "saml_accounts": [],
+    "public_metadata": {
+      "accountType": "nonprofit",
+      "bio": "Environmental nonprofit coordinator",
+      "setupComplete": true
+    },
+    "private_metadata": {},
+    "unsafe_metadata": {},
+    "external_id": null,
+    "last_sign_in_at": 1733586180,
+    "banned": false,
+    "locked": false,
+    "lockout_expires_in_seconds": null,
+    "verification_attempts_remaining": null,
+    "created_at": 1733586100,
+    "updated_at": 1733586200,
+    "delete_self_enabled": true,
+    "create_organization_enabled": true,
+    "last_active_at": 1733586180
+  }
+}
+
+###
+
+### Simulate Clerk user.deleted Webhook (Public)
+POST {{baseUrl}}/{{apiPrefix}}/webhooks/clerk
+Content-Type: {{contentType}}
+clerk-signature: mock-signature-for-dev
+
+{
+  "object": "event",
+  "type": "user.deleted",
+  "timestamp": 1733586300,
+  "data": {
+    "id": "user_2webhook123new456",
+    "object": "user",
+    "username": null,
+    "first_name": "Alice",
+    "last_name": "Smith-Wilson",
+    "image_url": "https://images.clerk.dev/uploaded/alice-smith-updated.jpg",
+    "has_image": true,
+    "primary_email_address_id": "idn_2email123abc456",
+    "primary_phone_number_id": null,
+    "primary_web3_wallet_id": null,
+    "password_enabled": true,
+    "two_factor_enabled": false,
+    "totp_enabled": false,
+    "backup_code_enabled": false,
+    "email_addresses": [
+      {
+        "id": "idn_2email123abc456",
+        "object": "email_address",
+        "email_address": "alice.smith@example.com",
+        "verification": {
+          "status": "verified",
+          "strategy": "ticket"
+        },
+        "linked_to": [],
+        "created_at": 1733586100,
+        "updated_at": 1733586100
+      }
+    ],
+    "phone_numbers": [],
+    "web3_wallets": [],
+    "external_accounts": [],
+    "saml_accounts": [],
+    "public_metadata": {
+      "accountType": "nonprofit",
+      "bio": "Environmental nonprofit coordinator",
+      "setupComplete": true
+    },
+    "private_metadata": {},
+    "unsafe_metadata": {},
+    "external_id": null,
+    "last_sign_in_at": 1733586180,
+    "banned": false,
+    "locked": false,
+    "lockout_expires_in_seconds": null,
+    "verification_attempts_remaining": null,
+    "created_at": 1733586100,
+    "updated_at": 1733586300,
+    "delete_self_enabled": true,
+    "create_organization_enabled": true,
+    "last_active_at": 1733586180
+  }
+}
+
+###
+
+### Test Unsupported Webhook Event (Should log warning)
+POST {{baseUrl}}/{{apiPrefix}}/webhooks/clerk
+Content-Type: {{contentType}}
+clerk-signature: mock-signature-for-dev
+
+{
+  "object": "event",
+  "type": "user.session.created",
+  "timestamp": 1733586400,
+  "data": {
+    "id": "user_2webhook123new456",
+    "object": "user"
+  }
+}
+
+###
