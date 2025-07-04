@@ -97,6 +97,45 @@ Generate code, corrections, and refactorings that comply with the basic principl
 
   ## Specific to NestJS
 
+  🔹 Modular Architecture
+    All feature modules are inside:
+
+    php-template
+    Copy
+    Edit
+    /src/features/<feature-name>/
+      ├── <feature>.controller.ts
+      ├── <feature>.service.ts
+      ├── <feature>.module.ts
+      ├── dtos/
+      ├── entities/
+      └── <other logic>.ts
+    Example:
+    /src/features/auth/auth.controller.ts
+
+    Use one controller per primary route; create additional controllers for sub-routes as needed.
+
+🔹 Folder Conventions
+    Folder	Purpose
+    /src/features/	Main business domains and modules
+    /src/common/	Shared utilities, services, and base types
+    /src/common/decorators/	Reusable custom decorators
+    /src/common/types/	Shared interfaces and TypeScript types
+    /src/common/dtos/	Generic DTOs reused across modules
+    /src/common/validators/	Custom validators
+    /src/common/services/	Cross-cutting services (e.g., email, logger)
+    /src/middlewares/	Global and route-specific middleware
+
+    🔹 Core Module Responsibilities
+    Create a Core Module (e.g. /src/core/) for global setup and cross-cutting concerns:
+
+    Feature	Description
+    Filters	Global exception filters
+    Middlewares	Logging, security, request handling
+    Guards	Role-based or policy-based guards
+    Interceptors	Transforming or caching responses globally
+    Configs	Application-wide configuration (e.g., ConfigModule)
+
   ### Basic Principles
 
   - Use modular architecture.

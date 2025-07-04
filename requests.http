@@ -1,0 +1,130 @@
+### Variables
+@baseUrl = http://localhost:3000
+@contentType = application/json
+
+### Admin Test Endpoint
+GET {{baseUrl}}/users/admin/test
+
+###
+
+### Create User
+POST {{baseUrl}}/users
+Content-Type: {{contentType}}
+
+{
+  "clerkId": "user_12abc123def456",
+  "email": "jane.doe@example.com",
+  "firstName": "John",
+  "lastName": "Doe",
+  "avatarUrl": "https://example.com/avatar.jpg",
+  "bio": "Software developer passionate about charity work",
+  "accountType": "individual"
+}
+
+###
+
+### Create User (Nonprofit)
+POST {{baseUrl}}/users
+Content-Type: {{contentType}}
+
+{
+  "clerkId": "user_2xyz789ghi012",
+  "email": "contact@helpinghands.org",
+  "firstName": "Sarah",
+  "lastName": "Johnson",
+  "avatarUrl": "https://example.com/nonprofit-avatar.jpg",
+  "bio": "Director of Helping Hands Foundation",
+  "accountType": "nonprofit"
+}
+
+###
+
+### Create User (Team)
+POST {{baseUrl}}/users
+Content-Type: {{contentType}}
+
+{
+  "clerkId": "user_2team456def789",
+  "email": "team@charitygroup.org",
+  "firstName": "Team",
+  "lastName": "Leader",
+  "accountType": "team"
+}
+
+###
+
+### Get All Users
+GET {{baseUrl}}/users
+
+###
+
+### Get User by ID
+# Replace {user-id} with an actual user ID from your database
+GET {{baseUrl}}/users/{user-id}
+
+###
+
+### Get User by Clerk ID
+GET {{baseUrl}}/users/clerk/user_2abc123def456
+
+###
+
+### Update User
+# Replace {user-id} with an actual user ID from your database
+PUT {{baseUrl}}/users/{user-id}
+Content-Type: {{contentType}}
+
+{
+  "firstName": "John Updated",
+  "lastName": "Doe Updated",
+  "bio": "Updated bio - Senior software developer passionate about charity work",
+  "avatarUrl": "https://example.com/updated-avatar.jpg",
+  "setupComplete": true
+}
+
+###
+
+### Update User (Partial)
+# Replace {user-id} with an actual user ID from your database
+PUT {{baseUrl}}/users/{user-id}
+Content-Type: {{contentType}}
+
+{
+  "setupComplete": true
+}
+
+###
+
+### Delete User
+# Replace {user-id} with an actual user ID from your database
+DELETE {{baseUrl}}/users/{user-id}
+
+###
+
+### Test Invalid Email (Should fail validation when class-validator is added)
+POST {{baseUrl}}/users
+Content-Type: {{contentType}}
+
+{
+  "clerkId": "user_2invalid123",
+  "email": "invalid-email",
+  "firstName": "Test",
+  "lastName": "User",
+  "accountType": "individual"
+}
+
+###
+
+### Test Invalid Account Type (Should fail validation)
+POST {{baseUrl}}/users
+Content-Type: {{contentType}}
+
+{
+  "clerkId": "user_2invalid456",
+  "email": "test@example.com",
+  "firstName": "Test",
+  "lastName": "User",
+  "accountType": "invalid_type"
+}
+
+###
