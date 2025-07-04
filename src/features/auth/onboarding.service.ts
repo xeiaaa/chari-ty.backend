@@ -1,0 +1,214 @@
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from '../../core/prisma/prisma.service';
+import { ClerkService } from './clerk.service';
+import { User, Group, GroupMember } from '../../../generated/prisma';
+import {
+  OnboardingDto,
+  IndividualOnboardingDto,
+  TeamOnboardingDto,
+  NonprofitOnboardingDto,
+} from './dtos/onboarding.dto';
+
+/**
+ * OnboardingService handles user onboarding logic
+ */
+@Injectable()
+export class OnboardingService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly clerkService: ClerkService,
+  ) {}
+
+  /**
+   * Complete user onboarding based on account type
+   */
+  async completeOnboarding(
+    clerkId: string,
+    onboardingData: OnboardingDto,
+  ): Promise<{ user: User; group?: Group; groupMember?: GroupMember }> {
+    // Get current user from database
+    const existingUser = await this.prisma.user.findUnique({
+      where: { clerkId },
+    });
+
+    if (!existingUser) {
+      throw new Error('User not found in database');
+    }
+
+    if (existingUser.setupComplete) {
+      throw new Error('User has already completed onboarding');
+    }
+
+    // Process onboarding based on account type
+    switch (onboardingData.accountType) {
+      case 'individual':
+        return this.completeIndividualOnboarding(existingUser, onboardingData);
+      case 'team':
+        return this.completeTeamOnboarding(existingUser, onboardingData);
+      case 'nonprofit':
+        return this.completeNonprofitOnboarding(existingUser, onboardingData);
+      default:
+        throw new Error('Invalid account type');
+    }
+  }
+
+  /**
+   * Complete individual account onboarding
+   */
+  private async completeIndividualOnboarding(
+    user: User,
+    data: IndividualOnboardingDto,
+  ): Promise<{ user: User }> {
+    // Update user with individual account type and setup completion
+    const updatedUser = await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        accountType: 'individual',
+        bio: data.bio,
+        avatarUrl: data.avatarUrl,
+        setupComplete: true,
+      },
+    });
+
+    // Update Clerk metadata
+    await this.updateClerkMetadata(user.clerkId, 'individual');
+
+    return { user: updatedUser };
+  }
+
+  /**
+   * Complete team account onboarding
+   */
+  private async completeTeamOnboarding(
+    user: User,
+    data: TeamOnboardingDto,
+  ): Promise<{ user: User; group: Group; groupMember: GroupMember }> {
+    // Use transaction to ensure data consistency
+    const result = await this.prisma.$transaction(async (prisma) => {
+      // Update user
+      const updatedUser = await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          accountType: 'team',
+          bio: data.bio,
+          avatarUrl: data.avatarUrl,
+          setupComplete: true,
+        },
+      });
+
+      // Create group for team
+      const group = await prisma.group.create({
+        data: {
+          name: data.teamName,
+          description: data.mission,
+          type: 'team',
+          website: data.website,
+        },
+      });
+
+      // Add user as owner of the group
+      const groupMember = await prisma.groupMember.create({
+        data: {
+          userId: user.id,
+          groupId: group.id,
+          role: 'owner',
+        },
+      });
+
+      // Add additional team members if provided
+      if (data.members && data.members.length > 0) {
+        // Create placeholder users for team members to be invited later
+        // Note: In a real implementation, you might want to send invitations
+        // and handle the invitation acceptance flow separately
+        data.members.forEach((member) => {
+          // For now, we'll skip creating group member records for invitations
+          // This should be handled by a separate invitation system
+          console.log(
+            `Team member invitation prepared for: ${member.name} (${member.email})`,
+          );
+        });
+      }
+
+      return { user: updatedUser, group, groupMember };
+    });
+
+    // Update Clerk metadata
+    await this.updateClerkMetadata(user.clerkId, 'team');
+
+    return result;
+  }
+
+  /**
+   * Complete nonprofit account onboarding
+   */
+  private async completeNonprofitOnboarding(
+    user: User,
+    data: NonprofitOnboardingDto,
+  ): Promise<{ user: User; group: Group; groupMember: GroupMember }> {
+    // Use transaction to ensure data consistency
+    const result = await this.prisma.$transaction(async (prisma) => {
+      // Update user
+      const updatedUser = await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          accountType: 'nonprofit',
+          bio: data.bio,
+          avatarUrl: data.avatarUrl,
+          setupComplete: true,
+        },
+      });
+
+      // Create group for nonprofit
+      const group = await prisma.group.create({
+        data: {
+          name: data.organizationName,
+          description: data.mission,
+          type: 'nonprofit',
+          website: data.website,
+          ein: data.ein,
+          documentsUrls: data.documentsUrls || [],
+          verified: false, // Requires manual verification
+        },
+      });
+
+      // Add user as owner of the group
+      const groupMember = await prisma.groupMember.create({
+        data: {
+          userId: user.id,
+          groupId: group.id,
+          role: 'owner',
+        },
+      });
+
+      return { user: updatedUser, group, groupMember };
+    });
+
+    // Update Clerk metadata
+    await this.updateClerkMetadata(user.clerkId, 'nonprofit');
+
+    return result;
+  }
+
+  /**
+   * Update Clerk user metadata
+   */
+  private async updateClerkMetadata(
+    clerkId: string,
+    accountType: string,
+  ): Promise<void> {
+    try {
+      // Import Clerk client dynamically to avoid issues
+      const { clerkClient } = await import('@clerk/express');
+
+      await clerkClient.users.updateUser(clerkId, {
+        publicMetadata: {
+          accountType,
+          setupComplete: true,
+        },
+      });
+    } catch (error) {
+      // Log error but don't fail the onboarding process
+      console.error('Failed to update Clerk metadata:', error);
+    }
+  }
+}

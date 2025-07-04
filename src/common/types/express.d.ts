@@ -1,6 +1,10 @@
-// Extend Express Request interface to include user property
-declare namespace Express {
-  interface Request {
-    user?: any;
+import type { User } from '../../../generated/prisma';
+
+// Extend Express Request interface to include authUser property
+declare global {
+  namespace Express {
+    interface Request {
+      authUser?: User;
+    }
   }
 }

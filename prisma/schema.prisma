@@ -21,6 +21,18 @@ enum AccountType {
   nonprofit
 }
 
+enum GroupType {
+  team
+  nonprofit
+}
+
+enum GroupMemberRole {
+  owner
+  admin
+  editor
+  viewer
+}
+
 // Models
 model User {
   id            String      @id @default(cuid())
@@ -35,5 +47,46 @@ model User {
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 
+  // Relations
+  groupMemberships GroupMember[]
+
   @@map("users")
+}
+
+model Group {
+  id            String    @id @default(cuid())
+  name          String
+  description   String?
+  type          GroupType
+  avatarUrl     String?
+  website       String?
+  ein           String? // For nonprofits
+  documentsUrls String[] // For verification documents
+  verified      Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  members GroupMember[]
+
+  @@map("groups")
+}
+
+model GroupMember {
+  id           String          @id @default(cuid())
+  userId       String
+  groupId      String
+  role         GroupMemberRole
+  invitedName  String? // For invited members not yet registered
+  invitedEmail String? // For invited members not yet registered
+  joinedAt     DateTime        @default(now())
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  // Relations
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, groupId])
+  @@map("group_members")
 }

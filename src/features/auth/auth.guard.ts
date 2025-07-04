@@ -8,6 +8,7 @@ import { Reflector } from '@nestjs/core';
 import { Request } from 'express';
 import { IS_PUBLIC_KEY } from '../../common/decorators';
 import { ClerkService } from './clerk.service';
+import { UsersService } from '../users/users.service';
 
 /**
  * AuthGuard handles authentication for protected routes using Clerk
@@ -18,6 +19,7 @@ export class AuthGuard implements CanActivate {
   constructor(
     private reflector: Reflector,
     private clerkService: ClerkService,
+    private usersService: UsersService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -44,12 +46,19 @@ export class AuthGuard implements CanActivate {
       // Verify token with Clerk
       const payload = await this.clerkService.verifySessionToken(token);
 
-      console.log('payload', payload);
+      // Query database for actual user data
+      const user = await this.usersService.findUserByClerkId(payload.sub);
+
+      if (!user) {
+        throw new UnauthorizedException('User not found in database');
+      }
+
       // Add user information to request object
-      request.user = payload;
+      request.authUser = user;
 
       return true;
-    } catch {
+    } catch (error) {
+      console.error('Auth guard error:', error);
       throw new UnauthorizedException('Invalid or expired token');
     }
   }

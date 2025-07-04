@@ -3,6 +3,19 @@ import { ConfigService } from '@nestjs/config';
 import { verifyToken } from '@clerk/express';
 
 /**
+ * Interface for Clerk token payload
+ */
+export interface ClerkTokenPayload {
+  sub: string; // User ID (Clerk user ID)
+  userId?: string; // Alternative user ID field
+  email?: string;
+  iat: number; // Issued at
+  exp: number; // Expiration time
+  iss?: string; // Issuer
+  [key: string]: any; // Allow additional properties
+}
+
+/**
  * ClerkService handles Clerk authentication operations
  */
 @Injectable()
@@ -27,7 +40,7 @@ export class ClerkService {
   /**
    * Verify Clerk session token or development token
    */
-  async verifySessionToken(token: string): Promise<any> {
+  async verifySessionToken(token: string): Promise<ClerkTokenPayload> {
     try {
       // Check if this is a development token
       if (this.isDevelopmentToken(token)) {
@@ -39,7 +52,7 @@ export class ClerkService {
         secretKey: this.clerkSecretKey,
       });
 
-      return payload;
+      return payload as ClerkTokenPayload;
     } catch (error) {
       throw new Error(`Token verification failed: ${error.message}`);
     }
@@ -66,7 +79,7 @@ export class ClerkService {
   /**
    * Verify development token manually
    */
-  private verifyDevelopmentToken(token: string): any {
+  private verifyDevelopmentToken(token: string): ClerkTokenPayload {
     // Only allow development tokens in development environment
     if (this.nodeEnv !== 'development') {
       throw new Error(

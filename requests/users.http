@@ -1,0 +1,170 @@
+### Users Feature Requests
+# User management endpoints including CRUD operations and development utilities
+
+### Variables
+@baseUrl = http://localhost:3000
+@apiPrefix = api/v1
+@contentType = application/json
+@authToken = eyJhbGciOiJkZXYiLCJ0eXAiOiJKV1QifQ.eyJzdWIiOiJ1c2VyXzJ6T2hUUDh0Y0VJMkNTTU45WkpaNURrWkZMTSIsImVtYWlsIjoiY29zbWljZGV2Y3NAZ21haWwuY29tIiwiaWF0IjoxNzUxNjEyNDA1LCJleHAiOjE3NTE2OTg4MDUsImlzcyI6ImNsZXJrLWRldiJ9.ZGV2LXNpZ25hdHVyZS11c2VyXzJ6T2hUUDh0Y0VJMkNTTU45WkpaNURrWkZMTS0xNzUxNjEyNDA1Mjcy
+
+# ========================================
+# DEVELOPMENT UTILITIES
+# ========================================
+
+### Admin Test Endpoint (Public)
+GET {{baseUrl}}/{{apiPrefix}}/users/admin/test
+
+###
+
+### Generate Development Token by Email (DEVELOPMENT ONLY)
+# This endpoint generates an actual development token for testing
+# Response: { "token": "jwt-like-token", "clerkId": "user_123", "email": "user@example.com", "note": "..." }
+GET {{baseUrl}}/{{apiPrefix}}/users/clerk/token?email=john.doe@example.com
+
+###
+
+### Generate Development Token for Different User
+GET {{baseUrl}}/{{apiPrefix}}/users/clerk/token?email=contact@helpinghands.org
+
+###
+
+# ========================================
+# USER CRUD OPERATIONS
+# ========================================
+
+### Get All Users (Protected)
+GET {{baseUrl}}/{{apiPrefix}}/users
+Authorization: Bearer {{authToken}}
+
+###
+
+### Create User (Public - typically called by webhooks)
+POST {{baseUrl}}/{{apiPrefix}}/users
+Content-Type: {{contentType}}
+
+{
+  "clerkId": "user_2abc123def456",
+  "email": "john.doe@example.com",
+  "firstName": "John",
+  "lastName": "Doe",
+  "avatarUrl": "https://example.com/avatar.jpg",
+  "bio": "Software developer passionate about charity work",
+  "accountType": "individual"
+}
+
+###
+
+### Create Nonprofit User
+POST {{baseUrl}}/{{apiPrefix}}/users
+Content-Type: {{contentType}}
+
+{
+  "clerkId": "user_2xyz789ghi012",
+  "email": "contact@helpinghands.org",
+  "firstName": "Sarah",
+  "lastName": "Johnson",
+  "avatarUrl": "https://example.com/nonprofit-avatar.jpg",
+  "bio": "Director of Helping Hands Foundation",
+  "accountType": "nonprofit"
+}
+
+###
+
+### Create Team User
+POST {{baseUrl}}/{{apiPrefix}}/users
+Content-Type: {{contentType}}
+
+{
+  "clerkId": "user_2team456def789",
+  "email": "team@charitygroup.org",
+  "firstName": "Team",
+  "lastName": "Leader",
+  "accountType": "team"
+}
+
+###
+
+### Get User by ID (Protected)
+# Replace {user-id} with an actual user ID from your database
+GET {{baseUrl}}/{{apiPrefix}}/users/{user-id}
+Authorization: Bearer {{authToken}}
+
+###
+
+### Get User by Clerk ID (Protected)
+GET {{baseUrl}}/{{apiPrefix}}/users/clerk/user_2abc123def456
+Authorization: Bearer {{authToken}}
+
+###
+
+### Update User (Protected)
+# Replace {user-id} with an actual user ID from your database
+PUT {{baseUrl}}/{{apiPrefix}}/users/{user-id}
+Content-Type: {{contentType}}
+Authorization: Bearer {{authToken}}
+
+{
+  "firstName": "John Updated",
+  "lastName": "Doe Updated",
+  "bio": "Updated bio - Senior software developer passionate about charity work",
+  "avatarUrl": "https://example.com/updated-avatar.jpg",
+  "setupComplete": true
+}
+
+###
+
+### Update User (Partial)
+# Replace {user-id} with an actual user ID from your database
+PUT {{baseUrl}}/{{apiPrefix}}/users/{user-id}
+Content-Type: {{contentType}}
+Authorization: Bearer {{authToken}}
+
+{
+  "setupComplete": true
+}
+
+###
+
+### Delete User (Protected)
+# Replace {user-id} with an actual user ID from your database
+DELETE {{baseUrl}}/{{apiPrefix}}/users/{user-id}
+Authorization: Bearer {{authToken}}
+
+###
+
+# ========================================
+# VALIDATION ERROR TESTS
+# ========================================
+
+### Test Invalid Email (Should fail validation)
+POST {{baseUrl}}/{{apiPrefix}}/users
+Content-Type: {{contentType}}
+
+{
+  "clerkId": "user_2invalid123",
+  "email": "invalid-email",
+  "firstName": "Test",
+  "lastName": "User",
+  "accountType": "individual"
+}
+
+###
+
+### Test Invalid Account Type (Should fail validation)
+POST {{baseUrl}}/{{apiPrefix}}/users
+Content-Type: {{contentType}}
+
+{
+  "clerkId": "user_2invalid456",
+  "email": "test@example.com",
+  "firstName": "Test",
+  "lastName": "User",
+  "accountType": "invalid_type"
+}
+
+###
+
+### Test Without Authorization Header (Should return 401)
+GET {{baseUrl}}/{{apiPrefix}}/users
+
+###

@@ -1,0 +1,150 @@
+### Auth Feature Requests
+# Authentication, authorization, and onboarding endpoints
+
+### Variables (you can also use _common.http)
+@baseUrl = http://localhost:3000
+@apiPrefix = api/v1
+@contentType = application/json
+@authToken = eyJhbGciOiJkZXYiLCJ0eXAiOiJKV1QifQ.eyJzdWIiOiJ1c2VyXzJ6T2hUUDh0Y0VJMkNTTU45WkpaNURrWkZMTSIsImVtYWlsIjoiY29zbWljZGV2Y3NAZ21haWwuY29tIiwiaWF0IjoxNzUxNjEyNDA1LCJleHAiOjE3NTE2OTg4MDUsImlzcyI6ImNsZXJrLWRldiJ9.ZGV2LXNpZ25hdHVyZS11c2VyXzJ6T2hUUDh0Y0VJMkNTTU45WkpaNURrWkZMTS0xNzUxNjEyNDA1Mjcy
+
+# ========================================
+# AUTHENTICATION ENDPOINTS
+# ========================================
+
+### Admin Test Endpoint (Public)
+GET {{baseUrl}}/{{apiPrefix}}/auth/admin/test
+
+###
+
+### Get Current User (Protected)
+GET {{baseUrl}}/{{apiPrefix}}/auth/me
+Authorization: Bearer {{authToken}}
+
+###
+
+### Get Current User (With Generated Token)
+# First generate a token using: GET {{baseUrl}}/{{apiPrefix}}/users/clerk/token?email=john.doe@example.com
+# Then copy the token from response and use it below
+GET {{baseUrl}}/{{apiPrefix}}/auth/me
+Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJkZXYifQ.eyJzdWIiOiJ1c2VyXzJhYmMxMjNkZWY0NTYiLCJlbWFpbCI6ImpvaG4uZG9lQGV4YW1wbGUuY29tIiwiaWF0IjoxNzMzNTg2MTQwLCJleHAiOjE3MzM2NzI1NDAsImlzcyI6ImNsZXJrLWRldiJ9.ZGV2LXNpZ25hdHVyZS11c2VyXzJhYmMxMjNkZWY0NTYtMTczMzU4NjE0MDAwMA
+
+###
+
+# ========================================
+# ONBOARDING ENDPOINTS
+# ========================================
+
+### Individual Onboarding (Protected)
+POST {{baseUrl}}/{{apiPrefix}}/auth/onboarding
+Content-Type: {{contentType}}
+Authorization: Bearer {{authToken}}
+
+{
+  "accountType": "individual",
+  "bio": "Passionate individual contributor to environmental causes",
+  "avatarUrl": "https://example.com/individual-avatar.jpg"
+}
+
+###
+
+### Team Onboarding (Protected)
+# Creates a team with the authenticated user as owner
+POST {{baseUrl}}/{{apiPrefix}}/auth/onboarding
+Content-Type: {{contentType}}
+Authorization: Bearer {{authToken}}
+
+{
+  "accountType": "team",
+  "teamName": "Environmental Warriors",
+  "mission": "Fighting climate change through grassroots action",
+  "website": "https://environmentalwarriors.org",
+  "bio": "Team leader with 10 years experience in environmental activism",
+  "avatarUrl": "https://example.com/team-leader-avatar.jpg",
+  "members": [
+    {
+      "name": "Jane Smith",
+      "email": "jane.smith@example.com"
+    },
+    {
+      "name": "Bob Johnson",
+      "email": "bob.johnson@example.com"
+    }
+  ]
+}
+
+###
+
+### Nonprofit Onboarding (Protected)
+# Creates a nonprofit organization with the authenticated user as owner
+POST {{baseUrl}}/{{apiPrefix}}/auth/onboarding
+Content-Type: {{contentType}}
+Authorization: Bearer {{authToken}}
+
+{
+  "accountType": "nonprofit",
+  "organizationName": "Green Future Foundation",
+  "mission": "Protecting the environment for future generations through education and action",
+  "website": "https://greenfuturefoundation.org",
+  "ein": "12-3456789",
+  "documentsUrls": [
+    "https://example.com/501c3-certificate.pdf",
+    "https://example.com/irs-determination-letter.pdf"
+  ],
+  "bio": "Executive Director with 15 years experience in nonprofit management",
+  "avatarUrl": "https://example.com/nonprofit-director-avatar.jpg"
+}
+
+###
+
+# ========================================
+# ONBOARDING ERROR CASES
+# ========================================
+
+### Test Invalid Account Type Onboarding (Should fail validation)
+POST {{baseUrl}}/{{apiPrefix}}/auth/onboarding
+Content-Type: {{contentType}}
+Authorization: Bearer {{authToken}}
+
+{
+  "accountType": "invalid_type",
+  "bio": "This should fail"
+}
+
+###
+
+### Test Nonprofit Onboarding Without EIN (Should fail validation)
+POST {{baseUrl}}/{{apiPrefix}}/auth/onboarding
+Content-Type: {{contentType}}
+Authorization: Bearer {{authToken}}
+
+{
+  "accountType": "nonprofit",
+  "organizationName": "Test Nonprofit",
+  "mission": "Test mission"
+}
+
+###
+
+### Test Onboarding Without Authentication (Should return 401)
+POST {{baseUrl}}/{{apiPrefix}}/auth/onboarding
+Content-Type: {{contentType}}
+
+{
+  "accountType": "individual",
+  "bio": "This should fail due to no auth"
+}
+
+###
+
+### Test Onboarding for Already Completed User (Should return 409 Conflict)
+# Use this after a user has already completed onboarding
+POST {{baseUrl}}/{{apiPrefix}}/auth/onboarding
+Content-Type: {{contentType}}
+Authorization: Bearer {{authToken}}
+
+{
+  "accountType": "individual",
+  "bio": "Trying to onboard again"
+}
+
+###

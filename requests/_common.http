@@ -1,0 +1,11 @@
+### Common Variables
+# These variables can be imported by other .http files
+@baseUrl = http://localhost:3000
+@apiPrefix = api/v1
+@contentType = application/json
+
+# Development token (replace with actual token from auth endpoints)
+@devToken = eyJhbGciOiJkZXYiLCJ0eXAiOiJKV1QifQ.eyJzdWIiOiJ1c2VyXzJ6T2hUUDh0Y0VJMkNTTU45WkpaNURrWkZMTSIsImVtYWlsIjoiY29zbWljZGV2Y3NAZ21haWwuY29tIiwiaWF0IjoxNzUxNjEyNDA1LCJleHAiOjE3NTE2OTg4MDUsImlzcyI6ImNsZXJrLWRldiJ9.ZGV2LXNpZ25hdHVyZS11c2VyXzJ6T2hUUDh0Y0VJMkNTTU45WkpaNURrWkZMTS0xNzUxNjEyNDA1Mjcy
+
+# Generated development token example (get from users/clerk/token endpoint)
+@generatedToken = eyJ0eXAiOiJKV1QiLCJhbGciOiJkZXYifQ.eyJzdWIiOiJ1c2VyXzJhYmMxMjNkZWY0NTYiLCJlbWFpbCI6ImpvaG4uZG9lQGV4YW1wbGUuY29tIiwiaWF0IjoxNzMzNTg2MTQwLCJleHAiOjE3MzM2NzI1NDAsImlzcyI6ImNsZXJrLWRldiJ9.ZGV2LXNpZ25hdHVyZS11c2VyXzJhYmMxMjNkZWY0NTYtMTczMzU4NjE0MDAwMA
