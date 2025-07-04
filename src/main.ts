@@ -10,6 +10,10 @@ async function bootstrap() {
 
   app.enableCors();
 
+  // Set global API prefix
+  const apiPrefix = configService.get<string>('API_PREFIX', 'api/v1');
+  app.setGlobalPrefix(apiPrefix);
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -21,7 +25,8 @@ async function bootstrap() {
   const port = configService.get<number>('PORT', 3000);
   await app.listen(port);
 
-  console.log(`Application is running on: http://localhost:${port}`);
+  console.log(
+    `Application is running on: http://localhost:${port}/${apiPrefix}`,
+  );
 }
-
 bootstrap();

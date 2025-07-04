@@ -6,20 +6,29 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   HttpStatus,
   HttpCode,
+  BadRequestException,
+  NotFoundException,
+  ForbiddenException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dtos/create-user.dto';
 import { UpdateUserDto } from './dtos/update-user.dto';
 import { User } from '../../../generated/prisma';
+import { Public } from '../../common/decorators';
 
 /**
  * UsersController handles HTTP requests for user management
  */
 @Controller('users')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly configService: ConfigService,
+  ) {}
 
   /**
    * Create a new user
@@ -44,6 +53,81 @@ export class UsersController {
   @Get(':id')
   async getUserById(@Param('id') id: string): Promise<User | null> {
     return this.usersService.findUserById(id);
+  }
+
+  /**
+   * Generate Clerk development token by email (DEVELOPMENT ONLY)
+   * @param email - User email to search for
+   */
+  @Public()
+  @Get('clerk/token')
+  async generateClerkDevToken(@Query('email') email: string): Promise<{
+    token: string;
+    clerkId: string;
+    email: string;
+    note: string;
+  }> {
+    // Only allow in development environment
+    const nodeEnv = this.configService.get<string>('NODE_ENV', 'development');
+    if (nodeEnv !== 'development') {
+      throw new ForbiddenException(
+        'This endpoint is only available in development mode',
+      );
+    }
+
+    if (!email) {
+      throw new BadRequestException('Email query parameter is required');
+    }
+
+    // Find user by email
+    const user = await this.usersService.findUserByEmail(email);
+    if (!user) {
+      throw new NotFoundException(`User with email ${email} not found`);
+    }
+
+    try {
+      // Get Clerk secret key
+      const clerkSecretKey = this.configService.get<string>('CLERK_SECRET_KEY');
+      if (!clerkSecretKey) {
+        throw new Error('CLERK_SECRET_KEY not found in environment variables');
+      }
+
+      // Create a development token for testing
+      // Note: This is a simplified token for development testing
+      // In production, you would use Clerk's actual token generation
+      const timestamp = Date.now();
+      const tokenData = {
+        sub: user.clerkId,
+        email: user.email,
+        iat: Math.floor(timestamp / 1000),
+        exp: Math.floor(timestamp / 1000) + 24 * 60 * 60, // 24 hours
+        iss: 'clerk-dev',
+      };
+
+      // Create a simple JWT-like token for development
+      const header = Buffer.from(
+        JSON.stringify({ alg: 'dev', typ: 'JWT' }),
+      ).toString('base64url');
+      const payload = Buffer.from(JSON.stringify(tokenData)).toString(
+        'base64url',
+      );
+      const signature = Buffer.from(
+        `dev-signature-${user.clerkId}-${timestamp}`,
+      ).toString('base64url');
+
+      const token = `${header}.${payload}.${signature}`;
+
+      return {
+        token,
+        clerkId: user.clerkId,
+        email: user.email,
+        note: 'This is a development token for testing purposes only',
+      };
+    } catch (error) {
+      throw new BadRequestException(
+        `Failed to generate development token: ${error.message}`,
+      );
+    }
   }
 
   /**
@@ -79,6 +163,7 @@ export class UsersController {
   /**
    * Admin test endpoint for smoke testing
    */
+  @Public()
   @Get('admin/test')
   adminTest(): { message: string; timestamp: string } {
     return {

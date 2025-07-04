@@ -4,6 +4,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './core/prisma/prisma.module';
 import { UsersModule } from './features/users/users.module';
+import { AuthModule } from './features/auth/auth.module';
 
 @Module({
   imports: [
@@ -12,6 +13,7 @@ import { UsersModule } from './features/users/users.module';
       envFilePath: '.env',
     }),
     PrismaModule,
+    AuthModule,
     UsersModule,
   ],
   controllers: [AppController],
