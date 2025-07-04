@@ -10,6 +10,20 @@ GET {{baseUrl}}/{{apiPrefix}}/auth/admin/test
 
 ###
 
+### Get Current User (Protected - requires Clerk session token)
+GET {{baseUrl}}/{{apiPrefix}}/auth/me
+Authorization: Bearer {{clerkToken}}
+
+###
+
+### Get Current User (Protected - with Generated Dev Token)
+# First generate a token using: GET {{baseUrl}}/{{apiPrefix}}/users/clerk/token?email=john.doe@example.com
+# Then copy the token from response and paste it below:
+GET {{baseUrl}}/{{apiPrefix}}/auth/me
+Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJkZXYifQ.eyJzdWIiOiJ1c2VyXzJhYmMxMjNkZWY0NTYiLCJlbWFpbCI6ImpvaG4uZG9lQGV4YW1wbGUuY29tIiwiaWF0IjoxNzMzNTg2MTQwLCJleHAiOjE3MzM2NzI1NDAsImlzcyI6ImNsZXJrLWRldiJ9.ZGV2LXNpZ25hdHVyZS11c2VyXzJhYmMxMjNkZWY0NTYtMTczMzU4NjE0MDAwMA
+
+###
+
 ### Admin Test Endpoint (Users - Public)
 GET {{baseUrl}}/{{apiPrefix}}/users/admin/test
 
