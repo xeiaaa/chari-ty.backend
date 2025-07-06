@@ -31,6 +31,7 @@ export class WebhooksController {
     @Headers('clerk-signature') clerkSignature: string,
     @Req() req: RawBodyRequest<Request>,
   ): Promise<{ success: boolean; message: string }> {
+    console.log('webhook', req.body);
     try {
       // Verify webhook signature in production
       if (process.env.NODE_ENV === 'production') {

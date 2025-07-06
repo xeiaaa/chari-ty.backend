@@ -10,9 +10,37 @@ import {
   MaxLength,
   IsNotEmpty,
   ValidateIf,
+  Validate,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { AccountType } from '../../../../generated/prisma';
+
+/**
+ * Allowed roles for team members (excluding 'owner')
+ */
+export enum TeamMemberRole {
+  viewer = 'viewer',
+  editor = 'editor',
+  admin = 'admin',
+}
+
+/**
+ * Custom validator to disallow 'owner' as a role
+ */
+import {
+  ValidatorConstraint,
+  ValidatorConstraintInterface,
+} from 'class-validator';
+
+@ValidatorConstraint({ name: 'isNotOwnerRole', async: false })
+export class IsNotOwnerRole implements ValidatorConstraintInterface {
+  validate(role: any): boolean {
+    return role !== 'owner';
+  }
+  defaultMessage(): string {
+    return 'Role cannot be "owner"';
+  }
+}
 
 /**
  * Team member data for team onboarding
@@ -27,6 +55,10 @@ export class TeamMemberDto {
   @IsEmail()
   @IsOptional()
   email?: string;
+
+  @IsEnum(TeamMemberRole)
+  @Validate(IsNotOwnerRole)
+  role: TeamMemberRole;
 }
 
 /**

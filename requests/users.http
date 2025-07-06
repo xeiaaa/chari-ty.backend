@@ -19,7 +19,7 @@ GET {{baseUrl}}/{{apiPrefix}}/users/admin/test
 ### Generate Development Token by Email (DEVELOPMENT ONLY)
 # This endpoint generates an actual development token for testing
 # Response: { "token": "jwt-like-token", "clerkId": "user_123", "email": "user@example.com", "note": "..." }
-GET {{baseUrl}}/{{apiPrefix}}/users/clerk/token?email=philjackson@gmail.com
+GET {{baseUrl}}/{{apiPrefix}}/users/clerk/token?email=teamadmin@gmail.com
 
 ###
 

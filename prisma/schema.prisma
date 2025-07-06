@@ -74,19 +74,19 @@ model Group {
 
 model GroupMember {
   id           String          @id @default(cuid())
-  userId       String
+  userId       String?
   groupId      String
   role         GroupMemberRole
   invitedName  String? // For invited members not yet registered
   invitedEmail String? // For invited members not yet registered
+  invitationId String? // Clerk invitation ID for matching on user.created webhook
   joinedAt     DateTime        @default(now())
   createdAt    DateTime        @default(now())
   updatedAt    DateTime        @updatedAt
 
   // Relations
-  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user  User? @relation(fields: [userId], references: [id], onDelete: Cascade)
   group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, groupId])
   @@map("group_members")
 }

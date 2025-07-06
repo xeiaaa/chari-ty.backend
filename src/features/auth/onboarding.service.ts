@@ -117,16 +117,32 @@ export class OnboardingService {
 
       // Add additional team members if provided
       if (data.members && data.members.length > 0) {
-        // Create placeholder users for team members to be invited later
-        // Note: In a real implementation, you might want to send invitations
-        // and handle the invitation acceptance flow separately
-        data.members.forEach((member) => {
-          // For now, we'll skip creating group member records for invitations
-          // This should be handled by a separate invitation system
-          console.log(
-            `Team member invitation prepared for: ${member.name} (${member.email})`,
-          );
-        });
+        for (const member of data.members) {
+          // Use the provided role, default to 'viewer' if not set
+          const memberRole = member.role || 'viewer';
+          // Send Clerk invitation and get invitationId
+          const invitation = await this.clerkService.inviteUser({
+            email: member.email ?? '',
+            invitedByEmail: user.email,
+            invitedByName: `${user.firstName} ${user.lastName}`,
+            groupId: group.id,
+            groupName: group.name,
+            role: memberRole,
+          });
+          const invitationId = invitation.id;
+
+          // Create GroupMember row with userId: null, role, and invitationId
+          await prisma.groupMember.create({
+            data: {
+              userId: null,
+              groupId: group.id,
+              role: memberRole,
+              invitedName: member.name ?? '',
+              invitedEmail: member.email ?? '',
+              invitationId,
+            },
+          });
+        }
       }
 
       return { user: updatedUser, group, groupMember };

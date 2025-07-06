@@ -5,7 +5,7 @@
 @baseUrl = http://localhost:3000
 @apiPrefix = api/v1
 @contentType = application/json
-@authToken = eyJhbGciOiJkZXYiLCJ0eXAiOiJKV1QifQ.eyJzdWIiOiJ1c2VyXzJ6UVFTMDZETEUzeUhnckNud1VZNEdEUGFMayIsImVtYWlsIjoicGhpbGphY2tzb25AZ21haWwuY29tIiwiaWF0IjoxNzUxNjYwODcxLCJleHAiOjE3NTE3NDcyNzEsImlzcyI6ImNsZXJrLWRldiJ9.ZGV2LXNpZ25hdHVyZS11c2VyXzJ6UVFTMDZETEUzeUhnckNud1VZNEdEUGFMay0xNzUxNjYwODcxNjk5
+@authToken = eyJhbGciOiJkZXYiLCJ0eXAiOiJKV1QifQ.eyJzdWIiOiJ1c2VyXzJ6VEtkSmJacFFqSUNoSFZ0NmZISElxM2tOYiIsImVtYWlsIjoidGVhbWFkbWluQGdtYWlsLmNvbSIsImlhdCI6MTc1MTc0OTcyMywiZXhwIjoxNzUxODM2MTIzLCJpc3MiOiJjbGVyay1kZXYifQ.ZGV2LXNpZ25hdHVyZS11c2VyXzJ6VEtkSmJacFFqSUNoSFZ0NmZISElxM2tOYi0xNzUxNzQ5NzIzOTMz
 
 # ========================================
 # AUTHENTICATION ENDPOINTS
@@ -26,7 +26,7 @@ Authorization: Bearer {{authToken}}
 # First generate a token using: GET {{baseUrl}}/{{apiPrefix}}/users/clerk/token?email=john.doe@example.com
 # Then copy the token from response and use it below
 GET {{baseUrl}}/{{apiPrefix}}/auth/me
-Authorization: Bearer eyJhbGciOiJkZXYiLCJ0eXAiOiJKV1QifQ.eyJzdWIiOiJ1c2VyXzJ6UVFTMDZETEUzeUhnckNud1VZNEdEUGFMayIsImVtYWlsIjoicGhpbGphY2tzb25AZ21haWwuY29tIiwiaWF0IjoxNzUxNjYwODIwLCJleHAiOjE3NTE3NDcyMjAsImlzcyI6ImNsZXJrLWRldiJ9.ZGV2LXNpZ25hdHVyZS11c2VyXzJ6UVFTMDZETEUzeUhnckNud1VZNEdEUGFMay0xNzUxNjYwODIwMzky
+Authorization: Bearer {{authToken}}
 
 ###
 
@@ -62,12 +62,9 @@ Authorization: Bearer {{authToken}}
   "avatarUrl": "https://example.com/team-leader-avatar.jpg",
   "members": [
     {
-      "name": "Jane Smith",
-      "email": "jane.smith@example.com"
-    },
-    {
-      "name": "Bob Johnson",
-      "email": "bob.johnson@example.com"
+      "name": "Bret Axl Sebastian Pura",
+      "email": "cosmicdevcs@gmail.com",
+      "role": "admin"
     }
   ]
 }

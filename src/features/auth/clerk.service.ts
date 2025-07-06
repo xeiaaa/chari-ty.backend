@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { verifyToken } from '@clerk/express';
+import { createClerkClient } from '@clerk/backend';
 
 /**
  * Interface for Clerk token payload
@@ -22,6 +23,7 @@ export interface ClerkTokenPayload {
 export class ClerkService {
   private readonly clerkSecretKey: string;
   private readonly nodeEnv: string;
+  private readonly clerkClient;
 
   constructor(private configService: ConfigService) {
     this.clerkSecretKey = this.configService.get<string>(
@@ -35,6 +37,7 @@ export class ClerkService {
         'CLERK_SECRET_KEY is required but not found in environment variables',
       );
     }
+    this.clerkClient = createClerkClient({ secretKey: this.clerkSecretKey });
   }
 
   /**
@@ -130,6 +133,39 @@ export class ClerkService {
         `Development token verification failed: ${error.message}`,
       );
     }
+  }
+
+  /**
+   * Invite a user via Clerk
+   */
+  async inviteUser({
+    email,
+    invitedByEmail,
+    invitedByName,
+    groupId,
+    groupName,
+    role,
+    redirectUrl,
+  }: {
+    email: string;
+    invitedByEmail: string;
+    invitedByName: string;
+    groupId: string;
+    groupName: string;
+    role: string;
+    redirectUrl?: string;
+  }): Promise<any> {
+    return await this.clerkClient.invitations.createInvitation({
+      email_address: email,
+      public_metadata: {
+        invitedByEmail,
+        invitedByName,
+        groupId,
+        groupName,
+        role,
+      },
+      ...(redirectUrl ? { redirect_url: redirectUrl } : {}),
+    });
   }
 
   /**

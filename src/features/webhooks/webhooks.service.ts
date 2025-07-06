@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { createHmac, timingSafeEqual } from 'crypto';
 import { AccountType } from '../../../generated/prisma';
 import { UsersService } from '../users/users.service';
+import { PrismaService } from '../../core/prisma/prisma.service';
 import {
   ClerkWebhookEvent,
   ClerkUserData,
@@ -15,7 +16,10 @@ import {
 export class WebhooksService {
   private readonly logger = new Logger(WebhooksService.name);
 
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly prisma: PrismaService,
+  ) {}
 
   /**
    * Process a Clerk webhook event
@@ -51,18 +55,46 @@ export class WebhooksService {
    */
   private async handleUserCreated(userData: ClerkUserData): Promise<void> {
     this.logger.log(`Creating user from webhook: ${userData.id}`);
-
     const mappedData = this.mapClerkUserToUserData(userData);
-
     // Check if user already exists
     const existingUser = await this.usersService.findUserByClerkId(userData.id);
     if (existingUser) {
       this.logger.warn(`User with clerkId ${userData.id} already exists`);
       return;
     }
-
-    await this.usersService.createUser(mappedData);
+    // Create the user
+    const newUser = await this.usersService.createUser(mappedData);
     this.logger.log(`User created successfully: ${userData.id}`);
+    // If this user was invited to a group, update the GroupMember row
+    // See Clerk docs: public_metadata is transferred to the user on invite acceptance
+    const publicMeta = userData.public_metadata || {};
+    if (publicMeta.groupId && publicMeta.invitedByEmail && publicMeta.role) {
+      // Find the GroupMember row by groupId and invitedEmail
+      const groupMember = await this.prisma.groupMember.findFirst({
+        where: {
+          groupId: publicMeta.groupId,
+          invitedEmail: mappedData.email,
+          userId: null,
+        },
+      });
+      if (groupMember) {
+        await this.prisma.groupMember.update({
+          where: { id: groupMember.id },
+          data: {
+            userId: newUser.id,
+            invitedName: `${mappedData.firstName} ${mappedData.lastName}`,
+            invitedEmail: mappedData.email,
+          },
+        });
+        this.logger.log(
+          `GroupMember updated for invited user (by publicMetadata): ${userData.id}`,
+        );
+      } else {
+        this.logger.warn(
+          `No GroupMember found for invited user (by publicMetadata): ${userData.id}`,
+        );
+      }
+    }
   }
 
   /**
