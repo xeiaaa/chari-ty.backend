@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
 import { AccountType } from '../generated/prisma';
+import { PrismaService } from '../src/core/prisma/prisma.service';
 
 /**
  * Creates and configures a NestJS application for e2e testing
@@ -139,4 +140,46 @@ export function createAuthHeaders(token?: string): { Authorization: string } {
   return {
     Authorization: `Bearer ${authToken}`,
   };
+}
+
+/**
+ * Seed the test database with mock users
+ */
+export async function seedTestDatabase(): Promise<void> {
+  const prisma = new PrismaService();
+  await prisma.user.upsert({
+    where: { id: mockUser1.id },
+    update: {},
+    create: {
+      id: mockUser1.id,
+      clerkId: mockUser1.clerkId,
+      email: mockUser1.email,
+      firstName: mockUser1.firstName,
+      lastName: mockUser1.lastName,
+      avatarUrl: mockUser1.avatarUrl,
+      bio: mockUser1.bio,
+      accountType: mockUser1.accountType,
+      setupComplete: mockUser1.setupComplete,
+      createdAt: mockUser1.createdAt,
+      updatedAt: mockUser1.updatedAt,
+    },
+  });
+  await prisma.user.upsert({
+    where: { id: mockUser2.id },
+    update: {},
+    create: {
+      id: mockUser2.id,
+      clerkId: mockUser2.clerkId,
+      email: mockUser2.email,
+      firstName: mockUser2.firstName,
+      lastName: mockUser2.lastName,
+      avatarUrl: mockUser2.avatarUrl,
+      bio: mockUser2.bio,
+      accountType: mockUser2.accountType,
+      setupComplete: mockUser2.setupComplete,
+      createdAt: mockUser2.createdAt,
+      updatedAt: mockUser2.updatedAt,
+    },
+  });
+  await prisma.$disconnect();
 }
