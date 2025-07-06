@@ -84,6 +84,7 @@ export class WebhooksService {
             userId: newUser.id,
             invitedName: `${mappedData.firstName} ${mappedData.lastName}`,
             invitedEmail: mappedData.email,
+            status: 'active',
           },
         });
         this.logger.log(

@@ -3,6 +3,7 @@ import { PrismaService } from '../../core/prisma/prisma.service';
 import { ClerkService } from './clerk.service';
 import { User, Group, GroupMember } from '../../../generated/prisma';
 import { OnboardingDto } from './dtos/onboarding.dto';
+import { UsersService } from '../users/users.service';
 
 /**
  * OnboardingService handles user onboarding process
@@ -13,6 +14,7 @@ export class OnboardingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly clerkService: ClerkService,
+    private readonly usersService: UsersService, // Inject UsersService
   ) {}
 
   /**
@@ -112,36 +114,71 @@ export class OnboardingService {
           userId: user.id,
           groupId: group.id,
           role: 'owner',
+          status: 'active',
         },
       });
 
       // Add additional team members if provided
       if (data.members && data.members.length > 0) {
+        const baseUrl = process.env.FRONTEND_URL;
         for (const member of data.members) {
+          console.log('member', member);
           // Use the provided role, default to 'viewer' if not set
           const memberRole = member.role || 'viewer';
-          // Send Clerk invitation and get invitationId
-          const invitation = await this.clerkService.inviteUser({
-            email: member.email ?? '',
-            invitedByEmail: user.email,
-            invitedByName: `${user.firstName} ${user.lastName}`,
-            groupId: group.id,
-            groupName: group.name,
-            role: memberRole,
-          });
-          const invitationId = invitation.id;
-
-          // Create GroupMember row with userId: null, role, and invitationId
-          await prisma.groupMember.create({
-            data: {
-              userId: null,
+          // Check if user is already registered in Clerk
+          const existingUsers = await this.clerkService
+            .getClerkClient()
+            .users.getUserList({ emailAddress: [member.email] });
+          console.log('existingUsers', existingUsers);
+          if (existingUsers.data.length > 0) {
+            // Registered: log the invite link
+            if (baseUrl) {
+              const link = `${baseUrl}/group-invite?groupId=${group.id}&email=${encodeURIComponent(member.email ?? '')}`;
+              console.log(`Registered user invite link: ${link}`);
+            } else {
+              console.log(
+                'FRONTEND_URL env var not set. Cannot generate invite link.',
+              );
+            }
+            // Look up the app user by email
+            const appUser = await this.usersService.findUserByEmail(
+              member.email ?? '',
+            );
+            await prisma.groupMember.create({
+              data: {
+                userId: appUser ? appUser.id : null,
+                groupId: group.id,
+                role: memberRole,
+                invitedName: member.name ?? '',
+                invitedEmail: member.email ?? '',
+                invitationId: null,
+                status: 'invited',
+              },
+            });
+          } else {
+            // Not registered: send Clerk invitation
+            const invitation = await this.clerkService.inviteUser({
+              email: member.email ?? '',
+              invitedByEmail: user.email,
+              invitedByName: `${user.firstName} ${user.lastName}`,
               groupId: group.id,
+              groupName: group.name,
               role: memberRole,
-              invitedName: member.name ?? '',
-              invitedEmail: member.email ?? '',
-              invitationId,
-            },
-          });
+            });
+            const invitationId = invitation.id;
+            // Create GroupMember row with userId: null, role, and invitationId
+            await prisma.groupMember.create({
+              data: {
+                userId: null,
+                groupId: group.id,
+                role: memberRole,
+                invitedName: member.name ?? '',
+                invitedEmail: member.email ?? '',
+                invitationId,
+                status: 'invited',
+              },
+            });
+          }
         }
       }
 

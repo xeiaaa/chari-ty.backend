@@ -169,6 +169,13 @@ export class ClerkService {
   }
 
   /**
+   * Expose the Clerk client for internal use (e.g., user lookups)
+   */
+  public getClerkClient() {
+    return this.clerkClient;
+  }
+
+  /**
    * Get Clerk secret key
    */
   getSecretKey(): string {

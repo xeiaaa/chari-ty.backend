@@ -6,6 +6,7 @@ import { ClerkService } from './clerk.service';
 import { OnboardingService } from './onboarding.service';
 import { UsersModule } from '../users/users.module';
 import { PrismaModule } from '../../core/prisma/prisma.module';
+import { UsersService } from '../users/users.service';
 
 /**
  * AuthModule handles authentication functionality
@@ -18,6 +19,7 @@ import { PrismaModule } from '../../core/prisma/prisma.module';
     ClerkService,
     OnboardingService,
     AuthGuard,
+    UsersService,
     {
       provide: APP_GUARD,
       useClass: AuthGuard,

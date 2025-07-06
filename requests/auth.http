@@ -5,7 +5,7 @@
 @baseUrl = http://localhost:3000
 @apiPrefix = api/v1
 @contentType = application/json
-@authToken = eyJhbGciOiJkZXYiLCJ0eXAiOiJKV1QifQ.eyJzdWIiOiJ1c2VyXzJ6VEtkSmJacFFqSUNoSFZ0NmZISElxM2tOYiIsImVtYWlsIjoidGVhbWFkbWluQGdtYWlsLmNvbSIsImlhdCI6MTc1MTc0OTcyMywiZXhwIjoxNzUxODM2MTIzLCJpc3MiOiJjbGVyay1kZXYifQ.ZGV2LXNpZ25hdHVyZS11c2VyXzJ6VEtkSmJacFFqSUNoSFZ0NmZISElxM2tOYi0xNzUxNzQ5NzIzOTMz
+@authToken = eyJhbGciOiJkZXYiLCJ0eXAiOiJKV1QifQ.eyJzdWIiOiJ1c2VyXzJ6VEtkSmJacFFqSUNoSFZ0NmZISElxM2tOYiIsImVtYWlsIjoidGVhbWFkbWluQGdtYWlsLmNvbSIsImlhdCI6MTc1MTgzNzQ4OSwiZXhwIjoxNzUxOTIzODg5LCJpc3MiOiJjbGVyay1kZXYifQ.ZGV2LXNpZ25hdHVyZS11c2VyXzJ6VEtkSmJacFFqSUNoSFZ0NmZISElxM2tOYi0xNzUxODM3NDg5MzA4
 
 # ========================================
 # AUTHENTICATION ENDPOINTS
