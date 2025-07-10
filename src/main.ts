@@ -8,7 +8,17 @@ async function bootstrap() {
 
   const configService = app.get(ConfigService);
 
-  app.enableCors();
+  // Configure CORS
+  const clientUrl = configService.get<string>(
+    'FRONTEND_URL',
+    'http://localhost:3001',
+  );
+  app.enableCors({
+    origin: clientUrl,
+    credentials: true,
+    methods: ['GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'PATCH'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-user-id'],
+  });
 
   // Set global API prefix
   const apiPrefix = configService.get<string>('API_PREFIX', 'api/v1');

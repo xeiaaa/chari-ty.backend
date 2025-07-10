@@ -143,6 +143,31 @@ export function createAuthHeaders(token?: string): { Authorization: string } {
 }
 
 /**
+ * Mock authentication for a specific user
+ */
+export function mockAuth(
+  clerkService: any,
+  usersService: any,
+  clerkId: string,
+  email: string,
+  user: any,
+) {
+  const verifySessionTokenSpy = jest.spyOn(clerkService, 'verifySessionToken');
+  verifySessionTokenSpy.mockResolvedValue({
+    sub: clerkId,
+    email,
+    iat: Math.floor(Date.now() / 1000),
+    exp: Math.floor(Date.now() / 1000) + 3600,
+    iss: 'clerk-dev',
+  });
+
+  const findUserByClerkIdSpy = jest.spyOn(usersService, 'findUserByClerkId');
+  findUserByClerkIdSpy.mockResolvedValue(user);
+
+  return { verifySessionTokenSpy, findUserByClerkIdSpy };
+}
+
+/**
  * Seed the test database with mock users
  */
 export async function seedTestDatabase(): Promise<void> {

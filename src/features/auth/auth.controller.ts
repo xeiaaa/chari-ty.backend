@@ -12,6 +12,8 @@ import { UsersService } from '../users/users.service';
 import { OnboardingService } from './onboarding.service';
 import { User as UserEntity } from '../../../generated/prisma';
 import { OnboardingDto } from './dtos/onboarding.dto';
+import { OrganizationDto } from './dtos/organization.dto';
+import { PrismaService } from '../../core/prisma/prisma.service';
 
 /**
  * AuthController handles authentication-related HTTP requests
@@ -21,6 +23,7 @@ export class AuthController {
   constructor(
     private readonly usersService: UsersService,
     private readonly onboardingService: OnboardingService,
+    private readonly prisma: PrismaService,
   ) {}
 
   /**
@@ -31,6 +34,36 @@ export class AuthController {
   getCurrentUser(@AuthUser() user: UserEntity): UserEntity {
     // User is already fetched from database by AuthGuard
     return user;
+  }
+
+  /**
+   * Get current user's groups
+   * GET /api/v1/auth/me/groups
+   */
+  @Get('me/groups')
+  async getCurrentUserGroups(
+    @AuthUser() user: UserEntity,
+  ): Promise<OrganizationDto[]> {
+    const groupMembers = await this.prisma.groupMember.findMany({
+      where: {
+        userId: user.id,
+        status: 'active',
+      },
+      include: {
+        group: true,
+      },
+      orderBy: {
+        joinedAt: 'desc',
+      },
+    });
+
+    return groupMembers.map((member) => ({
+      id: member.group.id,
+      type: member.group.type,
+      name: member.group.name,
+      role: member.role,
+      dateActive: member.joinedAt.toISOString(),
+    }));
   }
 
   /**
