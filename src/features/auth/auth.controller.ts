@@ -110,6 +110,36 @@ export class AuthController {
   }
 
   /**
+   * Get current user's group invites
+   * GET /api/v1/auth/me/invites
+   */
+  @Get('me/invites')
+  async getCurrentUserInvites(
+    @AuthUser() user: UserEntity,
+  ): Promise<OrganizationDto[]> {
+    const groupMembers = await this.prisma.groupMember.findMany({
+      where: {
+        userId: user.id,
+        status: 'invited',
+      },
+      include: {
+        group: true,
+      },
+      orderBy: {
+        joinedAt: 'desc',
+      },
+    });
+
+    return groupMembers.map((member) => ({
+      id: member.group.id,
+      type: member.group.type,
+      name: member.group.name,
+      role: member.role,
+      dateActive: member.joinedAt.toISOString(),
+    }));
+  }
+
+  /**
    * Admin test endpoint for smoke testing
    */
   @Public()
