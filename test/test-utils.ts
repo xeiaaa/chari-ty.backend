@@ -168,6 +168,32 @@ export function mockAuth(
 }
 
 /**
+ * Completely reset the database by truncating all tables
+ */
+export async function resetDatabase(): Promise<void> {
+  const prisma = new PrismaService();
+
+  try {
+    // Disable foreign key constraints temporarily
+    await prisma.$executeRaw`SET session_replication_role = replica;`;
+
+    // Use raw SQL to truncate all tables and reset sequences
+    await prisma.$executeRaw`TRUNCATE TABLE "fundraisers" RESTART IDENTITY CASCADE;`;
+    await prisma.$executeRaw`TRUNCATE TABLE "group_members" RESTART IDENTITY CASCADE;`;
+    await prisma.$executeRaw`TRUNCATE TABLE "groups" RESTART IDENTITY CASCADE;`;
+    await prisma.$executeRaw`TRUNCATE TABLE "users" RESTART IDENTITY CASCADE;`;
+
+    // Re-enable foreign key constraints
+    await prisma.$executeRaw`SET session_replication_role = DEFAULT;`;
+  } catch (error) {
+    console.error('Error resetting database:', error);
+    throw error;
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
+/**
  * Seed the test database with mock users
  */
 export async function seedTestDatabase(): Promise<void> {

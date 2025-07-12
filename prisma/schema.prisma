@@ -55,6 +55,7 @@ model User {
 
   // Relations
   groupMemberships GroupMember[]
+  Fundraiser       Fundraiser[]
 
   @@map("users")
 }
@@ -73,7 +74,8 @@ model Group {
   updatedAt     DateTime  @updatedAt
 
   // Relations
-  members GroupMember[]
+  members    GroupMember[]
+  Fundraiser Fundraiser[]
 
   @@map("groups")
 }
@@ -98,4 +100,59 @@ model GroupMember {
   @@unique([userId, groupId], name: "unique_user_group", map: "unique_user_group")
   @@unique([invitedEmail, groupId], name: "unique_invitedEmail_group", map: "unique_invitedEmail_group")
   @@map("group_members")
+}
+
+enum FundraiserCategory {
+  education
+  health
+  disaster_relief
+  environment
+  animals
+  children
+  community
+  arts
+  sports
+  food
+  housing
+  technology
+  other
+}
+
+enum FundraiserOwnerType {
+  user
+  group
+}
+
+enum FundraiserStatus {
+  draft
+  pending
+  published
+  suspended
+}
+
+model Fundraiser {
+  id          String              @id @default(cuid())
+  slug        String              @unique
+  title       String
+  summary     String
+  description String
+  category    FundraiserCategory
+  goalAmount  Decimal
+  currency    String
+  endDate     DateTime?
+  coverUrl    String
+  galleryUrls String[]
+  ownerType   FundraiserOwnerType
+  userId      String? // FK for User
+  groupId     String? // FK for Group
+  status      FundraiserStatus    @default(draft)
+  isPublic    Boolean             @default(false)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  // Relations
+  user  User?  @relation(fields: [userId], references: [id])
+  group Group? @relation(fields: [groupId], references: [id])
+
+  @@map("fundraisers")
 }

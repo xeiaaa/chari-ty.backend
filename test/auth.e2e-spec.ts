@@ -8,7 +8,7 @@ import {
   createDevelopmentToken,
   mockUser1,
   mockUser2,
-  seedTestDatabase,
+  resetDatabase,
 } from './test-utils';
 import { UsersService } from '../src/features/users/users.service';
 import { ClerkService } from '../src/features/auth/clerk.service';
@@ -27,8 +27,7 @@ describe('AuthController (e2e)', () => {
   let onboardingService: OnboardingService;
   let prisma: PrismaService;
 
-  beforeEach(async () => {
-    await seedTestDatabase();
+  beforeAll(async () => {
     app = await createTestApp();
     usersService = app.get(UsersService);
     clerkService = app.get(ClerkService);
@@ -36,11 +35,50 @@ describe('AuthController (e2e)', () => {
     prisma = app.get(PrismaService);
   });
 
-  afterEach(async () => {
-    // Clean up the database
-    await prisma.groupMember.deleteMany();
-    await prisma.group.deleteMany();
+  afterAll(async () => {
     await app.close();
+  });
+
+  beforeEach(async () => {
+    // Reset database completely
+    await resetDatabase();
+
+    // Seed test users
+    await prisma.user.create({
+      data: {
+        id: mockUser1.id,
+        clerkId: mockUser1.clerkId,
+        email: mockUser1.email,
+        firstName: mockUser1.firstName,
+        lastName: mockUser1.lastName,
+        avatarUrl: mockUser1.avatarUrl,
+        bio: mockUser1.bio,
+        accountType: mockUser1.accountType,
+        setupComplete: mockUser1.setupComplete,
+        createdAt: mockUser1.createdAt,
+        updatedAt: mockUser1.updatedAt,
+      },
+    });
+    await prisma.user.create({
+      data: {
+        id: mockUser2.id,
+        clerkId: mockUser2.clerkId,
+        email: mockUser2.email,
+        firstName: mockUser2.firstName,
+        lastName: mockUser2.lastName,
+        avatarUrl: mockUser2.avatarUrl,
+        bio: mockUser2.bio,
+        accountType: mockUser2.accountType,
+        setupComplete: mockUser2.setupComplete,
+        createdAt: mockUser2.createdAt,
+        updatedAt: mockUser2.updatedAt,
+      },
+    });
+  });
+
+  afterEach(async () => {
+    // Clean up after each test
+    await resetDatabase();
     jest.clearAllMocks();
   });
 

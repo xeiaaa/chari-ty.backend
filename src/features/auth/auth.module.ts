@@ -25,5 +25,6 @@ import { UsersService } from '../users/users.service';
       useClass: AuthGuard,
     },
   ],
+  exports: [ClerkService, UsersService],
 })
 export class AuthModule {}

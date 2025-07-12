@@ -8,7 +8,6 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { Public, AuthUser } from '../../common/decorators';
-import { UsersService } from '../users/users.service';
 import { OnboardingService } from './onboarding.service';
 import { User as UserEntity } from '../../../generated/prisma';
 import { OnboardingDto } from './dtos/onboarding.dto';
@@ -21,7 +20,6 @@ import { PrismaService } from '../../core/prisma/prisma.service';
 @Controller('auth')
 export class AuthController {
   constructor(
-    private readonly usersService: UsersService,
     private readonly onboardingService: OnboardingService,
     private readonly prisma: PrismaService,
   ) {}

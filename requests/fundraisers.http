@@ -1,0 +1,56 @@
+### Variables (you can also use _common.http)
+@baseUrl = http://localhost:3000
+@apiPrefix = api/v1
+@contentType = application/json
+@authToken = eyJhbGciOiJkZXYiLCJ0eXAiOiJKV1QifQ.eyJzdWIiOiJ1c2VyXzJ6VEtkSmJacFFqSUNoSFZ0NmZISElxM2tOYiIsImVtYWlsIjoidGVhbWFkbWluQGdtYWlsLmNvbSIsImlhdCI6MTc1MTgzNzQ4OSwiZXhwIjoxNzUxOTIzODg5LCJpc3MiOiJjbGVyay1kZXYifQ.ZGV2LXNpZ25hdHVyZS11c2VyXzJ6VEtkSmJacFFqSUNoSFZ0NmZISElxM2tOYi0xNzUxODM3NDg5MzA4
+
+
+# @name fundraisers
+@fundraisersUrl = {{baseUrl}}/{{apiPrefix}}/fundraisers
+
+### Create a user-owned fundraiser
+# @name createUserFundraiser
+POST {{fundraisersUrl}}
+Content-Type: {{contentType}}
+Authorization: Bearer {{authToken}}
+
+{
+  "title": "Help Build a Community Garden",
+  "summary": "Creating a sustainable garden space for our neighborhood",
+  "description": "We're transforming an empty lot into a vibrant community garden that will provide fresh produce and educational opportunities for local residents.",
+  "category": "community",
+  "goalAmount": 5000,
+  "currency": "USD",
+  "endDate": "2025-12-31",
+  "coverUrl": "https://example.com/images/garden-cover.jpg",
+  "galleryUrls": [
+    "https://example.com/images/garden-1.jpg",
+    "https://example.com/images/garden-2.jpg"
+  ],
+  "ownerType": "user",
+  "isPublic": true
+}
+
+### Create a group-owned fundraiser
+# @name createGroupFundraiser
+POST {{fundraisersUrl}}
+Content-Type: {{contentType}}
+Authorization: Bearer {{authToken}}
+
+{
+  "title": "Annual Food Drive Campaign",
+  "summary": "Supporting local food banks with our yearly fundraising drive",
+  "description": "Help us reach our goal to stock local food banks and support families in need throughout the year.",
+  "category": "food",
+  "goalAmount": 10000,
+  "currency": "USD",
+  "endDate": "2025-12-31",
+  "coverUrl": "https://example.com/images/food-drive-cover.jpg",
+  "galleryUrls": [
+    "https://example.com/images/food-drive-1.jpg",
+    "https://example.com/images/food-drive-2.jpg"
+  ],
+  "ownerType": "group",
+  "groupId": "group_123",
+  "isPublic": true
+}

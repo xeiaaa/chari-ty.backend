@@ -6,6 +6,7 @@ import { PrismaModule } from './core/prisma/prisma.module';
 import { UsersModule } from './features/users/users.module';
 import { AuthModule } from './features/auth/auth.module';
 import { WebhooksModule } from './features/webhooks/webhooks.module';
+import { FundraisersModule } from './features/fundraisers/fundraisers.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { WebhooksModule } from './features/webhooks/webhooks.module';
     AuthModule,
     UsersModule,
     WebhooksModule,
+    FundraisersModule,
   ],
   controllers: [AppController],
   providers: [AppService],
