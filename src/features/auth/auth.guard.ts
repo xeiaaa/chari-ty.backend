@@ -45,10 +45,10 @@ export class AuthGuard implements CanActivate {
     try {
       // Verify token with Clerk
       const payload = await this.clerkService.verifySessionToken(token);
-
+      console.log('payload', payload);
       // Query database for actual user data
       const user = await this.usersService.findUserByClerkId(payload.sub);
-
+      console.log('user', user);
       if (!user) {
         throw new UnauthorizedException('User not found in database');
       }

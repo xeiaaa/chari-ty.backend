@@ -24,6 +24,7 @@
   "dependencies": {
     "@clerk/backend": "^2.4.0",
     "@clerk/express": "^1.7.4",
+    "@faker-js/faker": "^9.9.0",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.2",
     "@nestjs/core": "^11.0.1",

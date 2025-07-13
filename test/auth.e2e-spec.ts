@@ -1,8 +1,10 @@
 import { INestApplication } from '@nestjs/common';
 import { App } from 'supertest/types';
 import { createTestApp, resetDatabase } from './test-utils';
-import { PrismaService } from '../src/core/prisma/prisma.service';
 import { AccountType } from '../generated/prisma';
+import * as request from 'supertest';
+// import { ClerkService } from '../src/features/auth/clerk.service';
+import { createFakeUserWithToken } from './factories/users.factory';
 
 export const mockUser1 = {
   id: 'test-user-1-id',
@@ -21,10 +23,12 @@ export const mockUser1 = {
 
 describe('Auth Module', () => {
   let app: INestApplication<App>;
+  // let clerkService: ClerkService;
 
   beforeAll(async () => {
     // Create test app before all tests
     app = await createTestApp();
+    // clerkService = app.get(ClerkService);
   });
 
   afterAll(async () => {
@@ -38,24 +42,14 @@ describe('Auth Module', () => {
   });
 
   it('test', async () => {
-    const prisma = new PrismaService();
-
-    await prisma.user.upsert({
-      where: { id: mockUser1.id },
-      update: {},
-      create: {
-        id: mockUser1.id,
-        clerkId: mockUser1.clerkId,
-        email: mockUser1.email,
-        firstName: mockUser1.firstName,
-        lastName: mockUser1.lastName,
-        avatarUrl: mockUser1.avatarUrl,
-        bio: mockUser1.bio,
-        accountType: mockUser1.accountType,
-        setupComplete: mockUser1.setupComplete,
-        createdAt: mockUser1.createdAt,
-        updatedAt: mockUser1.updatedAt,
-      },
+    const { token } = await createFakeUserWithToken({
+      accountType: AccountType.individual,
     });
+
+    const response = await request(app.getHttpServer())
+      .get('/api/v1/auth/me')
+      .set('Authorization', `Bearer ${token}`);
+
+    console.log(response.body);
   });
 });

@@ -83,8 +83,10 @@ export class ClerkService {
    * Verify development token manually
    */
   private verifyDevelopmentToken(token: string): ClerkTokenPayload {
-    // Only allow development tokens in development environment
-    if (this.nodeEnv !== 'development') {
+    // Only allow development tokens in development / test environment
+    const isDevelopment =
+      this.nodeEnv === 'development' || this.nodeEnv === 'test';
+    if (!isDevelopment) {
       throw new Error(
         'Development tokens are only allowed in development environment',
       );

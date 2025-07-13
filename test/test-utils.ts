@@ -172,6 +172,7 @@ export function mockAuth(
  */
 export async function resetDatabase(): Promise<void> {
   const prisma = new PrismaService();
+  await prisma.$connect();
 
   try {
     // Disable foreign key constraints temporarily
