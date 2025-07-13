@@ -1,6 +1,6 @@
 import { INestApplication } from '@nestjs/common';
 import { App } from 'supertest/types';
-import { createTestApp, resetDatabase } from './test-utils';
+import { createApiPath, createTestApp, resetDatabase } from './test-utils';
 import { AccountType } from '../generated/prisma';
 import * as request from 'supertest';
 // import { ClerkService } from '../src/features/auth/clerk.service';
@@ -42,14 +42,15 @@ describe('Auth Module', () => {
   });
 
   it('test', async () => {
-    const { token } = await createFakeUserWithToken({
+    const { token, user } = await createFakeUserWithToken({
       accountType: AccountType.individual,
     });
 
     const response = await request(app.getHttpServer())
-      .get('/api/v1/auth/me')
+      .get(createApiPath('auth/me'))
       .set('Authorization', `Bearer ${token}`);
 
-    console.log(response.body);
+    expect(response.statusCode).toBe(200);
+    expect(response.body.id).toBe(user.id);
   });
 });

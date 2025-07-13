@@ -36,8 +36,6 @@ export class AuthGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<Request>();
     const token = this.extractTokenFromHeader(request);
 
-    console.log('token', token);
-
     if (!token) {
       throw new UnauthorizedException('Access token is required');
     }
@@ -45,10 +43,8 @@ export class AuthGuard implements CanActivate {
     try {
       // Verify token with Clerk
       const payload = await this.clerkService.verifySessionToken(token);
-      console.log('payload', payload);
       // Query database for actual user data
       const user = await this.usersService.findUserByClerkId(payload.sub);
-      console.log('user', user);
       if (!user) {
         throw new UnauthorizedException('User not found in database');
       }

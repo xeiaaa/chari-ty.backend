@@ -1,5 +1,11 @@
 import { faker } from '@faker-js/faker/.';
-import { AccountType, PrismaClient } from '../../generated/prisma';
+import {
+  AccountType,
+  GroupMemberRole,
+  GroupMemberStatus,
+  GroupType,
+  PrismaClient,
+} from '../../generated/prisma';
 import { createDevelopmentToken } from '../test-utils';
 
 const prisma = new PrismaClient();
@@ -9,11 +15,11 @@ interface CreateFakeUserOptions {
   setupComplete?: boolean;
 }
 
-export const createFakeUser = (options: CreateFakeUserOptions = {}) => {
+export const createFakeUser = async (options: CreateFakeUserOptions = {}) => {
   const { accountType = AccountType.individual, setupComplete = true } =
     options;
 
-  return prisma.user.create({
+  const user = await prisma.user.create({
     data: {
       id: faker.string.uuid(),
       clerkId: faker.string.uuid(),
@@ -28,12 +34,44 @@ export const createFakeUser = (options: CreateFakeUserOptions = {}) => {
       updatedAt: faker.date.recent(),
     },
   });
+
+  if (
+    setupComplete &&
+    (accountType === AccountType.team || accountType === AccountType.nonprofit)
+  ) {
+    const group = await prisma.group.create({
+      data: {
+        name: faker.company.name(),
+        type:
+          accountType === AccountType.team
+            ? GroupType.team
+            : GroupType.nonprofit,
+        description: faker.company.catchPhrase(),
+        avatarUrl: faker.image.avatar(),
+        website: faker.internet.url(),
+        verified: accountType === AccountType.nonprofit,
+        documentsUrls: [],
+        ein: accountType === AccountType.nonprofit ? faker.string.uuid() : null,
+        members: {
+          create: {
+            userId: user.id,
+            role: GroupMemberRole.owner,
+            status: GroupMemberStatus.active,
+          },
+        },
+      },
+    });
+
+    return { user, group };
+  }
+
+  return { user };
 };
 
 export const createFakeUserWithToken = async (
   options: CreateFakeUserOptions = {},
 ) => {
-  const user = await createFakeUser(options);
+  const { user, group } = await createFakeUser(options);
   const token = createDevelopmentToken(user.clerkId);
-  return { user, token };
+  return { user, group, token };
 };
