@@ -1,10 +1,12 @@
 import { faker } from '@faker-js/faker/.';
 import {
   AccountType,
+  Group,
   GroupMemberRole,
   GroupMemberStatus,
   GroupType,
   PrismaClient,
+  User,
 } from '../../generated/prisma';
 import { createDevelopmentToken } from '../test-utils';
 
@@ -74,4 +76,20 @@ export const createFakeUserWithToken = async (
   const { user, group } = await createFakeUser(options);
   const token = createDevelopmentToken(user.clerkId);
   return { user, group, token };
+};
+
+export const addUserToGroup = async (
+  user: User,
+  group: Group,
+  role: GroupMemberRole = GroupMemberRole.viewer,
+  status: GroupMemberStatus = GroupMemberStatus.active,
+) => {
+  await prisma.groupMember.create({
+    data: {
+      userId: user.id,
+      groupId: group.id,
+      role,
+      status,
+    },
+  });
 };

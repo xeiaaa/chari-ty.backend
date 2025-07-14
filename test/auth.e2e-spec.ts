@@ -3,27 +3,13 @@ import { App } from 'supertest/types';
 import { createApiPath, createTestApp, resetDatabase } from './test-utils';
 import { AccountType } from '../generated/prisma';
 import * as request from 'supertest';
-// import { ClerkService } from '../src/features/auth/clerk.service';
-import { createFakeUserWithToken } from './factories/users.factory';
-
-export const mockUser1 = {
-  id: 'test-user-1-id',
-  clerkId: 'test-clerk-1-id',
-  email: 'user1@example.com',
-  firstName: 'John',
-  lastName: 'Doe',
-  avatarUrl: 'https://example.com/avatar1.jpg',
-  bio: 'First test user bio',
-  accountType: AccountType.individual,
-  setupComplete: true,
-  createdAt: new Date('2024-01-01T00:00:00.000Z'),
-  updatedAt: new Date('2024-01-01T00:00:00.000Z'),
-  groupMemberships: [],
-};
+import {
+  addUserToGroup,
+  createFakeUserWithToken,
+} from './factories/users.factory';
 
 describe('Auth Module', () => {
   let app: INestApplication<App>;
-  // let clerkService: ClerkService;
 
   beforeAll(async () => {
     // Create test app before all tests
@@ -41,16 +27,144 @@ describe('Auth Module', () => {
     await resetDatabase();
   });
 
-  it('test', async () => {
-    const { token, user } = await createFakeUserWithToken({
-      accountType: AccountType.individual,
+  describe('GET /api/v1/auth/me', () => {
+    it('should return the authenticated user profile when a valid token is provided', async () => {
+      const { token, user } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+      });
+
+      const response = await request(app.getHttpServer())
+        .get(createApiPath('auth/me'))
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(response.statusCode).toBe(200);
+      expect(response.body.id).toBe(user.id);
     });
 
-    const response = await request(app.getHttpServer())
-      .get(createApiPath('auth/me'))
-      .set('Authorization', `Bearer ${token}`);
+    it('should return 401 Unauthorized when no authentication token is provided', async () => {
+      await createFakeUserWithToken({
+        accountType: AccountType.individual,
+      });
 
-    expect(response.statusCode).toBe(200);
-    expect(response.body.id).toBe(user.id);
+      const response = await request(app.getHttpServer()).get(
+        createApiPath('auth/me'),
+      );
+
+      expect(response.statusCode).toBe(401);
+    });
+
+    it('should return 401 Unauthorized when token is invalid or expired', async () => {
+      await createFakeUserWithToken({
+        accountType: AccountType.individual,
+      });
+
+      const response = await request(app.getHttpServer())
+        .get(createApiPath('auth/me'))
+        .set('Authorization', `Bearer WRONG_TOKEN`);
+
+      expect(response.statusCode).toBe(401);
+    });
+  });
+
+  describe('GET /api/v1/auth/me/groups', () => {
+    it('should return 401 Unauthorized when no authentication token is provided', async () => {
+      const { user: individualUser } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+      });
+
+      const { group } = await createFakeUserWithToken({
+        accountType: AccountType.team,
+        setupComplete: true,
+      });
+
+      await addUserToGroup(individualUser, group!);
+
+      const response = await request(app.getHttpServer()).get(
+        createApiPath('auth/me/groups'),
+      );
+
+      expect(response.statusCode).toBe(401);
+    });
+
+    it('should return the authenticated user groups when a valid token is provided', async () => {
+      // Create an individual user
+      const { user: individualUser, token: individualToken } =
+        await createFakeUserWithToken({
+          accountType: AccountType.individual,
+        });
+
+      // Create a team owner (with a group)
+      const { group } = await createFakeUserWithToken({
+        accountType: AccountType.team,
+        setupComplete: true,
+      });
+
+      // Add the individual user to the team group
+      await addUserToGroup(individualUser, group!);
+
+      const response = await request(app.getHttpServer())
+        .get(createApiPath('auth/me/groups'))
+        .set('Authorization', `Bearer ${individualToken}`);
+
+      expect(response.statusCode).toBe(200);
+      expect(response.body.length).toBe(1);
+      expect(response.body[0].id).toBe(group!.id);
+    });
+
+    it('should return 200 OK with an empty array when user has no groups', async () => {
+      // Create an individual user
+      const { token: individualToken } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+      });
+
+      // Create a team owner (with a group)
+      await createFakeUserWithToken({
+        accountType: AccountType.team,
+        setupComplete: true,
+      });
+
+      const response = await request(app.getHttpServer())
+        .get(createApiPath('auth/me/groups'))
+        .set('Authorization', `Bearer ${individualToken}`);
+
+      expect(response.statusCode).toBe(200);
+      expect(response.body.length).toBe(0);
+    });
+
+    it('should not return groups where user is not an active member', async () => {
+      // Create an individual user (to be added to a group)
+      const { user: individualUser, token: individualToken } =
+        await createFakeUserWithToken({
+          accountType: AccountType.individual,
+        });
+
+      // Create another individual user (will not be added to the group)
+      const { token: individual2Token } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+      });
+
+      // Create a team owner (with a group)
+      const { group } = await createFakeUserWithToken({
+        accountType: AccountType.team,
+        setupComplete: true,
+      });
+
+      // Add the individual user to the team group
+      await addUserToGroup(individualUser, group!);
+
+      const response1 = await request(app.getHttpServer())
+        .get(createApiPath('auth/me/groups'))
+        .set('Authorization', `Bearer ${individualToken}`);
+
+      expect(response1.statusCode).toBe(200);
+      expect(response1.body.length).toBe(1);
+
+      const response2 = await request(app.getHttpServer())
+        .get(createApiPath('auth/me/groups'))
+        .set('Authorization', `Bearer ${individual2Token}`);
+
+      expect(response2.statusCode).toBe(200);
+      expect(response2.body.length).toBe(0);
+    });
   });
 });
