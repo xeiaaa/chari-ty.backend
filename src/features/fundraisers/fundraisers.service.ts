@@ -14,6 +14,7 @@ import {
 } from '../../../generated/prisma';
 import { Decimal } from '@prisma/client/runtime/library';
 import { ListFundraisersDto } from './dtos/list-fundraisers.dto';
+import { UpdateFundraiserDto } from './dtos/update-fundraiser.dto';
 
 @Injectable()
 export class FundraisersService {
@@ -236,5 +237,64 @@ export class FundraisersService {
     }
 
     return fundraiser;
+  }
+
+  /**
+   * Update a fundraiser
+   * Checks permissions based on owner type
+   */
+  async update(
+    user: UserEntity,
+    fundraiserId: string,
+    data: UpdateFundraiserDto,
+  ) {
+    const fundraiser = await this.prisma.fundraiser.findUnique({
+      where: { id: fundraiserId },
+    });
+
+    if (!fundraiser) {
+      throw new NotFoundException('Fundraiser not found');
+    }
+
+    // Check permissions based on owner type
+    if (fundraiser.ownerType === FundraiserOwnerType.user) {
+      // For user-owned fundraisers, only the owner can update
+      if (fundraiser.userId !== user.id) {
+        throw new ForbiddenException(
+          'You do not have permission to update this fundraiser',
+        );
+      }
+    } else if (fundraiser.ownerType === FundraiserOwnerType.group) {
+      // For group-owned fundraisers, check member role
+      const membership = await this.prisma.groupMember.findUnique({
+        where: {
+          unique_user_group: {
+            userId: user.id,
+            groupId: fundraiser.groupId!,
+          },
+        },
+      });
+
+      if (!membership || membership.role === 'viewer') {
+        throw new ForbiddenException(
+          'You do not have permission to update this fundraiser',
+        );
+      }
+    }
+
+    // Process the update data
+    const updateData = {
+      ...data,
+      goalAmount: data.goalAmount
+        ? new Decimal(data.goalAmount.toString())
+        : undefined,
+      endDate: data.endDate ? new Date(data.endDate) : undefined,
+    };
+
+    // Update the fundraiser
+    return await this.prisma.fundraiser.update({
+      where: { id: fundraiserId },
+      data: updateData,
+    });
   }
 }

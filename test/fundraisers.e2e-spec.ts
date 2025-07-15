@@ -461,7 +461,7 @@ describe('Auth Module', () => {
     });
   });
 
-  describe.only('GET /api/v1/fundraisers/:fundraiserId', () => {
+  describe('GET /api/v1/fundraisers/:fundraiserId', () => {
     it('should return a fundraiser owned by the requesting user', async () => {
       const { token, user } = await createFakeUserWithToken({
         accountType: AccountType.individual,
@@ -553,6 +553,220 @@ describe('Auth Module', () => {
         .set('Authorization', `Bearer ${anotherUserToken}`);
 
       expect(response.statusCode).toBe(403);
+    });
+  });
+
+  describe('PATCH /api/v1/fundraisers/:fundraiserId', () => {
+    it('should update a fundraiser owned by the user', async () => {
+      const { token, user } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
+
+      const { fundraiser } = await createFakeFundraiser(user);
+      const newTitle = 'New Title';
+
+      const response = await request(app.getHttpServer())
+        .patch(createApiPath(`fundraisers/${fundraiser.id}`))
+        .set('Authorization', `Bearer ${token}`)
+        .send({ title: newTitle });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.body.title).toBe(newTitle);
+    });
+
+    it('should update a fundraiser owned by a group the user is an owner of', async () => {
+      const { token, group } = await createFakeUserWithToken({
+        accountType: AccountType.team,
+        setupComplete: true,
+      });
+
+      const { fundraiser } = await createFakeFundraiser(group!);
+      const newTitle = 'New Title';
+
+      const response = await request(app.getHttpServer())
+        .patch(createApiPath(`fundraisers/${fundraiser.id}`))
+        .set('Authorization', `Bearer ${token}`)
+        .send({ title: newTitle });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.body.title).toBe(newTitle);
+    });
+
+    it('should throw NotFoundException when the fundraiser does not exist', async () => {
+      const { token, group } = await createFakeUserWithToken({
+        accountType: AccountType.team,
+        setupComplete: true,
+      });
+
+      // Create a fundraiser
+      const { fundraiser } = await createFakeFundraiser(group!);
+
+      // Delete the fundraiser
+      await prisma.fundraiser.delete({
+        where: { id: fundraiser.id },
+      });
+
+      await request(app.getHttpServer())
+        .patch(createApiPath(`fundraisers/${fundraiser.id}`))
+        .set('Authorization', `Bearer ${token}`)
+        .send({ title: 'New Title' })
+        .expect(404);
+    });
+
+    it('should throw ForbiddenException when the user tries to access another user’s fundraiser', async () => {
+      const { user } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
+
+      const { fundraiser } = await createFakeFundraiser(user);
+
+      const { token: anotherUserToken } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
+
+      await request(app.getHttpServer())
+        .patch(createApiPath(`fundraisers/${fundraiser.id}`))
+        .set('Authorization', `Bearer ${anotherUserToken}`)
+        .send({ title: 'New Title' })
+        .expect(403);
+    });
+
+    it('should throw ForbiddenException when the user is not a member of the group that owns the fundraiser', async () => {
+      const { group } = await createFakeUserWithToken({
+        accountType: AccountType.team,
+        setupComplete: true,
+      });
+
+      const { fundraiser } = await createFakeFundraiser(group!);
+
+      const { token: anotherUserToken } = await createFakeUserWithToken({
+        accountType: AccountType.team,
+        setupComplete: true,
+      });
+
+      const response = await request(app.getHttpServer())
+        .patch(createApiPath(`fundraisers/${fundraiser.id}`))
+        .set('Authorization', `Bearer ${anotherUserToken}`)
+        .send({ title: 'New Title' });
+
+      expect(response.statusCode).toBe(403);
+    });
+
+    it('should throw ForbiddenException when the group member has an insufficient role', async () => {
+      const { group } = await createFakeUserWithToken({
+        accountType: AccountType.team,
+        setupComplete: true,
+      });
+
+      const { token, user } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
+
+      const { fundraiser } = await createFakeFundraiser(group!);
+
+      await addUserToGroup(user, group!, GroupMemberRole.viewer);
+
+      await request(app.getHttpServer())
+        .patch(createApiPath(`fundraisers/${fundraiser.id}`))
+        .set('Authorization', `Bearer ${token}`)
+        .send({ title: 'New Title' })
+        .expect(403);
+    });
+
+    it('should update a fundraiser owned by a group the user is an editor of', async () => {
+      const { group } = await createFakeUserWithToken({
+        accountType: AccountType.team,
+        setupComplete: true,
+      });
+
+      const { token, user } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
+
+      const { fundraiser } = await createFakeFundraiser(group!);
+
+      await addUserToGroup(user, group!, GroupMemberRole.editor);
+      const newTitle = 'New Title';
+
+      const response = await request(app.getHttpServer())
+        .patch(createApiPath(`fundraisers/${fundraiser.id}`))
+        .set('Authorization', `Bearer ${token}`)
+        .send({ title: newTitle });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.body.title).toBe(newTitle);
+    });
+
+    it('should update a fundraiser owned by a group the user is an admin of', async () => {
+      const { group } = await createFakeUserWithToken({
+        accountType: AccountType.team,
+        setupComplete: true,
+      });
+
+      const { token, user } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
+
+      const { fundraiser } = await createFakeFundraiser(group!);
+
+      await addUserToGroup(user, group!, GroupMemberRole.admin);
+      const newTitle = 'New Title';
+
+      const response = await request(app.getHttpServer())
+        .patch(createApiPath(`fundraisers/${fundraiser.id}`))
+        .set('Authorization', `Bearer ${token}`)
+        .send({ title: newTitle });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.body.title).toBe(newTitle);
+    });
+
+    it('should return 400 Bad Request when the update payload contains invalid fields', async () => {
+      const { token, group } = await createFakeUserWithToken({
+        accountType: AccountType.team,
+        setupComplete: true,
+      });
+
+      const { fundraiser } = await createFakeFundraiser(group!);
+
+      await request(app.getHttpServer())
+        .patch(createApiPath(`fundraisers/${fundraiser.id}`))
+        .set('Authorization', `Bearer ${token}`)
+        .send({ title: 'a'.repeat(101) })
+        .expect(400);
+
+      await request(app.getHttpServer())
+        .patch(createApiPath(`fundraisers/${fundraiser.id}`))
+        .set('Authorization', `Bearer ${token}`)
+        .send({ goalAmount: 0 })
+        .expect(400);
+    });
+
+    it('should throw ForbiddenException when attempting to update ownership fields like ownerType or groupId', async () => {
+      const { token, group } = await createFakeUserWithToken({
+        accountType: AccountType.team,
+        setupComplete: true,
+      });
+
+      const { fundraiser } = await createFakeFundraiser(group!);
+
+      await request(app.getHttpServer())
+        .patch(createApiPath(`fundraisers/${fundraiser.id}`))
+        .set('Authorization', `Bearer ${token}`)
+        .send({ groupId: 'cmd3wyy1l0000hl1rd41su9hx' })
+        .expect(400);
+
+      await request(app.getHttpServer())
+        .patch(createApiPath(`fundraisers/${fundraiser.id}`))
+        .set('Authorization', `Bearer ${token}`)
+        .send({ onwerType: FundraiserOwnerType.user })
+        .expect(400);
     });
   });
 });

@@ -6,10 +6,12 @@ import {
   Query,
   UseGuards,
   Param,
+  Patch,
 } from '@nestjs/common';
 import { FundraisersService } from './fundraisers.service';
 import { CreateFundraiserDto } from './dtos/create-fundraiser.dto';
 import { ListFundraisersDto } from './dtos/list-fundraisers.dto';
+import { UpdateFundraiserDto } from './dtos/update-fundraiser.dto';
 import { AuthGuard } from '../auth/auth.guard';
 import { AuthUser } from '../../common/decorators';
 import { User as UserEntity } from '../../../generated/prisma';
@@ -50,5 +52,18 @@ export class FundraisersController {
     @AuthUser() user: UserEntity,
   ) {
     return this.fundraisersService.findOne(user, fundraiserId);
+  }
+
+  /**
+   * Update a fundraiser
+   * PATCH /api/v1/fundraisers/:fundraiserId
+   */
+  @Patch(':fundraiserId')
+  async update(
+    @Param('fundraiserId') fundraiserId: string,
+    @Body() data: UpdateFundraiserDto,
+    @AuthUser() user: UserEntity,
+  ) {
+    return this.fundraisersService.update(user, fundraiserId, data);
   }
 }
