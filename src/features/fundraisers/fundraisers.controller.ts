@@ -7,6 +7,8 @@ import {
   UseGuards,
   Param,
   Patch,
+  Delete,
+  HttpCode,
 } from '@nestjs/common';
 import { FundraisersService } from './fundraisers.service';
 import { CreateFundraiserDto } from './dtos/create-fundraiser.dto';
@@ -65,5 +67,18 @@ export class FundraisersController {
     @AuthUser() user: UserEntity,
   ) {
     return this.fundraisersService.update(user, fundraiserId, data);
+  }
+
+  /**
+   * Delete a fundraiser
+   * DELETE /api/v1/fundraisers/:fundraiserId
+   */
+  @Delete(':fundraiserId')
+  @HttpCode(204)
+  async delete(
+    @Param('fundraiserId') fundraiserId: string,
+    @AuthUser() user: UserEntity,
+  ) {
+    await this.fundraisersService.delete(user, fundraiserId);
   }
 }

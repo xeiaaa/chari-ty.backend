@@ -769,4 +769,145 @@ describe('Auth Module', () => {
         .expect(400);
     });
   });
+
+  describe('DELETE /api/v1/fundraisers/:fundraiserId', () => {
+    it('should delete a fundraiser owned by the user', async () => {
+      const { token, user } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
+
+      const { fundraiser } = await createFakeFundraiser(user);
+
+      const response = await request(app.getHttpServer())
+        .delete(createApiPath(`fundraisers/${fundraiser.id}`))
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(response.statusCode).toBe(204);
+
+      // Verify fundraiser was deleted
+      const deletedFundraiser = await prisma.fundraiser.findUnique({
+        where: { id: fundraiser.id },
+      });
+      expect(deletedFundraiser).toBeNull();
+    });
+
+    it('should delete a fundraiser owned by a group the user is an admin of', async () => {
+      const { group } = await createFakeUserWithToken({
+        accountType: AccountType.team,
+        setupComplete: true,
+      });
+
+      const { token, user } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
+
+      const { fundraiser } = await createFakeFundraiser(group!);
+
+      await addUserToGroup(user, group!, GroupMemberRole.admin);
+
+      const response = await request(app.getHttpServer())
+        .delete(createApiPath(`fundraisers/${fundraiser.id}`))
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(response.statusCode).toBe(204);
+
+      // Verify fundraiser was deleted
+      const deletedFundraiser = await prisma.fundraiser.findUnique({
+        where: { id: fundraiser.id },
+      });
+      expect(deletedFundraiser).toBeNull();
+    });
+
+    it('should throw NotFoundException when the fundraiser does not exist', async () => {
+      const { token } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
+
+      await request(app.getHttpServer())
+        .delete(createApiPath(`fundraisers/non-existent-id`))
+        .set('Authorization', `Bearer ${token}`)
+        .expect(404);
+    });
+
+    it("should throw ForbiddenException when the user tries to delete another user's fundraiser", async () => {
+      const { user } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
+
+      const { fundraiser } = await createFakeFundraiser(user);
+
+      const { token: anotherUserToken } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
+
+      await request(app.getHttpServer())
+        .delete(createApiPath(`fundraisers/${fundraiser.id}`))
+        .set('Authorization', `Bearer ${anotherUserToken}`)
+        .expect(403);
+
+      // Verify fundraiser was not deleted
+      const existingFundraiser = await prisma.fundraiser.findUnique({
+        where: { id: fundraiser.id },
+      });
+      expect(existingFundraiser).not.toBeNull();
+    });
+
+    it('should throw ForbiddenException when the user is not a member of the group that owns the fundraiser', async () => {
+      const { group } = await createFakeUserWithToken({
+        accountType: AccountType.team,
+        setupComplete: true,
+      });
+
+      const { fundraiser } = await createFakeFundraiser(group!);
+
+      const { token: anotherUserToken } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
+
+      await request(app.getHttpServer())
+        .delete(createApiPath(`fundraisers/${fundraiser.id}`))
+        .set('Authorization', `Bearer ${anotherUserToken}`)
+        .expect(403);
+
+      // Verify fundraiser was not deleted
+      const existingFundraiser = await prisma.fundraiser.findUnique({
+        where: { id: fundraiser.id },
+      });
+      expect(existingFundraiser).not.toBeNull();
+    });
+
+    it('should throw ForbiddenException when the group member has insufficient role to delete the fundraiser', async () => {
+      const { group } = await createFakeUserWithToken({
+        accountType: AccountType.team,
+        setupComplete: true,
+      });
+
+      const { token, user } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
+
+      const { fundraiser } = await createFakeFundraiser(group!);
+
+      // Add user as editor (insufficient role for deletion)
+      await addUserToGroup(user, group!, GroupMemberRole.editor);
+
+      await request(app.getHttpServer())
+        .delete(createApiPath(`fundraisers/${fundraiser.id}`))
+        .set('Authorization', `Bearer ${token}`)
+        .expect(403);
+
+      // Verify fundraiser was not deleted
+      const existingFundraiser = await prisma.fundraiser.findUnique({
+        where: { id: fundraiser.id },
+      });
+      expect(existingFundraiser).not.toBeNull();
+    });
+  });
 });

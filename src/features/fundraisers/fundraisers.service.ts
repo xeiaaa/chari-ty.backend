@@ -297,4 +297,50 @@ export class FundraisersService {
       data: updateData,
     });
   }
+
+  /**
+   * Delete a fundraiser
+   * Only owners can delete user-owned fundraisers
+   * Only admins and owners can delete group-owned fundraisers
+   */
+  async delete(user: UserEntity, fundraiserId: string) {
+    const fundraiser = await this.prisma.fundraiser.findUnique({
+      where: { id: fundraiserId },
+    });
+
+    if (!fundraiser) {
+      throw new NotFoundException('Fundraiser not found');
+    }
+
+    // Check permissions based on owner type
+    if (fundraiser.ownerType === FundraiserOwnerType.user) {
+      // For user-owned fundraisers, only the owner can delete
+      if (fundraiser.userId !== user.id) {
+        throw new ForbiddenException(
+          'You do not have permission to delete this fundraiser',
+        );
+      }
+    } else if (fundraiser.ownerType === FundraiserOwnerType.group) {
+      // For group-owned fundraisers, check member role
+      const membership = await this.prisma.groupMember.findUnique({
+        where: {
+          unique_user_group: {
+            userId: user.id,
+            groupId: fundraiser.groupId!,
+          },
+        },
+      });
+
+      if (!membership || !['owner', 'admin'].includes(membership.role)) {
+        throw new ForbiddenException(
+          'You do not have permission to delete this fundraiser',
+        );
+      }
+    }
+
+    // Delete the fundraiser
+    await this.prisma.fundraiser.delete({
+      where: { id: fundraiserId },
+    });
+  }
 }
