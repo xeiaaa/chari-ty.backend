@@ -9,6 +9,7 @@ import {
   User,
 } from '../../generated/prisma';
 import { createDevelopmentToken } from '../test-utils';
+import { OnboardingDto } from 'src/features/auth/dtos/onboarding.dto';
 
 const prisma = new PrismaClient();
 
@@ -92,4 +93,50 @@ export const addUserToGroup = async (
       status,
     },
   });
+};
+
+export const createIndividualOnboardingData = (
+  override: Partial<OnboardingDto> = {},
+) => {
+  return {
+    accountType: AccountType.individual,
+    bio: faker.lorem.paragraph(),
+    avatarUrl: faker.image.url(),
+    ...override,
+  };
+};
+
+export const createTeamOnboardingData = (
+  override: Partial<OnboardingDto> = {},
+) => {
+  return {
+    accountType: AccountType.team,
+    teamName: faker.company.name(),
+    mission: faker.company.catchPhrase(),
+    avatarUrl: faker.image.url(),
+    website: faker.internet.url(),
+    members: [
+      {
+        name: faker.person.fullName(),
+        email: faker.internet.email(),
+        role: GroupMemberRole.admin,
+      },
+    ],
+    ...override,
+  };
+};
+
+export const createNonprofitOnboardingData = (
+  override: Partial<OnboardingDto> = {},
+) => {
+  return {
+    accountType: AccountType.nonprofit,
+    organizationName: faker.company.name(),
+    mission: faker.company.catchPhrase(),
+    avatarUrl: faker.image.url(),
+    website: faker.internet.url(),
+    ein: faker.string.numeric(9),
+    documentsUrls: [faker.internet.url(), faker.internet.url()],
+    ...override,
+  };
 };
