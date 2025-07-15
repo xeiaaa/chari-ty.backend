@@ -54,7 +54,7 @@ export class CreateFundraiserDto {
   category: FundraiserCategory;
 
   @IsNumber()
-  @Min(0)
+  @Min(1, { message: 'Goal amount must be greater than 0' })
   goalAmount: number;
 
   @IsString()
@@ -77,6 +77,10 @@ export class CreateFundraiserDto {
   @IsEnum(FundraiserOwnerType)
   @IsNotEmpty()
   ownerType: FundraiserOwnerType;
+
+  @IsString()
+  @IsOptional()
+  userId?: string;
 
   @IsString()
   @IsOptional()

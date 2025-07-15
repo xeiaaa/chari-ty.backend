@@ -10,6 +10,7 @@ import {
 } from './dtos/create-fundraiser.dto';
 import { User as UserEntity } from '../../../generated/prisma';
 import { Decimal } from '@prisma/client/runtime/library';
+import { FundraiserStatus } from '../../../generated/prisma';
 
 @Injectable()
 export class FundraisersService {
@@ -20,10 +21,8 @@ export class FundraisersService {
    * Handles both user-owned and group-owned fundraisers
    */
   async create(user: UserEntity, data: CreateFundraiserDto) {
-    // Generate a unique slug from the title
     const slug = await this.generateUniqueSlug(data.title);
 
-    // Prepare base fundraiser data
     const fundraiserData = {
       slug,
       title: data.title,
@@ -36,25 +35,27 @@ export class FundraisersService {
       coverUrl: data.coverUrl,
       galleryUrls: data.galleryUrls || [],
       ownerType: data.ownerType,
-      status: 'draft',
+      status: FundraiserStatus.draft,
       isPublic: data.isPublic ?? false,
     } as const;
 
-    // Handle user-owned fundraiser
-    if (data.ownerType === FundraiserOwnerType.user) {
+    if (data.ownerType === FundraiserOwnerType.group) {
+      if (!data.groupId) {
+        throw new BadRequestException(
+          'Group ID is required for group-owned fundraisers',
+        );
+      }
+
       return await this.prisma.$transaction(async (tx) => {
-        return await tx.fundraiser.create({
-          data: {
-            ...fundraiserData,
-            user: { connect: { id: user.id } },
-          },
+        // Verify group exists
+        const group = await tx.group.findUnique({
+          where: { id: data.groupId },
         });
-      });
-    }
-    // Handle group-owned fundraiser
-    else if (data.ownerType === FundraiserOwnerType.group && data.groupId) {
-      return await this.prisma.$transaction(async (tx) => {
-        // Check if user is a member of the group with appropriate permissions
+
+        if (!group) {
+          throw new BadRequestException('Group not found');
+        }
+
         const membership = await tx.groupMember.findUnique({
           where: {
             unique_user_group: {
@@ -74,15 +75,27 @@ export class FundraisersService {
         }
 
         return await tx.fundraiser.create({
-          data: {
-            ...fundraiserData,
-            group: { connect: { id: data.groupId } },
-          },
+          data: { ...fundraiserData, groupId: data.groupId },
         });
       });
     }
 
-    throw new BadRequestException('Invalid owner type or missing group ID');
+    if (data.ownerType === FundraiserOwnerType.user) {
+      // Verify user exists
+      const userExists = await this.prisma.user.findUnique({
+        where: { id: user.id },
+      });
+
+      if (!userExists) {
+        throw new BadRequestException('User not found');
+      }
+
+      return await this.prisma.fundraiser.create({
+        data: { ...fundraiserData, userId: user.id },
+      });
+    }
+
+    throw new BadRequestException('Invalid owner type');
   }
 
   /**

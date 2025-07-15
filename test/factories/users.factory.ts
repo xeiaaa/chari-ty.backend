@@ -18,7 +18,18 @@ interface CreateFakeUserOptions {
   setupComplete?: boolean;
 }
 
-export const createFakeUser = async (options: CreateFakeUserOptions = {}) => {
+interface CreateFakeUserResult {
+  user: User;
+  group?: Group;
+}
+
+interface CreateFakeUserWithTokenResult extends CreateFakeUserResult {
+  token: string;
+}
+
+export const createFakeUser = async (
+  options: CreateFakeUserOptions = {},
+): Promise<CreateFakeUserResult> => {
   const { accountType = AccountType.individual, setupComplete = true } =
     options;
 
@@ -73,7 +84,7 @@ export const createFakeUser = async (options: CreateFakeUserOptions = {}) => {
 
 export const createFakeUserWithToken = async (
   options: CreateFakeUserOptions = {},
-) => {
+): Promise<CreateFakeUserWithTokenResult> => {
   const { user, group } = await createFakeUser(options);
   const token = createDevelopmentToken(user.clerkId);
   return { user, group, token };

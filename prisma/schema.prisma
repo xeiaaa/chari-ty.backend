@@ -143,8 +143,8 @@ model Fundraiser {
   coverUrl    String
   galleryUrls String[]
   ownerType   FundraiserOwnerType
-  userId      String? // FK for User
-  groupId     String? // FK for Group
+  userId      String? // FK to User (nullable)
+  groupId     String? // FK to Group (nullable)
   status      FundraiserStatus    @default(draft)
   isPublic    Boolean             @default(false)
   createdAt   DateTime            @default(now())
