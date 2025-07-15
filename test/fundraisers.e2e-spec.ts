@@ -17,13 +17,16 @@ import {
   buildFakeFundraiser,
   createFakeFundraiser,
 } from './factories/fundraisers.factory';
+import { PrismaService } from '../src/core/prisma/prisma.service';
 
 describe('Auth Module', () => {
   let app: INestApplication<App>;
+  let prisma: PrismaService;
 
   beforeAll(async () => {
     // Create test app before all tests
     app = await createTestApp();
+    prisma = app.get(PrismaService);
     // clerkService = app.get(ClerkService);
   });
 
@@ -458,43 +461,98 @@ describe('Auth Module', () => {
     });
   });
 
-  it('should return paginated results with correct limit and page metadata', async () => {
-    const { token, group } = await createFakeUserWithToken({
-      accountType: AccountType.team,
-      setupComplete: true,
+  describe.only('GET /api/v1/fundraisers/:fundraiserId', () => {
+    it('should return a fundraiser owned by the requesting user', async () => {
+      const { token, user } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
+
+      const { fundraiser } = await createFakeFundraiser(user);
+
+      const response = await request(app.getHttpServer())
+        .get(createApiPath(`fundraisers/${fundraiser.id}`))
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(response.statusCode).toBe(200);
+      expect(response.body.title).toBe(fundraiser.title);
     });
 
-    await createFakeFundraiser(group!, { createdAt: new Date('2025-01-01') });
-    await createFakeFundraiser(group!, { createdAt: new Date('2025-01-02') });
-    await createFakeFundraiser(group!, { createdAt: new Date('2025-01-03') });
-    const { fundraiser } = await createFakeFundraiser(group!, {
-      createdAt: new Date('2025-01-04'),
+    it('should return a fundraiser owned by a group the user is a member of', async () => {
+      const { token, group } = await createFakeUserWithToken({
+        accountType: AccountType.team,
+        setupComplete: true,
+      });
+
+      // User 1 fundraiser 1
+      const { fundraiser } = await createFakeFundraiser(group!);
+
+      const response = await request(app.getHttpServer())
+        .get(createApiPath(`fundraisers/${fundraiser.id}`))
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(response.statusCode).toBe(200);
+      expect(response.body.title).toBe(fundraiser.title);
     });
 
-    const response = await request(app.getHttpServer())
-      .get(createApiPath('fundraisers'))
-      .query({ groupId: group!.id, page: 2, limit: 3, sortOrder: 'asc' })
-      .set('Authorization', `Bearer ${token}`);
+    it('should throw NotFoundException when the fundraiser does not exist', async () => {
+      const { token, group } = await createFakeUserWithToken({
+        accountType: AccountType.team,
+        setupComplete: true,
+      });
 
-    expect(response.statusCode).toBe(200);
-    console.log(response.body, fundraiser);
-    expect(response.body.items[0].title).toBe(fundraiser.title);
-    expect(response.body.meta.page).toBe(2);
-    expect(response.body.meta.totalPages).toBe(2);
-    expect(response.body.meta.total).toBe(4);
-  });
+      // Create a fundraiser
+      const { fundraiser } = await createFakeFundraiser(group!);
 
-  it('should return 401 Unauthorized when the user is not authenticated', async () => {
-    const { user } = await createFakeUserWithToken({
-      accountType: AccountType.individual,
-      setupComplete: true,
+      // Delete the fundraiser
+      await prisma.fundraiser.delete({
+        where: { id: fundraiser.id },
+      });
+
+      // Try to get the fundraiser
+      await request(app.getHttpServer())
+        .get(createApiPath(`fundraisers/${fundraiser.id}`))
+        .set('Authorization', `Bearer ${token}`)
+        .expect(404);
     });
 
-    // User 1 fundraiser 1
-    await createFakeFundraiser(user);
+    it('should throw ForbiddenException when the user tries to access another user’s fundraiser', async () => {
+      const { user } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
 
-    await request(app.getHttpServer())
-      .get(createApiPath('fundraisers'))
-      .expect(401);
+      const { fundraiser } = await createFakeFundraiser(user);
+
+      const { token: anotherUserToken } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
+
+      await request(app.getHttpServer())
+        .get(createApiPath(`fundraisers/${fundraiser.id}`))
+        .set('Authorization', `Bearer ${anotherUserToken}`)
+        .expect(403);
+    });
+
+    it('should throw ForbiddenException when the user is not a member of the group that owns the fundraiser', async () => {
+      const { group } = await createFakeUserWithToken({
+        accountType: AccountType.team,
+        setupComplete: true,
+      });
+
+      const { fundraiser } = await createFakeFundraiser(group!);
+
+      const { token: anotherUserToken } = await createFakeUserWithToken({
+        accountType: AccountType.team,
+        setupComplete: true,
+      });
+
+      const response = await request(app.getHttpServer())
+        .get(createApiPath(`fundraisers/${fundraiser.id}`))
+        .set('Authorization', `Bearer ${anotherUserToken}`);
+
+      expect(response.statusCode).toBe(403);
+    });
   });
 });

@@ -1,4 +1,12 @@
-import { Controller, Post, Get, Body, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Get,
+  Body,
+  Query,
+  UseGuards,
+  Param,
+} from '@nestjs/common';
 import { FundraisersService } from './fundraisers.service';
 import { CreateFundraiserDto } from './dtos/create-fundraiser.dto';
 import { ListFundraisersDto } from './dtos/list-fundraisers.dto';
@@ -30,5 +38,17 @@ export class FundraisersController {
   @Get()
   async list(@Query() query: ListFundraisersDto, @AuthUser() user: UserEntity) {
     return this.fundraisersService.list(user, query);
+  }
+
+  /**
+   * Get a single fundraiser by ID
+   * GET /api/v1/fundraisers/:fundraiserId
+   */
+  @Get(':fundraiserId')
+  async findOne(
+    @Param('fundraiserId') fundraiserId: string,
+    @AuthUser() user: UserEntity,
+  ) {
+    return this.fundraisersService.findOne(user, fundraiserId);
   }
 }

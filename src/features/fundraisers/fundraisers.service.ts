@@ -2,6 +2,7 @@ import {
   Injectable,
   BadRequestException,
   ForbiddenException,
+  NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { CreateFundraiserDto } from './dtos/create-fundraiser.dto';
@@ -195,5 +196,45 @@ export class FundraisersService {
         totalPages: Math.ceil(total / limit),
       },
     };
+  }
+
+  /**
+   * Get a single fundraiser by ID
+   * Checks if the user has permission to view the fundraiser
+   */
+  async findOne(user: UserEntity, fundraiserId: string) {
+    const fundraiser = await this.prisma.fundraiser.findUnique({
+      where: { id: fundraiserId },
+    });
+
+    if (!fundraiser) {
+      throw new NotFoundException('Fundraiser not found');
+    }
+
+    // Check if user has permission to view this fundraiser
+    if (fundraiser.ownerType === FundraiserOwnerType.user) {
+      if (fundraiser.userId !== user.id) {
+        throw new ForbiddenException(
+          'You do not have permission to view this fundraiser',
+        );
+      }
+    } else if (fundraiser.ownerType === FundraiserOwnerType.group) {
+      const membership = await this.prisma.groupMember.findUnique({
+        where: {
+          unique_user_group: {
+            userId: user.id,
+            groupId: fundraiser.groupId!,
+          },
+        },
+      });
+
+      if (!membership) {
+        throw new ForbiddenException(
+          'You do not have permission to view this fundraiser',
+        );
+      }
+    }
+
+    return fundraiser;
   }
 }
