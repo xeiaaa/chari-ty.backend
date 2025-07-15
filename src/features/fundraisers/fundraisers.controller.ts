@@ -1,6 +1,7 @@
-import { Controller, Post, Body, UseGuards } from '@nestjs/common';
+import { Controller, Post, Get, Body, Query, UseGuards } from '@nestjs/common';
 import { FundraisersService } from './fundraisers.service';
 import { CreateFundraiserDto } from './dtos/create-fundraiser.dto';
+import { ListFundraisersDto } from './dtos/list-fundraisers.dto';
 import { AuthGuard } from '../auth/auth.guard';
 import { AuthUser } from '../../common/decorators';
 import { User as UserEntity } from '../../../generated/prisma';
@@ -20,5 +21,14 @@ export class FundraisersController {
     @AuthUser() user: UserEntity,
   ) {
     return this.fundraisersService.create(user, data);
+  }
+
+  /**
+   * List fundraisers with filters and pagination
+   * GET /api/v1/fundraisers
+   */
+  @Get()
+  async list(@Query() query: ListFundraisersDto, @AuthUser() user: UserEntity) {
+    return this.fundraisersService.list(user, query);
   }
 }

@@ -4,13 +4,15 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
+import { CreateFundraiserDto } from './dtos/create-fundraiser.dto';
 import {
-  CreateFundraiserDto,
+  User as UserEntity,
+  FundraiserStatus,
+  Prisma,
   FundraiserOwnerType,
-} from './dtos/create-fundraiser.dto';
-import { User as UserEntity } from '../../../generated/prisma';
+} from '../../../generated/prisma';
 import { Decimal } from '@prisma/client/runtime/library';
-import { FundraiserStatus } from '../../../generated/prisma';
+import { ListFundraisersDto } from './dtos/list-fundraisers.dto';
 
 @Injectable()
 export class FundraisersService {
@@ -120,5 +122,78 @@ export class FundraisersService {
     }
 
     return slug;
+  }
+
+  async list(user: UserEntity, query: ListFundraisersDto) {
+    const {
+      groupId,
+      status,
+      category,
+      search,
+      isPublic,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+      limit = 10,
+      page = 1,
+    } = query;
+
+    // Build where conditions
+    const whereConditions: Prisma.FundraiserWhereInput[] = [
+      groupId
+        ? { groupId, ownerType: FundraiserOwnerType.group }
+        : { userId: user.id, ownerType: FundraiserOwnerType.user },
+    ];
+
+    if (status) whereConditions.push({ status });
+    if (category) whereConditions.push({ category });
+    if (isPublic !== undefined) whereConditions.push({ isPublic });
+    if (search) {
+      whereConditions.push({
+        OR: [
+          { title: { contains: search, mode: 'insensitive' } },
+          { summary: { contains: search, mode: 'insensitive' } },
+        ],
+      });
+    }
+
+    const where: Prisma.FundraiserWhereInput = { AND: whereConditions };
+
+    // If groupId is provided, verify user has access
+    if (groupId) {
+      const membership = await this.prisma.groupMember.findUnique({
+        where: {
+          unique_user_group: {
+            userId: user.id,
+            groupId,
+          },
+        },
+      });
+
+      if (!membership) {
+        throw new ForbiddenException(
+          'You do not have permission to view fundraisers for this group',
+        );
+      }
+    }
+
+    const [items, total] = await Promise.all([
+      this.prisma.fundraiser.findMany({
+        where,
+        orderBy: { [sortBy]: sortOrder },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.fundraiser.count({ where }),
+    ]);
+
+    return {
+      items,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
   }
 }

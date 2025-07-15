@@ -1,11 +1,9 @@
-import {
-  CreateFundraiserDto,
-  FundraiserCategory,
-  FundraiserOwnerType,
-} from '../../src/features/fundraisers/dtos/create-fundraiser.dto';
+import { CreateFundraiserDto } from '../../src/features/fundraisers/dtos/create-fundraiser.dto';
 import { faker } from '@faker-js/faker';
 import {
   Fundraiser,
+  FundraiserCategory,
+  FundraiserOwnerType,
   FundraiserStatus,
   Group,
   PrismaClient,
