@@ -19,6 +19,7 @@ import { AuthUser } from '../../common/decorators';
 import { User as UserEntity } from '../../../generated/prisma';
 import { MilestonesService } from '../milestones/milestones.service';
 import { CreateMilestoneDto } from '../milestones/dtos/create-milestone.dto';
+import { UpdateMilestoneDto } from '../milestones/dtos/update-milestone.dto';
 
 @Controller('fundraisers')
 @UseGuards(AuthGuard)
@@ -110,5 +111,19 @@ export class FundraisersController {
     @AuthUser() user: UserEntity,
   ) {
     return this.milestonesService.list(user, fundraiserId);
+  }
+
+  /**
+   * Update a milestone
+   * PATCH /api/v1/fundraisers/:fundraiserId/milestones/:milestoneId
+   */
+  @Patch(':fundraiserId/milestones/:milestoneId')
+  async updateMilestone(
+    @Param('fundraiserId') fundraiserId: string,
+    @Param('milestoneId') milestoneId: string,
+    @Body() data: UpdateMilestoneDto,
+    @AuthUser() user: UserEntity,
+  ) {
+    return this.milestonesService.update(user, fundraiserId, milestoneId, data);
   }
 }
