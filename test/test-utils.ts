@@ -235,3 +235,15 @@ export async function seedTestDatabase(): Promise<void> {
   });
   await prisma.$disconnect();
 }
+
+/**
+ * Format milestone response by converting amount to string
+ */
+export function formatMilestoneResponse<T extends { amount: number }>(
+  milestone: T,
+): T & { amount: string } {
+  return {
+    ...milestone,
+    amount: milestone.amount.toString(),
+  };
+}

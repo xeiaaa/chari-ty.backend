@@ -151,8 +151,29 @@ model Fundraiser {
   updatedAt   DateTime            @updatedAt
 
   // Relations
-  user  User?  @relation(fields: [userId], references: [id])
-  group Group? @relation(fields: [groupId], references: [id])
+  user       User?       @relation(fields: [userId], references: [id])
+  group      Group?      @relation(fields: [groupId], references: [id])
+  milestones Milestone[]
 
   @@map("fundraisers")
+}
+
+model Milestone {
+  id           String    @id @default(cuid())
+  fundraiserId String
+  stepNumber   Int
+  amount       Decimal
+  title        String
+  purpose      String
+  achieved     Boolean   @default(false)
+  achievedAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  // Relations
+  fundraiser Fundraiser @relation(fields: [fundraiserId], references: [id], onDelete: Cascade)
+
+  // Ensure stepNumber is unique within a fundraiser
+  @@unique([fundraiserId, stepNumber], name: "unique_fundraiser_step")
+  @@map("milestones")
 }
