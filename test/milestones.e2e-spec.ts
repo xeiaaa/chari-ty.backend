@@ -828,4 +828,273 @@ describe('Milestones Module', () => {
       );
     });
   });
+
+  describe('DELETE /api/v1/fundraisers/:id/milestones/:milestoneId', () => {
+    it('should delete milestone from fundraiser (as individual)', async () => {
+      const { token, user } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
+
+      const { fundraiser } = await createFakeFundraiser(user);
+      const { milestone } = await createFakeMilestone(fundraiser);
+
+      await request(app.getHttpServer())
+        .delete(
+          createApiPath(
+            `fundraisers/${fundraiser.id}/milestones/${milestone.id}`,
+          ),
+        )
+        .set('Authorization', `Bearer ${token}`)
+        .expect(204);
+
+      // Verify milestone was deleted
+      const response = await request(app.getHttpServer())
+        .get(createApiPath(`fundraisers/${fundraiser.id}/milestones`))
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(response.body).toHaveLength(0);
+    });
+
+    it('should delete milestone from fundraiser (as group owner)', async () => {
+      const { token, group } = await createFakeUserWithToken({
+        accountType: AccountType.team,
+        setupComplete: true,
+      });
+
+      const { fundraiser } = await createFakeFundraiser(group!);
+      const { milestone } = await createFakeMilestone(fundraiser);
+
+      await request(app.getHttpServer())
+        .delete(
+          createApiPath(
+            `fundraisers/${fundraiser.id}/milestones/${milestone.id}`,
+          ),
+        )
+        .set('Authorization', `Bearer ${token}`)
+        .expect(204);
+
+      // Verify milestone was deleted
+      const response = await request(app.getHttpServer())
+        .get(createApiPath(`fundraisers/${fundraiser.id}/milestones`))
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(response.body).toHaveLength(0);
+    });
+
+    it('should delete milestone from fundraiser (as group admin)', async () => {
+      const { group } = await createFakeUserWithToken({
+        accountType: AccountType.team,
+        setupComplete: true,
+      });
+
+      const { fundraiser } = await createFakeFundraiser(group!);
+      const { milestone } = await createFakeMilestone(fundraiser);
+
+      // Create a group member with admin role
+      const { token, user } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
+      await addUserToGroup(user, group!, GroupMemberRole.admin);
+
+      await request(app.getHttpServer())
+        .delete(
+          createApiPath(
+            `fundraisers/${fundraiser.id}/milestones/${milestone.id}`,
+          ),
+        )
+        .set('Authorization', `Bearer ${token}`)
+        .expect(204);
+
+      // Verify milestone was deleted
+      const response = await request(app.getHttpServer())
+        .get(createApiPath(`fundraisers/${fundraiser.id}/milestones`))
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(response.body).toHaveLength(0);
+    });
+
+    it('should delete milestone from fundraiser (as group editor)', async () => {
+      const { group } = await createFakeUserWithToken({
+        accountType: AccountType.team,
+        setupComplete: true,
+      });
+
+      const { fundraiser } = await createFakeFundraiser(group!);
+      const { milestone } = await createFakeMilestone(fundraiser);
+
+      // Create a group member with editor role
+      const { token, user } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
+      await addUserToGroup(user, group!, GroupMemberRole.editor);
+
+      await request(app.getHttpServer())
+        .delete(
+          createApiPath(
+            `fundraisers/${fundraiser.id}/milestones/${milestone.id}`,
+          ),
+        )
+        .set('Authorization', `Bearer ${token}`)
+        .expect(204);
+
+      // Verify milestone was deleted
+      const response = await request(app.getHttpServer())
+        .get(createApiPath(`fundraisers/${fundraiser.id}/milestones`))
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(response.body).toHaveLength(0);
+    });
+
+    it('should return 403 when deleting milestone from fundraiser (as group viewer)', async () => {
+      const { group } = await createFakeUserWithToken({
+        accountType: AccountType.team,
+        setupComplete: true,
+      });
+
+      const { fundraiser } = await createFakeFundraiser(group!);
+      const { milestone } = await createFakeMilestone(fundraiser);
+
+      // Create a group member with viewer role
+      const { token, user } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
+      await addUserToGroup(user, group!, GroupMemberRole.viewer);
+
+      await request(app.getHttpServer())
+        .delete(
+          createApiPath(
+            `fundraisers/${fundraiser.id}/milestones/${milestone.id}`,
+          ),
+        )
+        .set('Authorization', `Bearer ${token}`)
+        .expect(403);
+
+      // Verify milestone was not deleted
+      const response = await request(app.getHttpServer())
+        .get(createApiPath(`fundraisers/${fundraiser.id}/milestones`))
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(response.body).toHaveLength(1);
+    });
+
+    it('should return 403 when the user tries to delete a milestone from a fundraiser they do not own', async () => {
+      const { user } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
+
+      const { fundraiser } = await createFakeFundraiser(user);
+      const { milestone } = await createFakeMilestone(fundraiser);
+
+      // Create a different user
+      const { token } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
+
+      await request(app.getHttpServer())
+        .delete(
+          createApiPath(
+            `fundraisers/${fundraiser.id}/milestones/${milestone.id}`,
+          ),
+        )
+        .set('Authorization', `Bearer ${token}`)
+        .expect(403);
+    });
+
+    it('should return 403 when the user tries to delete a milestone from a group fundraiser they are not a member of', async () => {
+      const { group } = await createFakeUserWithToken({
+        accountType: AccountType.team,
+        setupComplete: true,
+      });
+
+      const { fundraiser } = await createFakeFundraiser(group!);
+      const { milestone } = await createFakeMilestone(fundraiser);
+
+      // Create a different user
+      const { token } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
+
+      await request(app.getHttpServer())
+        .delete(
+          createApiPath(
+            `fundraisers/${fundraiser.id}/milestones/${milestone.id}`,
+          ),
+        )
+        .set('Authorization', `Bearer ${token}`)
+        .expect(403);
+    });
+
+    it('should return 400 when trying to delete an achieved milestone', async () => {
+      const { token, user } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
+
+      const { fundraiser } = await createFakeFundraiser(user);
+      const { milestone } = await createFakeMilestone(fundraiser, {
+        achieved: true,
+        achievedAt: new Date(),
+      });
+
+      const response = await request(app.getHttpServer())
+        .delete(
+          createApiPath(
+            `fundraisers/${fundraiser.id}/milestones/${milestone.id}`,
+          ),
+        )
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(response.statusCode).toBe(400);
+      expect(response.body.message).toBe('Cannot delete an achieved milestone');
+
+      // Verify milestone was not deleted
+      const listResponse = await request(app.getHttpServer())
+        .get(createApiPath(`fundraisers/${fundraiser.id}/milestones`))
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(listResponse.body).toHaveLength(1);
+    });
+
+    it('should return 400 when milestone does not belong to the specified fundraiser', async () => {
+      const { token, user } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
+
+      // Create two fundraisers
+      const { fundraiser: fundraiser1 } = await createFakeFundraiser(user);
+      const { fundraiser: fundraiser2 } = await createFakeFundraiser(user);
+
+      // Create milestone for fundraiser1
+      const { milestone } = await createFakeMilestone(fundraiser1);
+
+      // Try to delete using fundraiser2's ID
+      const response = await request(app.getHttpServer())
+        .delete(
+          createApiPath(
+            `fundraisers/${fundraiser2.id}/milestones/${milestone.id}`,
+          ),
+        )
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(response.statusCode).toBe(400);
+      expect(response.body.message).toBe(
+        'Milestone does not belong to this fundraiser',
+      );
+
+      // Verify milestone was not deleted
+      const listResponse = await request(app.getHttpServer())
+        .get(createApiPath(`fundraisers/${fundraiser1.id}/milestones`))
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(listResponse.body).toHaveLength(1);
+    });
+  });
 });

@@ -126,4 +126,18 @@ export class FundraisersController {
   ) {
     return this.milestonesService.update(user, fundraiserId, milestoneId, data);
   }
+
+  /**
+   * Delete a milestone
+   * DELETE /api/v1/fundraisers/:fundraiserId/milestones/:milestoneId
+   */
+  @Delete(':fundraiserId/milestones/:milestoneId')
+  @HttpCode(204)
+  async deleteMilestone(
+    @Param('fundraiserId') fundraiserId: string,
+    @Param('milestoneId') milestoneId: string,
+    @AuthUser() user: UserEntity,
+  ) {
+    await this.milestonesService.delete(user, fundraiserId, milestoneId);
+  }
 }

@@ -195,6 +195,61 @@ export class MilestonesService {
   }
 
   /**
+   * Delete a milestone
+   * Only allows deletion if milestone hasn't been achieved yet
+   */
+  async delete(user: UserEntity, fundraiserId: string, milestoneId: string) {
+    // First, verify the fundraiser and milestone exist
+    const milestone = await this.prisma.milestone.findUnique({
+      where: { id: milestoneId },
+      include: { fundraiser: true },
+    });
+
+    if (!milestone) {
+      throw new NotFoundException('Milestone not found');
+    }
+
+    if (milestone.fundraiserId !== fundraiserId) {
+      throw new BadRequestException(
+        'Milestone does not belong to this fundraiser',
+      );
+    }
+
+    if (milestone.achieved) {
+      throw new BadRequestException('Cannot delete an achieved milestone');
+    }
+
+    // Check permissions based on owner type
+    if (milestone.fundraiser.ownerType === FundraiserOwnerType.user) {
+      if (milestone.fundraiser.userId !== user.id) {
+        throw new ForbiddenException(
+          'You do not have permission to delete this milestone',
+        );
+      }
+    } else if (milestone.fundraiser.ownerType === FundraiserOwnerType.group) {
+      const membership = await this.prisma.groupMember.findUnique({
+        where: {
+          unique_user_group: {
+            userId: user.id,
+            groupId: milestone.fundraiser.groupId!,
+          },
+        },
+      });
+
+      if (!membership || membership.role === 'viewer') {
+        throw new ForbiddenException(
+          'You do not have permission to delete this milestone',
+        );
+      }
+    }
+
+    // Delete the milestone
+    await this.prisma.milestone.delete({
+      where: { id: milestoneId },
+    });
+  }
+
+  /**
    * Internal method to check and update milestone achievement status
    * This should be called whenever a donation is processed
    */
