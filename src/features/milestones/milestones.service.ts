@@ -18,6 +18,53 @@ export class MilestonesService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
+   * List milestones for a fundraiser
+   * Checks permissions based on fundraiser ownership
+   */
+  async list(user: UserEntity, fundraiserId: string) {
+    // First, verify the fundraiser exists and user has permission
+    const fundraiser = await this.prisma.fundraiser.findUnique({
+      where: { id: fundraiserId },
+    });
+
+    if (!fundraiser) {
+      throw new NotFoundException('Fundraiser not found');
+    }
+
+    // Check permissions based on owner type
+    if (fundraiser.ownerType === FundraiserOwnerType.user) {
+      // For user-owned fundraisers, only the owner can view milestones
+      if (fundraiser.userId !== user.id) {
+        throw new ForbiddenException(
+          'You do not have permission to view milestones for this fundraiser',
+        );
+      }
+    } else if (fundraiser.ownerType === FundraiserOwnerType.group) {
+      // For group-owned fundraisers, check member role
+      const membership = await this.prisma.groupMember.findUnique({
+        where: {
+          unique_user_group: {
+            userId: user.id,
+            groupId: fundraiser.groupId!,
+          },
+        },
+      });
+
+      if (!membership) {
+        throw new ForbiddenException(
+          'You do not have permission to view milestones for this fundraiser',
+        );
+      }
+    }
+
+    // Get all milestones for this fundraiser
+    return await this.prisma.milestone.findMany({
+      where: { fundraiserId },
+      orderBy: { stepNumber: 'asc' },
+    });
+  }
+
+  /**
    * Create a new milestone for a fundraiser
    * Checks permissions based on fundraiser ownership
    */

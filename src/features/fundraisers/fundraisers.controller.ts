@@ -99,4 +99,16 @@ export class FundraisersController {
   ) {
     return this.milestonesService.create(user, fundraiserId, data);
   }
+
+  /**
+   * List milestones for a fundraiser
+   * GET /api/v1/fundraisers/:fundraiserId/milestones
+   */
+  @Get(':fundraiserId/milestones')
+  async listMilestones(
+    @Param('fundraiserId') fundraiserId: string,
+    @AuthUser() user: UserEntity,
+  ) {
+    return this.milestonesService.list(user, fundraiserId);
+  }
 }

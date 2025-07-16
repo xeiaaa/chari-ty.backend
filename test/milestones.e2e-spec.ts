@@ -13,7 +13,10 @@ import {
   createFakeUserWithToken,
 } from './factories/users.factory';
 import { createFakeFundraiser } from './factories/fundraisers.factory';
-import { buildFakeMilestone } from './factories/milestones.factory';
+import {
+  buildFakeMilestone,
+  createFakeMilestone,
+} from './factories/milestones.factory';
 
 describe('Milestones Module', () => {
   let app: INestApplication<App>;
@@ -252,6 +255,210 @@ describe('Milestones Module', () => {
         .set('Authorization', `Bearer ${token}`)
         .send(milestone)
         .expect(403);
+    });
+  });
+
+  describe('GET /api/v1/fundraisers/:id/milestones', () => {
+    it('should return all milestones for a fundraiser', async () => {
+      const { token, user } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
+
+      const { fundraiser } = await createFakeFundraiser(user);
+      await createFakeMilestone(fundraiser, {
+        stepNumber: 1,
+      });
+      await createFakeMilestone(fundraiser, {
+        stepNumber: 2,
+      });
+      await createFakeMilestone(fundraiser, {
+        stepNumber: 3,
+      });
+
+      const response = await request(app.getHttpServer())
+        .get(createApiPath(`fundraisers/${fundraiser.id}/milestones`))
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(response.statusCode).toBe(200);
+      expect(response.body).toHaveLength(3);
+    });
+
+    it('should return all milestones for a fundraiser (as group owner)', async () => {
+      const { token, group } = await createFakeUserWithToken({
+        accountType: AccountType.team,
+        setupComplete: true,
+      });
+
+      const { fundraiser } = await createFakeFundraiser(group!);
+      await createFakeMilestone(fundraiser, {
+        stepNumber: 1,
+      });
+      await createFakeMilestone(fundraiser, {
+        stepNumber: 2,
+      });
+      await createFakeMilestone(fundraiser, {
+        stepNumber: 3,
+      });
+
+      const response = await request(app.getHttpServer())
+        .get(createApiPath(`fundraisers/${fundraiser.id}/milestones`))
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(response.statusCode).toBe(200);
+      expect(response.body).toHaveLength(3);
+    });
+
+    it('should return all milestones for a fundraiser (as group admin)', async () => {
+      const { group } = await createFakeUserWithToken({
+        accountType: AccountType.team,
+        setupComplete: true,
+      });
+
+      const { fundraiser } = await createFakeFundraiser(group!);
+      await createFakeMilestone(fundraiser, {
+        stepNumber: 1,
+      });
+      await createFakeMilestone(fundraiser, {
+        stepNumber: 2,
+      });
+      await createFakeMilestone(fundraiser, {
+        stepNumber: 3,
+      });
+
+      // Create a group member with admin role
+      const { token, user } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
+      await addUserToGroup(user, group!, GroupMemberRole.admin);
+
+      const response = await request(app.getHttpServer())
+        .get(createApiPath(`fundraisers/${fundraiser.id}/milestones`))
+        .set('Authorization', `Bearer ${token}`);
+      expect(response.statusCode).toBe(200);
+      expect(response.body).toHaveLength(3);
+    });
+
+    it('should return all milestones for a fundraiser (as group editor)', async () => {
+      const { group } = await createFakeUserWithToken({
+        accountType: AccountType.team,
+        setupComplete: true,
+      });
+
+      const { fundraiser } = await createFakeFundraiser(group!);
+      await createFakeMilestone(fundraiser, {
+        stepNumber: 1,
+      });
+      await createFakeMilestone(fundraiser, {
+        stepNumber: 2,
+      });
+      await createFakeMilestone(fundraiser, {
+        stepNumber: 3,
+      });
+
+      // Create a group member with editor role
+      const { token, user } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
+      await addUserToGroup(user, group!, GroupMemberRole.editor);
+
+      const response = await request(app.getHttpServer())
+        .get(createApiPath(`fundraisers/${fundraiser.id}/milestones`))
+        .set('Authorization', `Bearer ${token}`);
+      expect(response.statusCode).toBe(200);
+      expect(response.body).toHaveLength(3);
+    });
+
+    it('should return all milestones for a fundraiser (as group viewer)', async () => {
+      const { group } = await createFakeUserWithToken({
+        accountType: AccountType.team,
+        setupComplete: true,
+      });
+
+      const { fundraiser } = await createFakeFundraiser(group!);
+      await createFakeMilestone(fundraiser, {
+        stepNumber: 1,
+      });
+      await createFakeMilestone(fundraiser, {
+        stepNumber: 2,
+      });
+      await createFakeMilestone(fundraiser, {
+        stepNumber: 3,
+      });
+
+      // Create a group member with viewer role
+      const { token, user } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
+      await addUserToGroup(user, group!, GroupMemberRole.viewer);
+
+      const response = await request(app.getHttpServer())
+        .get(createApiPath(`fundraisers/${fundraiser.id}/milestones`))
+        .set('Authorization', `Bearer ${token}`);
+      expect(response.statusCode).toBe(200);
+      expect(response.body).toHaveLength(3);
+    });
+
+    it('should return 403 when the user tries to list milestones for a fundraiser they do not own', async () => {
+      const { user } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
+
+      const { fundraiser } = await createFakeFundraiser(user);
+      await createFakeMilestone(fundraiser, {
+        stepNumber: 1,
+      });
+      await createFakeMilestone(fundraiser, {
+        stepNumber: 2,
+      });
+      await createFakeMilestone(fundraiser, {
+        stepNumber: 3,
+      });
+
+      // Create a different user
+      const { token } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
+
+      const response = await request(app.getHttpServer())
+        .get(createApiPath(`fundraisers/${fundraiser.id}/milestones`))
+        .set('Authorization', `Bearer ${token}`);
+      console.log(response.body);
+      expect(response.statusCode).toBe(403);
+    });
+
+    it('should return 403 when the user tries to list milestones for a group fundraiser they are not a member of', async () => {
+      const { group } = await createFakeUserWithToken({
+        accountType: AccountType.team,
+        setupComplete: true,
+      });
+
+      const { fundraiser } = await createFakeFundraiser(group!);
+      await createFakeMilestone(fundraiser, {
+        stepNumber: 1,
+      });
+      await createFakeMilestone(fundraiser, {
+        stepNumber: 2,
+      });
+      await createFakeMilestone(fundraiser, {
+        stepNumber: 3,
+      });
+
+      // Create a group member with viewer role
+      const { token } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
+
+      const response = await request(app.getHttpServer())
+        .get(createApiPath(`fundraisers/${fundraiser.id}/milestones`))
+        .set('Authorization', `Bearer ${token}`);
+      expect(response.statusCode).toBe(403);
     });
   });
 });
