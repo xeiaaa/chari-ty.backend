@@ -252,28 +252,41 @@ export class MilestonesService {
   /**
    * Internal method to check and update milestone achievement status
    * This should be called whenever a donation is processed
+   * Uses cumulative milestone amounts (milestone 1: $100, milestone 2: $200 = $300 total needed)
    */
-  async checkAndUpdateAchievement(
-    fundraiserId: string,
-    currentAmount: Decimal,
-  ) {
-    // Get all unachieved milestones for this fundraiser
+  async checkAndUpdateAchievement(fundraiserId: string, totalAmount: Decimal) {
+    // Get all milestones for this fundraiser ordered by step number
     const milestones = await this.prisma.milestone.findMany({
-      where: {
-        fundraiserId,
-        achieved: false,
-      },
-      orderBy: { amount: 'asc' },
+      where: { fundraiserId },
+      orderBy: { stepNumber: 'asc' },
     });
 
-    // Update any milestones that have been achieved
+    let cumulativeAmount = new Decimal(0);
+
+    // Calculate cumulative amounts and update achievements
     for (const milestone of milestones) {
-      if (currentAmount.gte(milestone.amount)) {
+      cumulativeAmount = cumulativeAmount.add(milestone.amount);
+
+      // Check if this milestone should be achieved
+      const shouldBeAchieved = totalAmount.gte(cumulativeAmount);
+
+      // Update milestone if status has changed
+      if (shouldBeAchieved && !milestone.achieved) {
         await this.prisma.milestone.update({
           where: { id: milestone.id },
           data: {
             achieved: true,
             achievedAt: new Date(),
+          },
+        });
+      } else if (!shouldBeAchieved && milestone.achieved) {
+        // Handle case where milestone was achieved but should no longer be
+        // (e.g., if donation was refunded)
+        await this.prisma.milestone.update({
+          where: { id: milestone.id },
+          data: {
+            achieved: false,
+            achievedAt: null,
           },
         });
       }

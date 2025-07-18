@@ -1,8 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { createHmac, timingSafeEqual } from 'crypto';
-import { AccountType } from '../../../generated/prisma';
+import { AccountType, DonationStatus } from '../../../generated/prisma';
 import { UsersService } from '../users/users.service';
 import { PrismaService } from '../../core/prisma/prisma.service';
+import { Decimal } from '@prisma/client/runtime/library';
 import {
   ClerkWebhookEvent,
   ClerkUserData,
@@ -143,6 +144,118 @@ export class WebhooksService {
 
     await this.usersService.deleteUser(existingUser.id);
     this.logger.log(`User deleted successfully: ${userData.id}`);
+  }
+
+  /**
+   * Process a Stripe webhook event
+   */
+  async processStripeWebhook(event: any): Promise<void> {
+    this.logger.log(`Processing Stripe webhook: ${event.type}`);
+
+    try {
+      switch (event.type) {
+        case 'checkout.session.completed':
+          await this.handleCheckoutSessionCompleted(event.data.object);
+          break;
+        default:
+          this.logger.warn(`Unhandled webhook event type: ${event.type}`);
+      }
+    } catch (error) {
+      this.logger.error(
+        `Error processing Stripe webhook event ${event.type}:`,
+        error.stack,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Handle checkout.session.completed event
+   */
+  private async handleCheckoutSessionCompleted(session: any): Promise<void> {
+    this.logger.log(`Processing checkout session completed: ${session.id}`);
+
+    const metadata = session.metadata;
+    if (!metadata?.donationId || !metadata?.fundraiserId) {
+      this.logger.warn(
+        'Missing required metadata in checkout session',
+        metadata,
+      );
+      return;
+    }
+
+    // Update donation status to completed
+    const donation = await this.prisma.donation.update({
+      where: { id: metadata.donationId },
+      data: { status: DonationStatus.completed },
+    });
+
+    this.logger.log(`Donation ${donation.id} marked as completed`);
+
+    // Calculate total donations for the fundraiser
+    const totalDonations = await this.prisma.donation.aggregate({
+      where: {
+        fundraiserId: metadata.fundraiserId,
+        status: DonationStatus.completed,
+      },
+      _sum: { amount: true },
+    });
+
+    const totalAmount = totalDonations._sum.amount || new Decimal(0);
+
+    // Update milestone achievements with cumulative logic
+    await this.updateMilestoneAchievements(metadata.fundraiserId, totalAmount);
+
+    this.logger.log(
+      `Updated milestone achievements for fundraiser ${metadata.fundraiserId}`,
+    );
+  }
+
+  /**
+   * Update milestone achievements based on cumulative amounts
+   */
+  private async updateMilestoneAchievements(
+    fundraiserId: string,
+    totalAmount: Decimal,
+  ): Promise<void> {
+    // Get all milestones for this fundraiser ordered by step number
+    const milestones = await this.prisma.milestone.findMany({
+      where: { fundraiserId },
+      orderBy: { stepNumber: 'asc' },
+    });
+
+    let cumulativeAmount = new Decimal(0);
+
+    // Calculate cumulative amounts and update achievements
+    for (const milestone of milestones) {
+      cumulativeAmount = cumulativeAmount.add(milestone.amount);
+
+      // Check if this milestone should be achieved
+      const shouldBeAchieved = totalAmount.gte(cumulativeAmount);
+
+      // Update milestone if status has changed
+      if (shouldBeAchieved && !milestone.achieved) {
+        await this.prisma.milestone.update({
+          where: { id: milestone.id },
+          data: {
+            achieved: true,
+            achievedAt: new Date(),
+          },
+        });
+        this.logger.log(`Milestone ${milestone.id} achieved`);
+      } else if (!shouldBeAchieved && milestone.achieved) {
+        // Handle case where milestone was achieved but should no longer be
+        // (e.g., if donation was refunded)
+        await this.prisma.milestone.update({
+          where: { id: milestone.id },
+          data: {
+            achieved: false,
+            achievedAt: null,
+          },
+        });
+        this.logger.log(`Milestone ${milestone.id} no longer achieved`);
+      }
+    }
   }
 
   /**

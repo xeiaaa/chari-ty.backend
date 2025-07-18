@@ -85,28 +85,51 @@ export class WebhooksController {
    */
   @Public()
   @Post('stripe')
-  handleStripeWebhook(
+  async handleStripeWebhook(
     @Body() event: any,
     @Headers('stripe-signature') stripeSignature: string,
-  ): { success: boolean; message: string } {
-    console.log(
-      'Stripe webhook event:',
-      JSON.stringify(
-        {
-          type: event.type,
-          id: event.id,
-          data: event.data,
-          signature: stripeSignature,
-        },
-        null,
-        2,
-      ),
-    );
+  ): Promise<{ success: boolean; message: string }> {
+    console.log('Stripe webhook event received:', {
+      type: event.type,
+      id: event.id,
+      signature: stripeSignature,
+    });
 
-    return {
-      success: true,
-      message: `Successfully logged ${event.type} event`,
-    };
+    try {
+      // Verify webhook signature in production
+      if (process.env.NODE_ENV === 'production') {
+        const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+        if (!webhookSecret) {
+          throw new HttpException(
+            'Stripe webhook secret not configured',
+            HttpStatus.INTERNAL_SERVER_ERROR,
+          );
+        }
+
+        // TODO: Implement Stripe signature verification
+        // For now, we'll log the signature for debugging
+        console.log('Stripe signature verification needed:', stripeSignature);
+      }
+
+      // Process the webhook event
+      await this.webhooksService.processStripeWebhook(event);
+
+      return {
+        success: true,
+        message: `Successfully processed ${event.type} event`,
+      };
+    } catch (error) {
+      console.error('Error processing Stripe webhook:', error);
+
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
+      throw new HttpException(
+        `Failed to process Stripe webhook: ${error.message}`,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
   }
 
   /**

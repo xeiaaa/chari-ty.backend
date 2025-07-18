@@ -127,13 +127,68 @@ export class FundraisersService {
     return slug;
   }
 
+  /**
+   * Calculate progress information for a fundraiser
+   */
+  private async calculateFundraiserProgress(fundraiserId: string) {
+    const [totalRaised, donationCount] = await Promise.all([
+      this.prisma.donation.aggregate({
+        where: {
+          fundraiserId,
+          status: 'completed',
+        },
+        _sum: { amount: true },
+      }),
+      this.prisma.donation.count({
+        where: {
+          fundraiserId,
+          status: 'completed',
+        },
+      }),
+    ]);
+
+    const totalRaisedAmount = totalRaised._sum.amount || new Decimal(0);
+
+    return {
+      totalRaised: totalRaisedAmount,
+      donationCount,
+    };
+  }
+
+  /**
+   * Enhance fundraisers with progress information
+   */
+  private async enhanceFundraisersWithProgress(fundraisers: any[]) {
+    return await Promise.all(
+      fundraisers.map(async (fundraiser) => {
+        const progress = await this.calculateFundraiserProgress(fundraiser.id);
+        const progressPercentage = fundraiser.goalAmount.gt(0)
+          ? progress.totalRaised.div(fundraiser.goalAmount).mul(100).toNumber()
+          : 0;
+
+        return {
+          ...fundraiser,
+          progress: {
+            totalRaised: progress.totalRaised,
+            donationCount: progress.donationCount,
+            progressPercentage: Math.min(progressPercentage, 100), // Cap at 100%
+          },
+        };
+      }),
+    );
+  }
+
+  /**
+   * List fundraisers with filters and pagination
+   * Includes progress information for each fundraiser
+   */
   async list(user: UserEntity, query: ListFundraisersDto) {
     const {
       groupId,
       status,
       category,
-      search,
       isPublic,
+      search,
       sortBy = 'createdAt',
       sortOrder = 'desc',
       limit = 10,
@@ -189,8 +244,11 @@ export class FundraisersService {
       this.prisma.fundraiser.count({ where }),
     ]);
 
+    // Enhance fundraisers with progress information
+    const enhancedItems = await this.enhanceFundraisersWithProgress(items);
+
     return {
-      items,
+      items: enhancedItems,
       meta: {
         total,
         page,
@@ -203,6 +261,7 @@ export class FundraisersService {
   /**
    * Get a single fundraiser by ID
    * Checks if the user has permission to view the fundraiser
+   * Includes progress information
    */
   async findOne(user: UserEntity, fundraiserId: string) {
     const fundraiser = await this.prisma.fundraiser.findUnique({
@@ -237,12 +296,17 @@ export class FundraisersService {
       }
     }
 
-    return fundraiser;
+    // Enhance with progress information
+    const [enhancedFundraiser] = await this.enhanceFundraisersWithProgress([
+      fundraiser,
+    ]);
+    return enhancedFundraiser;
   }
 
   /**
    * Get a single fundraiser by slug
    * Checks if the user has permission to view the fundraiser
+   * Includes progress information
    */
   async findBySlug(user: UserEntity, slug: string) {
     const fundraiser = await this.prisma.fundraiser.findUnique({
@@ -277,7 +341,11 @@ export class FundraisersService {
       }
     }
 
-    return fundraiser;
+    // Enhance with progress information
+    const [enhancedFundraiser] = await this.enhanceFundraisersWithProgress([
+      fundraiser,
+    ]);
+    return enhancedFundraiser;
   }
 
   /**
@@ -388,6 +456,7 @@ export class FundraisersService {
   /**
    * Get public fundraisers without authentication
    * Returns all public fundraisers with pagination
+   * Includes progress information
    */
   async listPublic(query: ListPublicFundraisersDto) {
     const {
@@ -429,8 +498,11 @@ export class FundraisersService {
       this.prisma.fundraiser.count({ where }),
     ]);
 
+    // Enhance fundraisers with progress information
+    const enhancedItems = await this.enhanceFundraisersWithProgress(items);
+
     return {
-      items,
+      items: enhancedItems,
       meta: {
         total,
         page,
@@ -443,6 +515,7 @@ export class FundraisersService {
   /**
    * Get a single public fundraiser by slug without authentication
    * Only returns public fundraisers
+   * Includes progress information
    */
   async findPublicBySlug(slug: string) {
     const fundraiser = await this.prisma.fundraiser.findUnique({
@@ -461,7 +534,11 @@ export class FundraisersService {
       throw new NotFoundException('Fundraiser not found');
     }
 
-    return fundraiser;
+    // Enhance with progress information
+    const [enhancedFundraiser] = await this.enhanceFundraisersWithProgress([
+      fundraiser,
+    ]);
+    return enhancedFundraiser;
   }
 
   /**
