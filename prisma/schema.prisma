@@ -56,6 +56,7 @@ model User {
   // Relations
   groupMemberships GroupMember[]
   Fundraiser       Fundraiser[]
+  donations        Donation[]
 
   @@map("users")
 }
@@ -155,6 +156,7 @@ model Fundraiser {
   group      Group?           @relation(fields: [groupId], references: [id])
   milestones Milestone[]
   links      FundraiserLink[]
+  donations  Donation[]
 
   @@map("fundraisers")
 }
@@ -189,8 +191,39 @@ model FundraiserLink {
 
   // Relations
   fundraiser Fundraiser @relation(fields: [fundraiserId], references: [id], onDelete: Cascade)
+  donations  Donation[]
 
   // Ensure alias is unique per fundraiser
   @@unique([fundraiserId, alias], name: "unique_fundraiser_alias")
   @@map("fundraiser_links")
+}
+
+enum DonationStatus {
+  pending
+  completed
+  failed
+  refunded
+}
+
+model Donation {
+  id               String         @id @default(cuid())
+  fundraiserId     String
+  donorId          String? // User ID if not anonymous
+  amount           Decimal
+  currency         String
+  name             String? // Optional donor name
+  message          String? // Optional donor message
+  isAnonymous      Boolean        @default(false)
+  status           DonationStatus @default(pending)
+  stripeId         String? // Stripe payment ID
+  fundraiserLinkId String? // FK to FundraiserLink if donation came from a link
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  // Relations
+  fundraiser Fundraiser      @relation(fields: [fundraiserId], references: [id], onDelete: Cascade)
+  donor      User?           @relation(fields: [donorId], references: [id])
+  sourceLink FundraiserLink? @relation(fields: [fundraiserLinkId], references: [id])
+
+  @@map("donations")
 }

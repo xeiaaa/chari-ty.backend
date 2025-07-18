@@ -80,6 +80,36 @@ export class WebhooksController {
   }
 
   /**
+   * Handle Stripe webhook events
+   * POST /api/v1/webhooks/stripe
+   */
+  @Public()
+  @Post('stripe')
+  handleStripeWebhook(
+    @Body() event: any,
+    @Headers('stripe-signature') stripeSignature: string,
+  ): { success: boolean; message: string } {
+    console.log(
+      'Stripe webhook event:',
+      JSON.stringify(
+        {
+          type: event.type,
+          id: event.id,
+          data: event.data,
+          signature: stripeSignature,
+        },
+        null,
+        2,
+      ),
+    );
+
+    return {
+      success: true,
+      message: `Successfully logged ${event.type} event`,
+    };
+  }
+
+  /**
    * Health check endpoint for webhook testing
    * GET /api/v1/webhooks/test
    */

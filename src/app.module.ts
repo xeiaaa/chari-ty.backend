@@ -8,6 +8,7 @@ import { AuthModule } from './features/auth/auth.module';
 import { WebhooksModule } from './features/webhooks/webhooks.module';
 import { FundraisersModule } from './features/fundraisers/fundraisers.module';
 import { LinksModule } from './features/links/links.module';
+import { DonationsModule } from './features/donations/donations.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { LinksModule } from './features/links/links.module';
     WebhooksModule,
     FundraisersModule,
     LinksModule,
+    DonationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -29,7 +29,7 @@ coverage/
 
 # Environment variables
 .env
-.env.*
+.env.test
 
 # Misc
 .DS_Store

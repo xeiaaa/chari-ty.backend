@@ -63,6 +63,15 @@ export class FundraisersController {
   }
 
   /**
+   * Get a single fundraiser by slug
+   * GET /api/v1/fundraisers/slug/:slug
+   */
+  @Get('slug/:slug')
+  async findBySlug(@Param('slug') slug: string, @AuthUser() user: UserEntity) {
+    return await this.fundraisersService.findBySlug(user, slug);
+  }
+
+  /**
    * Update a fundraiser
    * PATCH /api/v1/fundraisers/:fundraiserId
    */

@@ -14,6 +14,7 @@ import {
 } from '../../../generated/prisma';
 import { Decimal } from '@prisma/client/runtime/library';
 import { ListFundraisersDto } from './dtos/list-fundraisers.dto';
+import { ListPublicFundraisersDto } from './dtos/list-public-fundraisers.dto';
 import { UpdateFundraiserDto } from './dtos/update-fundraiser.dto';
 
 @Injectable()
@@ -240,6 +241,46 @@ export class FundraisersService {
   }
 
   /**
+   * Get a single fundraiser by slug
+   * Checks if the user has permission to view the fundraiser
+   */
+  async findBySlug(user: UserEntity, slug: string) {
+    const fundraiser = await this.prisma.fundraiser.findUnique({
+      where: { slug },
+    });
+
+    if (!fundraiser) {
+      throw new NotFoundException('Fundraiser not found');
+    }
+
+    // Check if user has permission to view this fundraiser
+    if (fundraiser.ownerType === FundraiserOwnerType.user) {
+      if (fundraiser.userId !== user.id) {
+        throw new ForbiddenException(
+          'You do not have permission to view this fundraiser',
+        );
+      }
+    } else if (fundraiser.ownerType === FundraiserOwnerType.group) {
+      const membership = await this.prisma.groupMember.findUnique({
+        where: {
+          unique_user_group: {
+            userId: user.id,
+            groupId: fundraiser.groupId!,
+          },
+        },
+      });
+
+      if (!membership) {
+        throw new ForbiddenException(
+          'You do not have permission to view this fundraiser',
+        );
+      }
+    }
+
+    return fundraiser;
+  }
+
+  /**
    * Update a fundraiser
    * Checks permissions based on owner type
    */
@@ -342,5 +383,82 @@ export class FundraisersService {
     await this.prisma.fundraiser.delete({
       where: { id: fundraiserId },
     });
+  }
+
+  /**
+   * Get public fundraisers without authentication
+   * Returns all public fundraisers with pagination
+   */
+  async listPublic(query: ListPublicFundraisersDto) {
+    const {
+      groupId,
+      status,
+      category,
+      search,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+      limit = 10,
+      page = 1,
+    } = query;
+
+    // Build where conditions - only show public fundraisers
+    const whereConditions: Prisma.FundraiserWhereInput[] = [
+      { isPublic: true },
+    ];
+
+    if (groupId) whereConditions.push({ groupId });
+    if (status) whereConditions.push({ status });
+    if (category) whereConditions.push({ category });
+    if (search) {
+      whereConditions.push({
+        OR: [
+          { title: { contains: search, mode: 'insensitive' } },
+          { summary: { contains: search, mode: 'insensitive' } },
+        ],
+      });
+    }
+
+    const where: Prisma.FundraiserWhereInput = { AND: whereConditions };
+
+    const [items, total] = await Promise.all([
+      this.prisma.fundraiser.findMany({
+        where,
+        orderBy: { [sortBy]: sortOrder },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.fundraiser.count({ where }),
+    ]);
+
+    return {
+      items,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  /**
+   * Get a single public fundraiser by slug without authentication
+   * Only returns public fundraisers
+   */
+  async findPublicBySlug(slug: string) {
+    const fundraiser = await this.prisma.fundraiser.findUnique({
+      where: { slug },
+    });
+
+    if (!fundraiser) {
+      throw new NotFoundException('Fundraiser not found');
+    }
+
+    // Only return public fundraisers
+    if (!fundraiser.isPublic) {
+      throw new NotFoundException('Fundraiser not found');
+    }
+
+    return fundraiser;
   }
 }
