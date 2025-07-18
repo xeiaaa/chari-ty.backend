@@ -392,7 +392,6 @@ export class FundraisersService {
   async listPublic(query: ListPublicFundraisersDto) {
     const {
       groupId,
-      status,
       category,
       search,
       sortBy = 'createdAt',
@@ -401,13 +400,13 @@ export class FundraisersService {
       page = 1,
     } = query;
 
-    // Build where conditions - only show public fundraisers
+    // Build where conditions - only show public and published fundraisers
     const whereConditions: Prisma.FundraiserWhereInput[] = [
       { isPublic: true },
+      { status: FundraiserStatus.published },
     ];
 
     if (groupId) whereConditions.push({ groupId });
-    if (status) whereConditions.push({ status });
     if (category) whereConditions.push({ category });
     if (search) {
       whereConditions.push({
@@ -454,11 +453,64 @@ export class FundraisersService {
       throw new NotFoundException('Fundraiser not found');
     }
 
-    // Only return public fundraisers
-    if (!fundraiser.isPublic) {
+    // Only return public and published fundraisers
+    if (
+      !fundraiser.isPublic ||
+      fundraiser.status !== FundraiserStatus.published
+    ) {
       throw new NotFoundException('Fundraiser not found');
     }
 
     return fundraiser;
+  }
+
+  /**
+   * Publish or unpublish a fundraiser
+   * Updates status to 'published' or 'draft' based on the published parameter
+   */
+  async publish(user: UserEntity, fundraiserId: string, published: boolean) {
+    const fundraiser = await this.prisma.fundraiser.findUnique({
+      where: { id: fundraiserId },
+    });
+
+    if (!fundraiser) {
+      throw new NotFoundException('Fundraiser not found');
+    }
+
+    // Check permissions based on owner type
+    if (fundraiser.ownerType === FundraiserOwnerType.user) {
+      // For user-owned fundraisers, only the owner can publish
+      if (fundraiser.userId !== user.id) {
+        throw new ForbiddenException(
+          'You do not have permission to publish this fundraiser',
+        );
+      }
+    } else if (fundraiser.ownerType === FundraiserOwnerType.group) {
+      // For group-owned fundraisers, check member role
+      const membership = await this.prisma.groupMember.findUnique({
+        where: {
+          unique_user_group: {
+            userId: user.id,
+            groupId: fundraiser.groupId!,
+          },
+        },
+      });
+
+      if (!membership || membership.role === 'viewer') {
+        throw new ForbiddenException(
+          'You do not have permission to publish this fundraiser',
+        );
+      }
+    }
+
+    // Update the fundraiser status
+    const status = published
+      ? FundraiserStatus.published
+      : FundraiserStatus.draft;
+
+    return await this.prisma.fundraiser.update({
+      where: { id: fundraiserId },
+      data: { status },
+    });
   }
 }

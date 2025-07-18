@@ -14,6 +14,7 @@ import { FundraisersService } from './fundraisers.service';
 import { CreateFundraiserDto } from './dtos/create-fundraiser.dto';
 import { ListFundraisersDto } from './dtos/list-fundraisers.dto';
 import { UpdateFundraiserDto } from './dtos/update-fundraiser.dto';
+import { PublishFundraiserDto } from './dtos/publish-fundraiser.dto';
 import { AuthGuard } from '../auth/auth.guard';
 import { AuthUser } from '../../common/decorators';
 import { User as UserEntity } from '../../../generated/prisma';
@@ -95,6 +96,19 @@ export class FundraisersController {
     @AuthUser() user: UserEntity,
   ) {
     await this.fundraisersService.delete(user, fundraiserId);
+  }
+
+  /**
+   * Publish or unpublish a fundraiser
+   * PATCH /api/v1/fundraisers/:fundraiserId/publish
+   */
+  @Patch(':fundraiserId/publish')
+  async publish(
+    @Param('fundraiserId') fundraiserId: string,
+    @Body() data: PublishFundraiserDto,
+    @AuthUser() user: UserEntity,
+  ) {
+    return this.fundraisersService.publish(user, fundraiserId, data.published);
   }
 
   /**

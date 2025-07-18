@@ -7,19 +7,12 @@ import {
   Min,
   IsIn,
 } from 'class-validator';
-import {
-  FundraiserCategory,
-  FundraiserStatus,
-} from '../../../../generated/prisma';
+import { FundraiserCategory } from '../../../../generated/prisma';
 
 export class ListPublicFundraisersDto {
   @IsString()
   @IsOptional()
   groupId?: string;
-
-  @IsEnum(FundraiserStatus)
-  @IsOptional()
-  status?: FundraiserStatus;
 
   @IsEnum(FundraiserCategory)
   @IsOptional()

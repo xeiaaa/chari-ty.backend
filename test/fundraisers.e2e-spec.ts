@@ -910,4 +910,240 @@ describe('Auth Module', () => {
       expect(existingFundraiser).not.toBeNull();
     });
   });
+
+  describe('PATCH /api/v1/fundraisers/:fundraiserId/publish', () => {
+    it('should return 401 Unauthorized when user is not authenticated', async () => {
+      const { user } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
+
+      const { fundraiser } = await createFakeFundraiser(user);
+
+      await request(app.getHttpServer())
+        .patch(createApiPath(`fundraisers/${fundraiser.id}/publish`))
+        .send({ published: true })
+        .expect(401);
+    });
+
+    it('should publish a user-owned fundraiser', async () => {
+      const { token, user } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
+
+      const { fundraiser } = await createFakeFundraiser(user, {
+        status: FundraiserStatus.draft,
+      });
+
+      const response = await request(app.getHttpServer())
+        .patch(createApiPath(`fundraisers/${fundraiser.id}/publish`))
+        .set('Authorization', `Bearer ${token}`)
+        .send({ published: true });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.body.status).toBe(FundraiserStatus.published);
+    });
+
+    it('should unpublish a user-owned fundraiser', async () => {
+      const { token, user } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
+
+      const { fundraiser } = await createFakeFundraiser(user, {
+        status: FundraiserStatus.published,
+      });
+
+      const response = await request(app.getHttpServer())
+        .patch(createApiPath(`fundraisers/${fundraiser.id}/publish`))
+        .set('Authorization', `Bearer ${token}`)
+        .send({ published: false });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.body.status).toBe(FundraiserStatus.draft);
+    });
+
+    it('should publish a group-owned fundraiser when user is the owner', async () => {
+      const { token, group } = await createFakeUserWithToken({
+        accountType: AccountType.team,
+        setupComplete: true,
+      });
+
+      const { fundraiser } = await createFakeFundraiser(group!, {
+        status: FundraiserStatus.draft,
+      });
+
+      const response = await request(app.getHttpServer())
+        .patch(createApiPath(`fundraisers/${fundraiser.id}/publish`))
+        .set('Authorization', `Bearer ${token}`)
+        .send({ published: true });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.body.status).toBe(FundraiserStatus.published);
+    });
+
+    it('should publish a group-owned fundraiser when user is an admin', async () => {
+      const { group } = await createFakeUserWithToken({
+        accountType: AccountType.team,
+        setupComplete: true,
+      });
+
+      const { token, user } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
+
+      const { fundraiser } = await createFakeFundraiser(group!, {
+        status: FundraiserStatus.draft,
+      });
+
+      await addUserToGroup(user, group!, GroupMemberRole.admin);
+
+      const response = await request(app.getHttpServer())
+        .patch(createApiPath(`fundraisers/${fundraiser.id}/publish`))
+        .set('Authorization', `Bearer ${token}`)
+        .send({ published: true });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.body.status).toBe(FundraiserStatus.published);
+    });
+
+    it('should publish a group-owned fundraiser when user is an editor', async () => {
+      const { group } = await createFakeUserWithToken({
+        accountType: AccountType.team,
+        setupComplete: true,
+      });
+
+      const { token, user } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
+
+      const { fundraiser } = await createFakeFundraiser(group!, {
+        status: FundraiserStatus.draft,
+      });
+
+      await addUserToGroup(user, group!, GroupMemberRole.editor);
+
+      const response = await request(app.getHttpServer())
+        .patch(createApiPath(`fundraisers/${fundraiser.id}/publish`))
+        .set('Authorization', `Bearer ${token}`)
+        .send({ published: true });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.body.status).toBe(FundraiserStatus.published);
+    });
+
+    it('should throw NotFoundException when the fundraiser does not exist', async () => {
+      const { token } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
+
+      await request(app.getHttpServer())
+        .patch(createApiPath(`fundraisers/non-existent-id/publish`))
+        .set('Authorization', `Bearer ${token}`)
+        .send({ published: true })
+        .expect(404);
+    });
+
+    it("should throw ForbiddenException when the user tries to publish another user's fundraiser", async () => {
+      const { user } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
+
+      const { fundraiser } = await createFakeFundraiser(user);
+
+      const { token: anotherUserToken } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
+
+      await request(app.getHttpServer())
+        .patch(createApiPath(`fundraisers/${fundraiser.id}/publish`))
+        .set('Authorization', `Bearer ${anotherUserToken}`)
+        .send({ published: true })
+        .expect(403);
+    });
+
+    it('should throw ForbiddenException when the user is not a member of the group that owns the fundraiser', async () => {
+      const { group } = await createFakeUserWithToken({
+        accountType: AccountType.team,
+        setupComplete: true,
+      });
+
+      const { fundraiser } = await createFakeFundraiser(group!);
+
+      const { token: anotherUserToken } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
+
+      await request(app.getHttpServer())
+        .patch(createApiPath(`fundraisers/${fundraiser.id}/publish`))
+        .set('Authorization', `Bearer ${anotherUserToken}`)
+        .send({ published: true })
+        .expect(403);
+    });
+
+    it('should throw ForbiddenException when the group member has insufficient role (viewer)', async () => {
+      const { group } = await createFakeUserWithToken({
+        accountType: AccountType.team,
+        setupComplete: true,
+      });
+
+      const { token, user } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
+
+      const { fundraiser } = await createFakeFundraiser(group!);
+
+      await addUserToGroup(user, group!, GroupMemberRole.viewer);
+
+      await request(app.getHttpServer())
+        .patch(createApiPath(`fundraisers/${fundraiser.id}/publish`))
+        .set('Authorization', `Bearer ${token}`)
+        .send({ published: true })
+        .expect(403);
+    });
+
+    it('should return 400 Bad Request when published field is missing', async () => {
+      const { token, user } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
+
+      const { fundraiser } = await createFakeFundraiser(user);
+
+      await request(app.getHttpServer())
+        .patch(createApiPath(`fundraisers/${fundraiser.id}/publish`))
+        .set('Authorization', `Bearer ${token}`)
+        .send({})
+        .expect(400);
+    });
+
+    it('should return 400 Bad Request when published field is not a boolean', async () => {
+      const { token, user } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
+
+      const { fundraiser } = await createFakeFundraiser(user);
+
+      await request(app.getHttpServer())
+        .patch(createApiPath(`fundraisers/${fundraiser.id}/publish`))
+        .set('Authorization', `Bearer ${token}`)
+        .send({ published: 'invalid' })
+        .expect(400);
+
+      await request(app.getHttpServer())
+        .patch(createApiPath(`fundraisers/${fundraiser.id}/publish`))
+        .set('Authorization', `Bearer ${token}`)
+        .send({ published: 1 })
+        .expect(400);
+    });
+  });
 });
