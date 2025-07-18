@@ -7,6 +7,7 @@ import { UsersModule } from './features/users/users.module';
 import { AuthModule } from './features/auth/auth.module';
 import { WebhooksModule } from './features/webhooks/webhooks.module';
 import { FundraisersModule } from './features/fundraisers/fundraisers.module';
+import { LinksModule } from './features/links/links.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { FundraisersModule } from './features/fundraisers/fundraisers.module';
     UsersModule,
     WebhooksModule,
     FundraisersModule,
+    LinksModule,
   ],
   controllers: [AppController],
   providers: [AppService],
