@@ -456,7 +456,7 @@ export class FundraisersService {
   /**
    * Get public fundraisers without authentication
    * Returns all public fundraisers with pagination
-   * Includes progress information
+   * Includes progress information and owner details
    */
   async listPublic(query: ListPublicFundraisersDto) {
     const {
@@ -494,6 +494,23 @@ export class FundraisersService {
         orderBy: { [sortBy]: sortOrder },
         skip: (page - 1) * limit,
         take: limit,
+        include: {
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+          group: {
+            select: {
+              id: true,
+              name: true,
+              description: true,
+            },
+          },
+        },
       }),
       this.prisma.fundraiser.count({ where }),
     ]);
@@ -515,11 +532,31 @@ export class FundraisersService {
   /**
    * Get a single public fundraiser by slug without authentication
    * Only returns public fundraisers
-   * Includes progress information
+   * Includes progress information and owner details
    */
   async findPublicBySlug(slug: string) {
     const fundraiser = await this.prisma.fundraiser.findUnique({
       where: { slug },
+      include: {
+        milestones: {
+          orderBy: { stepNumber: 'asc' },
+        },
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+        group: {
+          select: {
+            id: true,
+            name: true,
+            description: true,
+          },
+        },
+      },
     });
 
     if (!fundraiser) {
