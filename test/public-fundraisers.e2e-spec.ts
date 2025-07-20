@@ -9,6 +9,8 @@ import {
 import * as request from 'supertest';
 import { createFakeUserWithToken } from './factories/users.factory';
 import { createFakeFundraiser } from './factories/fundraisers.factory';
+import { createFakeMilestone } from './factories/milestones.factory';
+import { Decimal } from '@prisma/client/runtime/library';
 
 describe('Public Fundraisers', () => {
   let app: INestApplication<App>;
@@ -205,6 +207,187 @@ describe('Public Fundraisers', () => {
       await request(app.getHttpServer())
         .get(createApiPath('public/fundraisers/slug/non-existent-slug'))
         .expect(404);
+    });
+  });
+
+  describe('GET /api/v1/public/fundraisers/slug/:slug - Milestones', () => {
+    it('should include milestones ordered by stepNumber ascending', async () => {
+      const { user } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
+
+      const { fundraiser } = await createFakeFundraiser(user, {
+        status: FundraiserStatus.published,
+        isPublic: true,
+      });
+
+      // Create milestones in non-sequential order
+      await createFakeMilestone(fundraiser, {
+        stepNumber: 3,
+        amount: new Decimal('300'),
+      });
+      await createFakeMilestone(fundraiser, {
+        stepNumber: 1,
+        amount: new Decimal('100'),
+      });
+      await createFakeMilestone(fundraiser, {
+        stepNumber: 2,
+        amount: new Decimal('200'),
+      });
+
+      const response = await request(app.getHttpServer()).get(
+        createApiPath(`public/fundraisers/slug/${fundraiser.slug}`),
+      );
+
+      expect(response.statusCode).toBe(200);
+      expect(response.body.milestones).toBeDefined();
+      expect(response.body.milestones).toHaveLength(3);
+
+      // Verify order is ascending by stepNumber
+      expect(response.body.milestones[0].stepNumber).toBe(1);
+      expect(response.body.milestones[1].stepNumber).toBe(2);
+      expect(response.body.milestones[2].stepNumber).toBe(3);
+    });
+
+    it('should include complete milestone structure', async () => {
+      const { user } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
+
+      const { fundraiser } = await createFakeFundraiser(user, {
+        status: FundraiserStatus.published,
+        isPublic: true,
+      });
+
+      const { milestone } = await createFakeMilestone(fundraiser, {
+        stepNumber: 1,
+        amount: new Decimal('100'),
+        title: 'First Milestone',
+        purpose: 'Initial goal',
+        achieved: true,
+      });
+
+      const response = await request(app.getHttpServer()).get(
+        createApiPath(`public/fundraisers/slug/${fundraiser.slug}`),
+      );
+
+      expect(response.statusCode).toBe(200);
+      expect(response.body.milestones).toHaveLength(1);
+
+      const returnedMilestone = response.body.milestones[0];
+      expect(returnedMilestone.id).toBe(milestone.id);
+      expect(returnedMilestone.fundraiserId).toBe(fundraiser.id);
+      expect(returnedMilestone.stepNumber).toBe(1);
+      expect(returnedMilestone.amount).toBe('100');
+      expect(returnedMilestone.title).toBe('First Milestone');
+      expect(returnedMilestone.purpose).toBe('Initial goal');
+      expect(returnedMilestone.achieved).toBe(true);
+      expect(returnedMilestone.achievedAt).toBeDefined();
+      expect(returnedMilestone.createdAt).toBeDefined();
+      expect(returnedMilestone.updatedAt).toBeDefined();
+    });
+
+    it('should return empty milestones array for fundraiser without milestones', async () => {
+      const { user } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
+
+      const { fundraiser } = await createFakeFundraiser(user, {
+        status: FundraiserStatus.published,
+        isPublic: true,
+      });
+
+      const response = await request(app.getHttpServer()).get(
+        createApiPath(`public/fundraisers/slug/${fundraiser.slug}`),
+      );
+
+      expect(response.statusCode).toBe(200);
+      expect(response.body.milestones).toBeDefined();
+      expect(response.body.milestones).toHaveLength(0);
+    });
+  });
+
+  describe('Progress Information Tests', () => {
+    it('should include progress information in list response', async () => {
+      const { user } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
+
+      await createFakeFundraiser(user, {
+        status: FundraiserStatus.published,
+        isPublic: true,
+        goalAmount: new Decimal('1000'),
+      });
+
+      const response = await request(app.getHttpServer()).get(
+        createApiPath('public/fundraisers'),
+      );
+
+      expect(response.statusCode).toBe(200);
+      expect(response.body.items).toHaveLength(1);
+
+      const fundraiser = response.body.items[0];
+      expect(fundraiser.progress).toBeDefined();
+      expect(fundraiser.progress.totalRaised).toBeDefined();
+      expect(fundraiser.progress.donationCount).toBeDefined();
+      expect(fundraiser.progress.progressPercentage).toBeDefined();
+
+      // Verify progress structure
+      expect(typeof fundraiser.progress.totalRaised).toBe('string');
+      expect(typeof fundraiser.progress.donationCount).toBe('number');
+      expect(typeof fundraiser.progress.progressPercentage).toBe('number');
+    });
+
+    it('should include progress information in single fundraiser response', async () => {
+      const { user } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
+
+      const { fundraiser } = await createFakeFundraiser(user, {
+        status: FundraiserStatus.published,
+        isPublic: true,
+        goalAmount: new Decimal('1000'),
+      });
+
+      const response = await request(app.getHttpServer()).get(
+        createApiPath(`public/fundraisers/slug/${fundraiser.slug}`),
+      );
+
+      expect(response.statusCode).toBe(200);
+      expect(response.body.progress).toBeDefined();
+      expect(response.body.progress.totalRaised).toBeDefined();
+      expect(response.body.progress.donationCount).toBeDefined();
+      expect(response.body.progress.progressPercentage).toBeDefined();
+    });
+
+    it('should calculate correct progress percentage', async () => {
+      const { user } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
+
+      await createFakeFundraiser(user, {
+        status: FundraiserStatus.published,
+        isPublic: true,
+        goalAmount: new Decimal('1000'),
+      });
+
+      const response = await request(app.getHttpServer()).get(
+        createApiPath('public/fundraisers'),
+      );
+
+      expect(response.statusCode).toBe(200);
+      const fundraiser = response.body.items[0];
+
+      // For new fundraisers, progress should be 0
+      expect(fundraiser.progress.totalRaised).toBe('0');
+      expect(fundraiser.progress.donationCount).toBe(0);
+      expect(fundraiser.progress.progressPercentage).toBe(0);
     });
   });
 });
