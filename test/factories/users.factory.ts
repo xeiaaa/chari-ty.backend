@@ -38,6 +38,7 @@ export const createFakeUser = async (
       id: faker.string.uuid(),
       clerkId: faker.string.uuid(),
       email: faker.internet.email(),
+      username: faker.internet.username(),
       firstName: faker.person.firstName(),
       lastName: faker.person.lastName(),
       avatarUrl: faker.image.url(),
@@ -56,6 +57,7 @@ export const createFakeUser = async (
     const group = await prisma.group.create({
       data: {
         name: faker.company.name(),
+        slug: faker.string.uuid(),
         type:
           accountType === AccountType.team
             ? GroupType.team

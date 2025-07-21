@@ -63,8 +63,16 @@ export class WebhooksService {
       this.logger.warn(`User with clerkId ${userData.id} already exists`);
       return;
     }
+    // Generate username if not provided
+    const username =
+      mappedData.username ||
+      this.generateUsername(mappedData.firstName, mappedData.lastName);
+
     // Create the user
-    const newUser = await this.usersService.createUser(mappedData);
+    const newUser = await this.usersService.createUser({
+      ...mappedData,
+      username,
+    });
     this.logger.log(`User created successfully: ${userData.id}`);
     // If this user was invited to a group, update the GroupMember row
     // See Clerk docs: public_metadata is transferred to the user on invite acceptance
@@ -257,6 +265,19 @@ export class WebhooksService {
         this.logger.log(`Milestone ${milestone.id} no longer achieved`);
       }
     }
+  }
+
+  /**
+   * Generate a username from first and last name
+   */
+  private generateUsername(firstName: string, lastName: string): string {
+    const baseUsername =
+      `${firstName.toLowerCase()}${lastName.toLowerCase()}`.replace(
+        /[^a-z0-9]/g,
+        '',
+      );
+    const randomSuffix = Math.random().toString(36).substring(2, 6);
+    return `${baseUsername}${randomSuffix}`;
   }
 
   /**

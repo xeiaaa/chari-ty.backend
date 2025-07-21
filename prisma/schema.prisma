@@ -44,7 +44,7 @@ model User {
   id            String      @id @default(cuid())
   clerkId       String      @unique
   email         String      @unique
-  username      String?     @unique
+  username      String      @unique
   firstName     String
   lastName      String
   avatarUrl     String?
@@ -65,7 +65,7 @@ model User {
 model Group {
   id            String    @id @default(cuid())
   name          String
-  slug          String?   @unique
+  slug          String    @unique
   description   String?
   type          GroupType
   avatarUrl     String?

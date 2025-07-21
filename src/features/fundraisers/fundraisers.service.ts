@@ -501,6 +501,7 @@ export class FundraisersService {
               firstName: true,
               lastName: true,
               email: true,
+              username: true,
             },
           },
           group: {
@@ -508,6 +509,7 @@ export class FundraisersService {
               id: true,
               name: true,
               description: true,
+              slug: true,
             },
           },
         },
@@ -547,6 +549,7 @@ export class FundraisersService {
             firstName: true,
             lastName: true,
             email: true,
+            username: true,
           },
         },
         group: {
@@ -554,6 +557,7 @@ export class FundraisersService {
             id: true,
             name: true,
             description: true,
+            slug: true,
           },
         },
       },

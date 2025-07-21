@@ -10,6 +10,7 @@ import { FundraisersModule } from './features/fundraisers/fundraisers.module';
 import { LinksModule } from './features/links/links.module';
 import { DonationsModule } from './features/donations/donations.module';
 import { UploadsModule } from './features/uploads/uploads.module';
+import { GroupsModule } from './features/groups/groups.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { UploadsModule } from './features/uploads/uploads.module';
     LinksModule,
     DonationsModule,
     UploadsModule,
+    GroupsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
