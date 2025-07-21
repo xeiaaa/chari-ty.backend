@@ -116,6 +116,7 @@ export class WebhooksService {
     // Remove clerkId from update data since it shouldn't change
     const updateData = {
       email: mappedData.email,
+      username: mappedData.username,
       firstName: mappedData.firstName,
       lastName: mappedData.lastName,
       avatarUrl: mappedData.avatarUrl,
@@ -289,6 +290,7 @@ export class WebhooksService {
     return {
       clerkId: userData.id,
       email: primaryEmail.email_address,
+      username: userData.username || undefined,
       firstName: userData.first_name || '',
       lastName: userData.last_name || '',
       avatarUrl: userData.image_url || undefined,

@@ -94,6 +94,7 @@ export interface ClerkPhoneNumber {
 export interface MappedUserData {
   clerkId: string;
   email: string;
+  username?: string;
   firstName: string;
   lastName: string;
   avatarUrl?: string;

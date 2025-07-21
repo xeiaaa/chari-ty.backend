@@ -85,6 +85,9 @@ export class OnboardingService {
       throw new Error('Team name is required for team account type');
     }
 
+    // Generate unique slug for the group
+    const groupSlug = await this.generateUniqueGroupSlug(data.teamName);
+
     // Use transaction to ensure data consistency
     const result = await this.prisma.$transaction(async (prisma) => {
       // Update user
@@ -102,6 +105,7 @@ export class OnboardingService {
       const group = await prisma.group.create({
         data: {
           name: data.teamName!, // Safe to use ! after runtime check
+          slug: groupSlug,
           description: data.mission,
           type: 'team',
           website: data.website,
@@ -207,6 +211,9 @@ export class OnboardingService {
       throw new Error('EIN is required for nonprofit account type');
     }
 
+    // Generate unique slug for the group
+    const groupSlug = await this.generateUniqueGroupSlug(data.organizationName);
+
     // Use transaction to ensure data consistency
     const result = await this.prisma.$transaction(async (prisma) => {
       // Update user
@@ -224,6 +231,7 @@ export class OnboardingService {
       const group = await prisma.group.create({
         data: {
           name: data.organizationName!, // Safe to use ! after runtime check
+          slug: groupSlug,
           description: data.mission,
           type: 'nonprofit',
           website: data.website,
@@ -249,6 +257,30 @@ export class OnboardingService {
     await this.updateClerkMetadata(user.clerkId, 'nonprofit');
 
     return result;
+  }
+
+  /**
+   * Generate a unique URL-friendly slug from a group name
+   */
+  private async generateUniqueGroupSlug(name: string): Promise<string> {
+    // Convert name to lowercase and replace spaces/special chars with hyphens
+    let slug = name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+
+    // Check if slug exists
+    const existing = await this.prisma.group.findUnique({
+      where: { slug },
+    });
+
+    // If slug exists, append a random string
+    if (existing) {
+      const randomStr = Math.random().toString(36).substring(2, 8);
+      slug = `${slug}-${randomStr}`;
+    }
+
+    return slug;
   }
 
   /**
