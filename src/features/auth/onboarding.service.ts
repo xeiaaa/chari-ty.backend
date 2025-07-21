@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject, forwardRef } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { ClerkService } from './clerk.service';
 import { User, Group, GroupMember } from '../../../generated/prisma';
@@ -14,6 +14,7 @@ export class OnboardingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly clerkService: ClerkService,
+    @Inject(forwardRef(() => UsersService))
     private readonly usersService: UsersService, // Inject UsersService
   ) {}
 

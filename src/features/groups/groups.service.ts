@@ -1,5 +1,11 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  Inject,
+  forwardRef,
+} from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
+import { FundraisersService } from '../fundraisers/fundraisers.service';
 import { Group } from '../../../generated/prisma';
 
 /**
@@ -7,7 +13,11 @@ import { Group } from '../../../generated/prisma';
  */
 @Injectable()
 export class GroupsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(forwardRef(() => FundraisersService))
+    private readonly fundraisersService: FundraisersService,
+  ) {}
 
   /**
    * Find a group by slug
@@ -25,26 +35,6 @@ export class GroupsService {
   async findPublicBySlug(slug: string) {
     const group = await this.prisma.group.findUnique({
       where: { slug },
-      include: {
-        Fundraiser: {
-          where: {
-            isPublic: true,
-            status: 'published',
-          },
-          select: {
-            id: true,
-            slug: true,
-            title: true,
-            summary: true,
-            category: true,
-            goalAmount: true,
-            currency: true,
-            endDate: true,
-            coverUrl: true,
-            createdAt: true,
-          },
-        },
-      },
     });
 
     if (!group) {
@@ -62,7 +52,27 @@ export class GroupsService {
       website: group.website,
       verified: group.verified,
       createdAt: group.createdAt,
-      // fundraisers: group.Fundraiser,
     };
+  }
+
+  /**
+   * Get public fundraisers for a group by slug
+   * Returns paginated list of public fundraisers for the group
+   */
+  async getGroupFundraisers(slug: string, query: any) {
+    // First verify the group exists
+    const group = await this.prisma.group.findUnique({
+      where: { slug },
+    });
+
+    if (!group) {
+      throw new NotFoundException('Group not found');
+    }
+
+    // Use the fundraisers service to get public fundraisers filtered by group
+    return await this.fundraisersService.listPublic({
+      ...query,
+      groupId: group.id,
+    });
   }
 }

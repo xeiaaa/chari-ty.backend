@@ -1,5 +1,11 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  Inject,
+  forwardRef,
+} from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
+import { FundraisersService } from '../fundraisers/fundraisers.service';
 import { User, AccountType } from '../../../generated/prisma';
 
 /**
@@ -7,7 +13,11 @@ import { User, AccountType } from '../../../generated/prisma';
  */
 @Injectable()
 export class UsersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(forwardRef(() => FundraisersService))
+    private readonly fundraisersService: FundraisersService,
+  ) {}
 
   async createUser(userData: {
     clerkId: string;
@@ -75,26 +85,6 @@ export class UsersService {
   async findPublicByUsername(username: string) {
     const user = await this.prisma.user.findUnique({
       where: { username },
-      include: {
-        Fundraiser: {
-          where: {
-            isPublic: true,
-            status: 'published',
-          },
-          select: {
-            id: true,
-            slug: true,
-            title: true,
-            summary: true,
-            category: true,
-            goalAmount: true,
-            currency: true,
-            endDate: true,
-            coverUrl: true,
-            createdAt: true,
-          },
-        },
-      },
     });
 
     if (!user) {
@@ -111,7 +101,27 @@ export class UsersService {
       bio: user.bio,
       accountType: user.accountType,
       createdAt: user.createdAt,
-      fundraisers: user.Fundraiser,
     };
+  }
+
+  /**
+   * Get public fundraisers for a user by username
+   * Returns paginated list of public fundraisers for the user
+   */
+  async getUserFundraisers(username: string, query: any) {
+    // First verify the user exists
+    const user = await this.prisma.user.findUnique({
+      where: { username },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Use the fundraisers service to get public fundraisers filtered by user
+    return await this.fundraisersService.listPublic({
+      ...query,
+      userId: user.id,
+    });
   }
 }
