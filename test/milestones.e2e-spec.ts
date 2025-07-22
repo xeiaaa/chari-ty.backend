@@ -35,12 +35,12 @@ describe('Milestones Module', () => {
 
   describe('POST /api/v1/fundraisers/:id/milestones', () => {
     it('should add milestone to fundraiser (as individual)', async () => {
-      const { token, user } = await createFakeUserWithToken({
+      const { token, group } = await createFakeUserWithToken({
         accountType: AccountType.individual,
         setupComplete: true,
       });
 
-      const { fundraiser } = await createFakeFundraiser(user);
+      const { fundraiser } = await createFakeFundraiser(group!);
       const milestone = buildFakeMilestone();
 
       const response = await request(app.getHttpServer())
@@ -144,12 +144,12 @@ describe('Milestones Module', () => {
     });
 
     it('should return 400 when adding a milestone with invalid data', async () => {
-      const { token, user } = await createFakeUserWithToken({
+      const { token, group } = await createFakeUserWithToken({
         accountType: AccountType.individual,
         setupComplete: true,
       });
 
-      const { fundraiser } = await createFakeFundraiser(user);
+      const { fundraiser } = await createFakeFundraiser(group!);
       const milestone = buildFakeMilestone();
 
       // Test 0 amount
@@ -189,7 +189,7 @@ describe('Milestones Module', () => {
     });
 
     it('should throw ForbiddenException when the user tries to add a milestone to a fundraiser they do not own', async () => {
-      const { user } = await createFakeUserWithToken({
+      const { group } = await createFakeUserWithToken({
         accountType: AccountType.individual,
         setupComplete: true,
       });
@@ -200,7 +200,7 @@ describe('Milestones Module', () => {
         setupComplete: true,
       });
 
-      const { fundraiser } = await createFakeFundraiser(user);
+      const { fundraiser } = await createFakeFundraiser(group!);
       const milestone = buildFakeMilestone();
 
       // Test 0 amount
@@ -260,12 +260,12 @@ describe('Milestones Module', () => {
 
   describe('GET /api/v1/fundraisers/:id/milestones', () => {
     it('should return all milestones for a fundraiser', async () => {
-      const { token, user } = await createFakeUserWithToken({
+      const { token, group } = await createFakeUserWithToken({
         accountType: AccountType.individual,
         setupComplete: true,
       });
 
-      const { fundraiser } = await createFakeFundraiser(user);
+      const { fundraiser } = await createFakeFundraiser(group!);
       await createFakeMilestone(fundraiser, {
         stepNumber: 1,
       });
@@ -403,12 +403,12 @@ describe('Milestones Module', () => {
     });
 
     it('should return 403 when the user tries to list milestones for a fundraiser they do not own', async () => {
-      const { user } = await createFakeUserWithToken({
+      const { group } = await createFakeUserWithToken({
         accountType: AccountType.individual,
         setupComplete: true,
       });
 
-      const { fundraiser } = await createFakeFundraiser(user);
+      const { fundraiser } = await createFakeFundraiser(group!);
       await createFakeMilestone(fundraiser, {
         stepNumber: 1,
       });
@@ -464,12 +464,12 @@ describe('Milestones Module', () => {
 
   describe('PATCH /api/v1/fundraisers/:id/milestones/:milestoneId', () => {
     it('should update milestone for a fundraiser (as individual)', async () => {
-      const { token, user } = await createFakeUserWithToken({
+      const { token, group } = await createFakeUserWithToken({
         accountType: AccountType.individual,
         setupComplete: true,
       });
 
-      const { fundraiser } = await createFakeFundraiser(user);
+      const { fundraiser } = await createFakeFundraiser(group!);
       const { milestone } = await createFakeMilestone(fundraiser);
       const updateData = {
         title: 'Updated Title',
@@ -633,12 +633,12 @@ describe('Milestones Module', () => {
     });
 
     it('should return 403 when the user tries to update a milestone for a fundraiser they do not own', async () => {
-      const { user } = await createFakeUserWithToken({
+      const { group } = await createFakeUserWithToken({
         accountType: AccountType.individual,
         setupComplete: true,
       });
 
-      const { fundraiser } = await createFakeFundraiser(user);
+      const { fundraiser } = await createFakeFundraiser(group!);
       const { milestone } = await createFakeMilestone(fundraiser);
 
       // Create a different user
@@ -698,12 +698,12 @@ describe('Milestones Module', () => {
     });
 
     it('should return 400 when updating a milestone with invalid data', async () => {
-      const { token, user } = await createFakeUserWithToken({
+      const { token, group } = await createFakeUserWithToken({
         accountType: AccountType.individual,
         setupComplete: true,
       });
 
-      const { fundraiser } = await createFakeFundraiser(user);
+      const { fundraiser } = await createFakeFundraiser(group!);
       const { milestone } = await createFakeMilestone(fundraiser);
 
       // Test 0 amount
@@ -763,12 +763,12 @@ describe('Milestones Module', () => {
     });
 
     it('should return 400 when trying to update an achieved milestone', async () => {
-      const { token, user } = await createFakeUserWithToken({
+      const { token, group } = await createFakeUserWithToken({
         accountType: AccountType.individual,
         setupComplete: true,
       });
 
-      const { fundraiser } = await createFakeFundraiser(user);
+      const { fundraiser } = await createFakeFundraiser(group!);
       const { milestone } = await createFakeMilestone(fundraiser, {
         achieved: true,
         achievedAt: new Date(),
@@ -794,14 +794,14 @@ describe('Milestones Module', () => {
     });
 
     it('should return 400 when milestone does not belong to the specified fundraiser', async () => {
-      const { token, user } = await createFakeUserWithToken({
+      const { token, group } = await createFakeUserWithToken({
         accountType: AccountType.individual,
         setupComplete: true,
       });
 
       // Create two fundraisers
-      const { fundraiser: fundraiser1 } = await createFakeFundraiser(user);
-      const { fundraiser: fundraiser2 } = await createFakeFundraiser(user);
+      const { fundraiser: fundraiser1 } = await createFakeFundraiser(group!);
+      const { fundraiser: fundraiser2 } = await createFakeFundraiser(group!);
 
       // Create milestone for fundraiser1
       const { milestone } = await createFakeMilestone(fundraiser1);
@@ -831,12 +831,12 @@ describe('Milestones Module', () => {
 
   describe('DELETE /api/v1/fundraisers/:id/milestones/:milestoneId', () => {
     it('should delete milestone from fundraiser (as individual)', async () => {
-      const { token, user } = await createFakeUserWithToken({
+      const { token, group } = await createFakeUserWithToken({
         accountType: AccountType.individual,
         setupComplete: true,
       });
 
-      const { fundraiser } = await createFakeFundraiser(user);
+      const { fundraiser } = await createFakeFundraiser(group!);
       const { milestone } = await createFakeMilestone(fundraiser);
 
       await request(app.getHttpServer())
@@ -982,12 +982,12 @@ describe('Milestones Module', () => {
     });
 
     it('should return 403 when the user tries to delete a milestone from a fundraiser they do not own', async () => {
-      const { user } = await createFakeUserWithToken({
+      const { group } = await createFakeUserWithToken({
         accountType: AccountType.individual,
         setupComplete: true,
       });
 
-      const { fundraiser } = await createFakeFundraiser(user);
+      const { fundraiser } = await createFakeFundraiser(group!);
       const { milestone } = await createFakeMilestone(fundraiser);
 
       // Create a different user
@@ -1032,12 +1032,12 @@ describe('Milestones Module', () => {
     });
 
     it('should return 400 when trying to delete an achieved milestone', async () => {
-      const { token, user } = await createFakeUserWithToken({
+      const { token, group } = await createFakeUserWithToken({
         accountType: AccountType.individual,
         setupComplete: true,
       });
 
-      const { fundraiser } = await createFakeFundraiser(user);
+      const { fundraiser } = await createFakeFundraiser(group!);
       const { milestone } = await createFakeMilestone(fundraiser, {
         achieved: true,
         achievedAt: new Date(),
@@ -1063,14 +1063,14 @@ describe('Milestones Module', () => {
     });
 
     it('should return 400 when milestone does not belong to the specified fundraiser', async () => {
-      const { token, user } = await createFakeUserWithToken({
+      const { token, group } = await createFakeUserWithToken({
         accountType: AccountType.individual,
         setupComplete: true,
       });
 
       // Create two fundraisers
-      const { fundraiser: fundraiser1 } = await createFakeFundraiser(user);
-      const { fundraiser: fundraiser2 } = await createFakeFundraiser(user);
+      const { fundraiser: fundraiser1 } = await createFakeFundraiser(group!);
+      const { fundraiser: fundraiser2 } = await createFakeFundraiser(group!);
 
       // Create milestone for fundraiser1
       const { milestone } = await createFakeMilestone(fundraiser1);

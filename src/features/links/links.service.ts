@@ -184,29 +184,23 @@ export class LinksService {
   private async validateFundraiserAccess(fundraiserId: string, userId: string) {
     const fundraiser = await this.prisma.fundraiser.findUnique({
       where: { id: fundraiserId },
-      include: {
-        user: true,
-        group: {
-          include: {
-            members: {
-              where: { userId },
-              include: { user: true },
-            },
-          },
-        },
-      },
     });
 
     if (!fundraiser) {
       throw new NotFoundException('Fundraiser not found');
     }
 
-    // Check if user has access to this fundraiser
-    const hasAccess =
-      fundraiser.userId === userId || // Individual fundraiser owner
-      (fundraiser.group && fundraiser.group.members.length > 0); // Group member
+    // Check if user has access to this fundraiser through group membership
+    const membership = await this.prisma.groupMember.findUnique({
+      where: {
+        unique_user_group: {
+          userId,
+          groupId: fundraiser.groupId,
+        },
+      },
+    });
 
-    if (!hasAccess) {
+    if (!membership) {
       throw new ForbiddenException('You do not have access to this fundraiser');
     }
 
@@ -220,29 +214,30 @@ export class LinksService {
     fundraiserId: string,
     userId: string,
   ) {
-    const fundraiser = await this.validateFundraiserAccess(
-      fundraiserId,
-      userId,
-    );
+    const fundraiser = await this.prisma.fundraiser.findUnique({
+      where: { id: fundraiserId },
+    });
 
-    // For individual fundraisers, only the owner can edit
-    if (fundraiser.userId === userId) {
-      return fundraiser;
+    if (!fundraiser) {
+      throw new NotFoundException('Fundraiser not found');
     }
 
-    // For group fundraisers, check if user has editor role or above
-    if (fundraiser.group) {
-      const membership = fundraiser.group.members[0];
-      if (
-        membership &&
-        ['owner', 'admin', 'editor'].includes(membership.role)
-      ) {
-        return fundraiser;
-      }
+    // Check if user has edit access through group membership
+    const membership = await this.prisma.groupMember.findUnique({
+      where: {
+        unique_user_group: {
+          userId,
+          groupId: fundraiser.groupId,
+        },
+      },
+    });
+
+    if (!membership || membership.role === 'viewer') {
+      throw new ForbiddenException(
+        'You do not have permission to edit links for this fundraiser',
+      );
     }
 
-    throw new ForbiddenException(
-      'You do not have permission to edit links for this fundraiser',
-    );
+    return fundraiser;
   }
 }

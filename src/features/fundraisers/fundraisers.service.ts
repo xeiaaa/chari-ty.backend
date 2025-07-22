@@ -10,7 +10,6 @@ import {
   User as UserEntity,
   FundraiserStatus,
   Prisma,
-  FundraiserOwnerType,
 } from '../../../generated/prisma';
 import { Decimal } from '@prisma/client/runtime/library';
 import { ListFundraisersDto } from './dtos/list-fundraisers.dto';
@@ -23,7 +22,7 @@ export class FundraisersService {
 
   /**
    * Create a new fundraiser
-   * Handles both user-owned and group-owned fundraisers
+   * All fundraisers now belong to groups
    */
   async create(user: UserEntity, data: CreateFundraiserDto) {
     const slug = await this.generateUniqueSlug(data.title);
@@ -39,68 +38,46 @@ export class FundraisersService {
       endDate: data.endDate ? new Date(data.endDate) : null,
       coverUrl: data.coverUrl,
       galleryUrls: data.galleryUrls || [],
-      ownerType: data.ownerType,
       status: FundraiserStatus.draft,
       isPublic: data.isPublic ?? false,
     } as const;
 
-    if (data.ownerType === FundraiserOwnerType.group) {
-      if (!data.groupId) {
-        throw new BadRequestException(
-          'Group ID is required for group-owned fundraisers',
+    if (!data.groupId) {
+      throw new BadRequestException('Group ID is required');
+    }
+
+    return await this.prisma.$transaction(async (tx) => {
+      // Verify group exists
+      const group = await tx.group.findUnique({
+        where: { id: data.groupId },
+      });
+
+      if (!group) {
+        throw new BadRequestException('Group not found');
+      }
+
+      const membership = await tx.groupMember.findUnique({
+        where: {
+          unique_user_group: {
+            userId: user.id,
+            groupId: data.groupId,
+          },
+        },
+      });
+
+      if (
+        !membership ||
+        !['owner', 'admin', 'editor'].includes(membership.role)
+      ) {
+        throw new ForbiddenException(
+          'You do not have permission to create fundraisers for this group',
         );
       }
 
-      return await this.prisma.$transaction(async (tx) => {
-        // Verify group exists
-        const group = await tx.group.findUnique({
-          where: { id: data.groupId },
-        });
-
-        if (!group) {
-          throw new BadRequestException('Group not found');
-        }
-
-        const membership = await tx.groupMember.findUnique({
-          where: {
-            unique_user_group: {
-              userId: user.id,
-              groupId: data.groupId!,
-            },
-          },
-        });
-
-        if (
-          !membership ||
-          !['owner', 'admin', 'editor'].includes(membership.role)
-        ) {
-          throw new ForbiddenException(
-            'You do not have permission to create fundraisers for this group',
-          );
-        }
-
-        return await tx.fundraiser.create({
-          data: { ...fundraiserData, groupId: data.groupId },
-        });
+      return await tx.fundraiser.create({
+        data: { ...fundraiserData, groupId: data.groupId },
       });
-    }
-
-    if (data.ownerType === FundraiserOwnerType.user) {
-      // Verify user exists
-      const userExists = await this.prisma.user.findUnique({
-        where: { id: user.id },
-      });
-
-      if (!userExists) {
-        throw new BadRequestException('User not found');
-      }
-
-      return await this.prisma.fundraiser.create({
-        data: { ...fundraiserData, userId: user.id },
-      });
-    }
-
-    throw new BadRequestException('Invalid owner type');
+    });
   }
 
   /**
@@ -196,11 +173,19 @@ export class FundraisersService {
     } = query;
 
     // Build where conditions
-    const whereConditions: Prisma.FundraiserWhereInput[] = [
-      groupId
-        ? { groupId, ownerType: FundraiserOwnerType.group }
-        : { userId: user.id, ownerType: FundraiserOwnerType.user },
-    ];
+    const whereConditions: Prisma.FundraiserWhereInput[] = [];
+
+    if (groupId) {
+      whereConditions.push({ groupId });
+    } else {
+      // If no groupId specified, get fundraisers from all groups user is a member of
+      const userGroups = await this.prisma.groupMember.findMany({
+        where: { userId: user.id },
+        select: { groupId: true },
+      });
+      const groupIds = userGroups.map((gm) => gm.groupId);
+      whereConditions.push({ groupId: { in: groupIds } });
+    }
 
     if (status) whereConditions.push({ status });
     if (category) whereConditions.push({ category });
@@ -273,27 +258,19 @@ export class FundraisersService {
     }
 
     // Check if user has permission to view this fundraiser
-    if (fundraiser.ownerType === FundraiserOwnerType.user) {
-      if (fundraiser.userId !== user.id) {
-        throw new ForbiddenException(
-          'You do not have permission to view this fundraiser',
-        );
-      }
-    } else if (fundraiser.ownerType === FundraiserOwnerType.group) {
-      const membership = await this.prisma.groupMember.findUnique({
-        where: {
-          unique_user_group: {
-            userId: user.id,
-            groupId: fundraiser.groupId!,
-          },
+    const membership = await this.prisma.groupMember.findUnique({
+      where: {
+        unique_user_group: {
+          userId: user.id,
+          groupId: fundraiser.groupId,
         },
-      });
+      },
+    });
 
-      if (!membership) {
-        throw new ForbiddenException(
-          'You do not have permission to view this fundraiser',
-        );
-      }
+    if (!membership) {
+      throw new ForbiddenException(
+        'You do not have permission to view this fundraiser',
+      );
     }
 
     // Enhance with progress information
@@ -318,27 +295,19 @@ export class FundraisersService {
     }
 
     // Check if user has permission to view this fundraiser
-    if (fundraiser.ownerType === FundraiserOwnerType.user) {
-      if (fundraiser.userId !== user.id) {
-        throw new ForbiddenException(
-          'You do not have permission to view this fundraiser',
-        );
-      }
-    } else if (fundraiser.ownerType === FundraiserOwnerType.group) {
-      const membership = await this.prisma.groupMember.findUnique({
-        where: {
-          unique_user_group: {
-            userId: user.id,
-            groupId: fundraiser.groupId!,
-          },
+    const membership = await this.prisma.groupMember.findUnique({
+      where: {
+        unique_user_group: {
+          userId: user.id,
+          groupId: fundraiser.groupId,
         },
-      });
+      },
+    });
 
-      if (!membership) {
-        throw new ForbiddenException(
-          'You do not have permission to view this fundraiser',
-        );
-      }
+    if (!membership) {
+      throw new ForbiddenException(
+        'You do not have permission to view this fundraiser',
+      );
     }
 
     // Enhance with progress information
@@ -350,7 +319,7 @@ export class FundraisersService {
 
   /**
    * Update a fundraiser
-   * Checks permissions based on owner type
+   * Checks permissions based on group membership
    */
   async update(
     user: UserEntity,
@@ -365,30 +334,20 @@ export class FundraisersService {
       throw new NotFoundException('Fundraiser not found');
     }
 
-    // Check permissions based on owner type
-    if (fundraiser.ownerType === FundraiserOwnerType.user) {
-      // For user-owned fundraisers, only the owner can update
-      if (fundraiser.userId !== user.id) {
-        throw new ForbiddenException(
-          'You do not have permission to update this fundraiser',
-        );
-      }
-    } else if (fundraiser.ownerType === FundraiserOwnerType.group) {
-      // For group-owned fundraisers, check member role
-      const membership = await this.prisma.groupMember.findUnique({
-        where: {
-          unique_user_group: {
-            userId: user.id,
-            groupId: fundraiser.groupId!,
-          },
+    // Check member role
+    const membership = await this.prisma.groupMember.findUnique({
+      where: {
+        unique_user_group: {
+          userId: user.id,
+          groupId: fundraiser.groupId,
         },
-      });
+      },
+    });
 
-      if (!membership || membership.role === 'viewer') {
-        throw new ForbiddenException(
-          'You do not have permission to update this fundraiser',
-        );
-      }
+    if (!membership || membership.role === 'viewer') {
+      throw new ForbiddenException(
+        'You do not have permission to update this fundraiser',
+      );
     }
 
     // Process the update data
@@ -409,8 +368,7 @@ export class FundraisersService {
 
   /**
    * Delete a fundraiser
-   * Only owners can delete user-owned fundraisers
-   * Only admins and owners can delete group-owned fundraisers
+   * Only admins and owners can delete fundraisers
    */
   async delete(user: UserEntity, fundraiserId: string) {
     const fundraiser = await this.prisma.fundraiser.findUnique({
@@ -421,30 +379,20 @@ export class FundraisersService {
       throw new NotFoundException('Fundraiser not found');
     }
 
-    // Check permissions based on owner type
-    if (fundraiser.ownerType === FundraiserOwnerType.user) {
-      // For user-owned fundraisers, only the owner can delete
-      if (fundraiser.userId !== user.id) {
-        throw new ForbiddenException(
-          'You do not have permission to delete this fundraiser',
-        );
-      }
-    } else if (fundraiser.ownerType === FundraiserOwnerType.group) {
-      // For group-owned fundraisers, check member role
-      const membership = await this.prisma.groupMember.findUnique({
-        where: {
-          unique_user_group: {
-            userId: user.id,
-            groupId: fundraiser.groupId!,
-          },
+    // Check member role
+    const membership = await this.prisma.groupMember.findUnique({
+      where: {
+        unique_user_group: {
+          userId: user.id,
+          groupId: fundraiser.groupId,
         },
-      });
+      },
+    });
 
-      if (!membership || !['owner', 'admin'].includes(membership.role)) {
-        throw new ForbiddenException(
-          'You do not have permission to delete this fundraiser',
-        );
-      }
+    if (!membership || !['owner', 'admin'].includes(membership.role)) {
+      throw new ForbiddenException(
+        'You do not have permission to delete this fundraiser',
+      );
     }
 
     // Delete the fundraiser
@@ -456,7 +404,7 @@ export class FundraisersService {
   /**
    * Get public fundraisers without authentication
    * Returns all public fundraisers with pagination
-   * Includes progress information and owner details
+   * Includes progress information and group details
    */
   async listPublic(query: ListPublicFundraisersDto) {
     const {
@@ -495,21 +443,22 @@ export class FundraisersService {
         skip: (page - 1) * limit,
         take: limit,
         include: {
-          user: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              email: true,
-              username: true,
-            },
-          },
           group: {
             select: {
               id: true,
               name: true,
               description: true,
               slug: true,
+              type: true,
+              owner: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  email: true,
+                  avatarUrl: true,
+                },
+              },
             },
           },
         },
@@ -534,7 +483,7 @@ export class FundraisersService {
   /**
    * Get a single public fundraiser by slug without authentication
    * Only returns public fundraisers
-   * Includes progress information and owner details
+   * Includes progress information and group details
    */
   async findPublicBySlug(slug: string) {
     const fundraiser = await this.prisma.fundraiser.findUnique({
@@ -542,15 +491,6 @@ export class FundraisersService {
       include: {
         milestones: {
           orderBy: { stepNumber: 'asc' },
-        },
-        user: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-            username: true,
-          },
         },
         group: {
           select: {
@@ -595,30 +535,20 @@ export class FundraisersService {
       throw new NotFoundException('Fundraiser not found');
     }
 
-    // Check permissions based on owner type
-    if (fundraiser.ownerType === FundraiserOwnerType.user) {
-      // For user-owned fundraisers, only the owner can publish
-      if (fundraiser.userId !== user.id) {
-        throw new ForbiddenException(
-          'You do not have permission to publish this fundraiser',
-        );
-      }
-    } else if (fundraiser.ownerType === FundraiserOwnerType.group) {
-      // For group-owned fundraisers, check member role
-      const membership = await this.prisma.groupMember.findUnique({
-        where: {
-          unique_user_group: {
-            userId: user.id,
-            groupId: fundraiser.groupId!,
-          },
+    // Check member role
+    const membership = await this.prisma.groupMember.findUnique({
+      where: {
+        unique_user_group: {
+          userId: user.id,
+          groupId: fundraiser.groupId,
         },
-      });
+      },
+    });
 
-      if (!membership || membership.role === 'viewer') {
-        throw new ForbiddenException(
-          'You do not have permission to publish this fundraiser',
-        );
-      }
+    if (!membership || membership.role === 'viewer') {
+      throw new ForbiddenException(
+        'You do not have permission to publish this fundraiser',
+      );
     }
 
     // Update the fundraiser status

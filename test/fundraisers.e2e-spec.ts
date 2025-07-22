@@ -5,7 +5,6 @@ import {
   AccountType,
   GroupMemberRole,
   FundraiserCategory,
-  FundraiserOwnerType,
   FundraiserStatus,
 } from '../generated/prisma';
 import * as request from 'supertest';
@@ -42,12 +41,12 @@ describe('Auth Module', () => {
 
   describe('POST /api/v1/fundraisers', () => {
     it('should return 401 Unauthorized when user is not authenticated', async () => {
-      const { user } = await createFakeUserWithToken({
+      const { group } = await createFakeUserWithToken({
         accountType: AccountType.individual,
         setupComplete: true,
       });
 
-      const fundraiser = buildFakeFundraiser(user);
+      const fundraiser = buildFakeFundraiser(group!);
 
       await request(app.getHttpServer())
         .post(createApiPath('fundraisers'))
@@ -72,13 +71,13 @@ describe('Auth Module', () => {
       expect(response.statusCode).toBe(201);
     });
 
-    it('should create a user-owned fundraiser when valid data is provided', async () => {
-      const { token, user } = await createFakeUserWithToken({
+    it('should create a fundraiser for individual user group when valid data is provided', async () => {
+      const { token, group } = await createFakeUserWithToken({
         accountType: AccountType.individual,
         setupComplete: true,
       });
 
-      const fundraiser = buildFakeFundraiser(user);
+      const fundraiser = buildFakeFundraiser(group!);
 
       const response = await request(app.getHttpServer())
         .post(createApiPath('fundraisers'))
@@ -134,17 +133,6 @@ describe('Auth Module', () => {
         )
         .expect(400);
 
-      // Invalid Owner Type
-      await request(app.getHttpServer())
-        .post(createApiPath('fundraisers'))
-        .set('Authorization', `Bearer ${token}`)
-        .send(
-          buildFakeFundraiser(group!, {
-            ownerType: 'invalid' as FundraiserOwnerType,
-          }),
-        )
-        .expect(400);
-
       // Cover URL not valid
       await request(app.getHttpServer())
         .post(createApiPath('fundraisers'))
@@ -174,7 +162,7 @@ describe('Auth Module', () => {
         .expect(400);
     });
 
-    it('should return 400 Bad Request when ownerType is group but groupId is missing', async () => {
+    it('should return 400 Bad Request when groupId is missing', async () => {
       const { token, group } = await createFakeUserWithToken({
         accountType: AccountType.team,
         setupComplete: true,
@@ -240,14 +228,14 @@ describe('Auth Module', () => {
   });
 
   describe('GET /api/v1/fundraisers', () => {
-    it('should return a list of fundraisers owned by the authenticated user', async () => {
-      const { token, user } = await createFakeUserWithToken({
+    it('should return a list of fundraisers from groups the user is a member of', async () => {
+      const { token, group } = await createFakeUserWithToken({
         accountType: AccountType.individual,
         setupComplete: true,
       });
 
-      // User 1 fundraiser 1
-      await createFakeFundraiser(user);
+      // User's group fundraiser 1
+      await createFakeFundraiser(group!);
 
       const response = await request(app.getHttpServer())
         .get(createApiPath('fundraisers'))
@@ -257,18 +245,18 @@ describe('Auth Module', () => {
       expect(response.body.items.length).toBe(1);
       expect(response.body.meta.total).toBe(1);
 
-      // User 1 creates 2 more fundraisers
-      await createFakeFundraiser(user);
-      await createFakeFundraiser(user);
+      // User's group creates 2 more fundraisers
+      await createFakeFundraiser(group!);
+      await createFakeFundraiser(group!);
 
       // Create another user and fundraiser (this should not be returned)
-      const { user: user2 } = await createFakeUserWithToken({
+      const { group: group2 } = await createFakeUserWithToken({
         accountType: AccountType.individual,
         setupComplete: true,
       });
 
-      // User 2 creates 1 fundraiser
-      await createFakeFundraiser(user2);
+      // User 2's group creates 1 fundraiser
+      await createFakeFundraiser(group2!);
 
       const response2 = await request(app.getHttpServer())
         .get(createApiPath('fundraisers'))
@@ -462,13 +450,13 @@ describe('Auth Module', () => {
   });
 
   describe('GET /api/v1/fundraisers/:fundraiserId', () => {
-    it('should return a fundraiser owned by the requesting user', async () => {
-      const { token, user } = await createFakeUserWithToken({
+    it("should return a fundraiser owned by the requesting user's group", async () => {
+      const { token, group } = await createFakeUserWithToken({
         accountType: AccountType.individual,
         setupComplete: true,
       });
 
-      const { fundraiser } = await createFakeFundraiser(user);
+      const { fundraiser } = await createFakeFundraiser(group!);
 
       const response = await request(app.getHttpServer())
         .get(createApiPath(`fundraisers/${fundraiser.id}`))
@@ -516,13 +504,13 @@ describe('Auth Module', () => {
         .expect(404);
     });
 
-    it('should throw ForbiddenException when the user tries to access another user’s fundraiser', async () => {
-      const { user } = await createFakeUserWithToken({
+    it("should throw ForbiddenException when the user tries to access another group's fundraiser", async () => {
+      const { group } = await createFakeUserWithToken({
         accountType: AccountType.individual,
         setupComplete: true,
       });
 
-      const { fundraiser } = await createFakeFundraiser(user);
+      const { fundraiser } = await createFakeFundraiser(group!);
 
       const { token: anotherUserToken } = await createFakeUserWithToken({
         accountType: AccountType.individual,
@@ -557,13 +545,13 @@ describe('Auth Module', () => {
   });
 
   describe('PATCH /api/v1/fundraisers/:fundraiserId', () => {
-    it('should update a fundraiser owned by the user', async () => {
-      const { token, user } = await createFakeUserWithToken({
+    it("should update a fundraiser owned by the user's group", async () => {
+      const { token, group } = await createFakeUserWithToken({
         accountType: AccountType.individual,
         setupComplete: true,
       });
 
-      const { fundraiser } = await createFakeFundraiser(user);
+      const { fundraiser } = await createFakeFundraiser(group!);
       const newTitle = 'New Title';
 
       const response = await request(app.getHttpServer())
@@ -614,13 +602,13 @@ describe('Auth Module', () => {
         .expect(404);
     });
 
-    it('should throw ForbiddenException when the user tries to access another user’s fundraiser', async () => {
-      const { user } = await createFakeUserWithToken({
+    it("should throw ForbiddenException when the user tries to access another group's fundraiser", async () => {
+      const { group } = await createFakeUserWithToken({
         accountType: AccountType.individual,
         setupComplete: true,
       });
 
-      const { fundraiser } = await createFakeFundraiser(user);
+      const { fundraiser } = await createFakeFundraiser(group!);
 
       const { token: anotherUserToken } = await createFakeUserWithToken({
         accountType: AccountType.individual,
@@ -748,7 +736,7 @@ describe('Auth Module', () => {
         .expect(400);
     });
 
-    it('should throw ForbiddenException when attempting to update ownership fields like ownerType or groupId', async () => {
+    it('should throw ForbiddenException when attempting to update ownership fields like groupId', async () => {
       const { token, group } = await createFakeUserWithToken({
         accountType: AccountType.team,
         setupComplete: true,
@@ -761,23 +749,17 @@ describe('Auth Module', () => {
         .set('Authorization', `Bearer ${token}`)
         .send({ groupId: 'cmd3wyy1l0000hl1rd41su9hx' })
         .expect(400);
-
-      await request(app.getHttpServer())
-        .patch(createApiPath(`fundraisers/${fundraiser.id}`))
-        .set('Authorization', `Bearer ${token}`)
-        .send({ onwerType: FundraiserOwnerType.user })
-        .expect(400);
     });
   });
 
   describe('DELETE /api/v1/fundraisers/:fundraiserId', () => {
-    it('should delete a fundraiser owned by the user', async () => {
-      const { token, user } = await createFakeUserWithToken({
+    it("should delete a fundraiser owned by the user's group", async () => {
+      const { token, group } = await createFakeUserWithToken({
         accountType: AccountType.individual,
         setupComplete: true,
       });
 
-      const { fundraiser } = await createFakeFundraiser(user);
+      const { fundraiser } = await createFakeFundraiser(group!);
 
       const response = await request(app.getHttpServer())
         .delete(createApiPath(`fundraisers/${fundraiser.id}`))
@@ -827,18 +809,18 @@ describe('Auth Module', () => {
       });
 
       await request(app.getHttpServer())
-        .delete(createApiPath(`fundraisers/non-existent-id`))
+        .delete(createApiPath('fundraisers/non-existent-id'))
         .set('Authorization', `Bearer ${token}`)
         .expect(404);
     });
 
-    it("should throw ForbiddenException when the user tries to delete another user's fundraiser", async () => {
-      const { user } = await createFakeUserWithToken({
+    it("should throw ForbiddenException when the user tries to delete another group's fundraiser", async () => {
+      const { group } = await createFakeUserWithToken({
         accountType: AccountType.individual,
         setupComplete: true,
       });
 
-      const { fundraiser } = await createFakeFundraiser(user);
+      const { fundraiser } = await createFakeFundraiser(group!);
 
       const { token: anotherUserToken } = await createFakeUserWithToken({
         accountType: AccountType.individual,
@@ -913,12 +895,12 @@ describe('Auth Module', () => {
 
   describe('PATCH /api/v1/fundraisers/:fundraiserId/publish', () => {
     it('should return 401 Unauthorized when user is not authenticated', async () => {
-      const { user } = await createFakeUserWithToken({
+      const { group } = await createFakeUserWithToken({
         accountType: AccountType.individual,
         setupComplete: true,
       });
 
-      const { fundraiser } = await createFakeFundraiser(user);
+      const { fundraiser } = await createFakeFundraiser(group!);
 
       await request(app.getHttpServer())
         .patch(createApiPath(`fundraisers/${fundraiser.id}/publish`))
@@ -926,13 +908,13 @@ describe('Auth Module', () => {
         .expect(401);
     });
 
-    it('should publish a user-owned fundraiser', async () => {
-      const { token, user } = await createFakeUserWithToken({
+    it('should publish a group-owned fundraiser', async () => {
+      const { token, group } = await createFakeUserWithToken({
         accountType: AccountType.individual,
         setupComplete: true,
       });
 
-      const { fundraiser } = await createFakeFundraiser(user, {
+      const { fundraiser } = await createFakeFundraiser(group!, {
         status: FundraiserStatus.draft,
       });
 
@@ -945,13 +927,13 @@ describe('Auth Module', () => {
       expect(response.body.status).toBe(FundraiserStatus.published);
     });
 
-    it('should unpublish a user-owned fundraiser', async () => {
-      const { token, user } = await createFakeUserWithToken({
+    it('should unpublish a group-owned fundraiser', async () => {
+      const { token, group } = await createFakeUserWithToken({
         accountType: AccountType.individual,
         setupComplete: true,
       });
 
-      const { fundraiser } = await createFakeFundraiser(user, {
+      const { fundraiser } = await createFakeFundraiser(group!, {
         status: FundraiserStatus.published,
       });
 
@@ -1048,13 +1030,13 @@ describe('Auth Module', () => {
         .expect(404);
     });
 
-    it("should throw ForbiddenException when the user tries to publish another user's fundraiser", async () => {
-      const { user } = await createFakeUserWithToken({
+    it("should throw ForbiddenException when the user tries to publish another group's fundraiser", async () => {
+      const { group } = await createFakeUserWithToken({
         accountType: AccountType.individual,
         setupComplete: true,
       });
 
-      const { fundraiser } = await createFakeFundraiser(user);
+      const { fundraiser } = await createFakeFundraiser(group!);
 
       const { token: anotherUserToken } = await createFakeUserWithToken({
         accountType: AccountType.individual,
@@ -1111,12 +1093,12 @@ describe('Auth Module', () => {
     });
 
     it('should return 400 Bad Request when published field is missing', async () => {
-      const { token, user } = await createFakeUserWithToken({
+      const { token, group } = await createFakeUserWithToken({
         accountType: AccountType.individual,
         setupComplete: true,
       });
 
-      const { fundraiser } = await createFakeFundraiser(user);
+      const { fundraiser } = await createFakeFundraiser(group!);
 
       await request(app.getHttpServer())
         .patch(createApiPath(`fundraisers/${fundraiser.id}/publish`))
@@ -1126,12 +1108,12 @@ describe('Auth Module', () => {
     });
 
     it('should return 400 Bad Request when published field is not a boolean', async () => {
-      const { token, user } = await createFakeUserWithToken({
+      const { token, group } = await createFakeUserWithToken({
         accountType: AccountType.individual,
         setupComplete: true,
       });
 
-      const { fundraiser } = await createFakeFundraiser(user);
+      const { fundraiser } = await createFakeFundraiser(group!);
 
       await request(app.getHttpServer())
         .patch(createApiPath(`fundraisers/${fundraiser.id}/publish`))

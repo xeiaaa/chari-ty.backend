@@ -29,21 +29,21 @@ describe('Public Fundraisers', () => {
 
   describe('GET /api/v1/public/fundraisers', () => {
     it('should only return published and public fundraisers', async () => {
-      const { user } = await createFakeUserWithToken({
+      const { group } = await createFakeUserWithToken({
         accountType: AccountType.individual,
         setupComplete: true,
       });
 
       // Create fundraisers with different statuses
-      await createFakeFundraiser(user, {
+      await createFakeFundraiser(group!, {
         status: FundraiserStatus.published,
         isPublic: true,
       });
-      await createFakeFundraiser(user, {
+      await createFakeFundraiser(group!, {
         status: FundraiserStatus.draft,
         isPublic: true,
       });
-      await createFakeFundraiser(user, {
+      await createFakeFundraiser(group!, {
         status: FundraiserStatus.published,
         isPublic: false,
       });
@@ -59,17 +59,17 @@ describe('Public Fundraisers', () => {
     });
 
     it('should return empty list when no published and public fundraisers exist', async () => {
-      const { user } = await createFakeUserWithToken({
+      const { group } = await createFakeUserWithToken({
         accountType: AccountType.individual,
         setupComplete: true,
       });
 
       // Create only draft and non-public fundraisers
-      await createFakeFundraiser(user, {
+      await createFakeFundraiser(group!, {
         status: FundraiserStatus.draft,
         isPublic: true,
       });
-      await createFakeFundraiser(user, {
+      await createFakeFundraiser(group!, {
         status: FundraiserStatus.published,
         isPublic: false,
       });
@@ -84,24 +84,24 @@ describe('Public Fundraisers', () => {
     });
 
     it('should return published and public fundraisers filtered by category', async () => {
-      const { user } = await createFakeUserWithToken({
+      const { group } = await createFakeUserWithToken({
         accountType: AccountType.individual,
         setupComplete: true,
       });
 
       // Create published and public fundraisers with different categories
-      await createFakeFundraiser(user, {
+      await createFakeFundraiser(group!, {
         status: FundraiserStatus.published,
         isPublic: true,
         category: FundraiserCategory.arts,
       });
-      await createFakeFundraiser(user, {
+      await createFakeFundraiser(group!, {
         status: FundraiserStatus.published,
         isPublic: true,
         category: FundraiserCategory.health,
       });
       // Create a draft one that shouldn't appear
-      await createFakeFundraiser(user, {
+      await createFakeFundraiser(group!, {
         status: FundraiserStatus.draft,
         isPublic: true,
         category: FundraiserCategory.arts,
@@ -119,19 +119,19 @@ describe('Public Fundraisers', () => {
     });
 
     it('should return published and public fundraisers matching search term', async () => {
-      const { user } = await createFakeUserWithToken({
+      const { group } = await createFakeUserWithToken({
         accountType: AccountType.individual,
         setupComplete: true,
       });
 
       // Create published and public fundraiser with specific title
-      await createFakeFundraiser(user, {
+      await createFakeFundraiser(group!, {
         status: FundraiserStatus.published,
         isPublic: true,
         title: 'Unique Art Project',
       });
       // Create a draft one that shouldn't appear
-      await createFakeFundraiser(user, {
+      await createFakeFundraiser(group!, {
         status: FundraiserStatus.draft,
         isPublic: true,
         title: 'Unique Health Project',
@@ -151,12 +151,12 @@ describe('Public Fundraisers', () => {
 
   describe('GET /api/v1/public/fundraisers/slug/:slug', () => {
     it('should return a published and public fundraiser by slug', async () => {
-      const { user } = await createFakeUserWithToken({
+      const { group } = await createFakeUserWithToken({
         accountType: AccountType.individual,
         setupComplete: true,
       });
 
-      const { fundraiser } = await createFakeFundraiser(user, {
+      const { fundraiser } = await createFakeFundraiser(group!, {
         status: FundraiserStatus.published,
         isPublic: true,
       });
@@ -172,12 +172,12 @@ describe('Public Fundraisers', () => {
     });
 
     it('should return 404 for non-public fundraiser', async () => {
-      const { user } = await createFakeUserWithToken({
+      const { group } = await createFakeUserWithToken({
         accountType: AccountType.individual,
         setupComplete: true,
       });
 
-      const { fundraiser } = await createFakeFundraiser(user, {
+      const { fundraiser } = await createFakeFundraiser(group!, {
         status: FundraiserStatus.published,
         isPublic: false,
       });
@@ -188,12 +188,12 @@ describe('Public Fundraisers', () => {
     });
 
     it('should return 404 for non-published fundraiser', async () => {
-      const { user } = await createFakeUserWithToken({
+      const { group } = await createFakeUserWithToken({
         accountType: AccountType.individual,
         setupComplete: true,
       });
 
-      const { fundraiser } = await createFakeFundraiser(user, {
+      const { fundraiser } = await createFakeFundraiser(group!, {
         status: FundraiserStatus.draft,
         isPublic: true,
       });
@@ -212,12 +212,12 @@ describe('Public Fundraisers', () => {
 
   describe('GET /api/v1/public/fundraisers/slug/:slug - Milestones', () => {
     it('should include milestones ordered by stepNumber ascending', async () => {
-      const { user } = await createFakeUserWithToken({
+      const { group } = await createFakeUserWithToken({
         accountType: AccountType.individual,
         setupComplete: true,
       });
 
-      const { fundraiser } = await createFakeFundraiser(user, {
+      const { fundraiser } = await createFakeFundraiser(group!, {
         status: FundraiserStatus.published,
         isPublic: true,
       });
@@ -251,12 +251,12 @@ describe('Public Fundraisers', () => {
     });
 
     it('should include complete milestone structure', async () => {
-      const { user } = await createFakeUserWithToken({
+      const { group } = await createFakeUserWithToken({
         accountType: AccountType.individual,
         setupComplete: true,
       });
 
-      const { fundraiser } = await createFakeFundraiser(user, {
+      const { fundraiser } = await createFakeFundraiser(group!, {
         status: FundraiserStatus.published,
         isPublic: true,
       });
@@ -290,12 +290,12 @@ describe('Public Fundraisers', () => {
     });
 
     it('should return empty milestones array for fundraiser without milestones', async () => {
-      const { user } = await createFakeUserWithToken({
+      const { group } = await createFakeUserWithToken({
         accountType: AccountType.individual,
         setupComplete: true,
       });
 
-      const { fundraiser } = await createFakeFundraiser(user, {
+      const { fundraiser } = await createFakeFundraiser(group!, {
         status: FundraiserStatus.published,
         isPublic: true,
       });
@@ -312,12 +312,12 @@ describe('Public Fundraisers', () => {
 
   describe('Progress Information Tests', () => {
     it('should include progress information in list response', async () => {
-      const { user } = await createFakeUserWithToken({
+      const { group } = await createFakeUserWithToken({
         accountType: AccountType.individual,
         setupComplete: true,
       });
 
-      await createFakeFundraiser(user, {
+      await createFakeFundraiser(group!, {
         status: FundraiserStatus.published,
         isPublic: true,
         goalAmount: new Decimal('1000'),
@@ -343,12 +343,12 @@ describe('Public Fundraisers', () => {
     });
 
     it('should include progress information in single fundraiser response', async () => {
-      const { user } = await createFakeUserWithToken({
+      const { group } = await createFakeUserWithToken({
         accountType: AccountType.individual,
         setupComplete: true,
       });
 
-      const { fundraiser } = await createFakeFundraiser(user, {
+      const { fundraiser } = await createFakeFundraiser(group!, {
         status: FundraiserStatus.published,
         isPublic: true,
         goalAmount: new Decimal('1000'),
@@ -366,12 +366,12 @@ describe('Public Fundraisers', () => {
     });
 
     it('should calculate correct progress percentage', async () => {
-      const { user } = await createFakeUserWithToken({
+      const { group } = await createFakeUserWithToken({
         accountType: AccountType.individual,
         setupComplete: true,
       });
 
-      await createFakeFundraiser(user, {
+      await createFakeFundraiser(group!, {
         status: FundraiserStatus.published,
         isPublic: true,
         goalAmount: new Decimal('1000'),

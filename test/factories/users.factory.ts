@@ -4,7 +4,6 @@ import {
   Group,
   GroupMemberRole,
   GroupMemberStatus,
-  GroupType,
   PrismaClient,
   User,
 } from '../../generated/prisma';
@@ -50,23 +49,20 @@ export const createFakeUser = async (
     },
   });
 
-  if (
-    setupComplete &&
-    (accountType === AccountType.team || accountType === AccountType.nonprofit)
-  ) {
+  if (setupComplete) {
+    const companyName = faker.company.name();
+
     const group = await prisma.group.create({
       data: {
-        name: faker.company.name(),
-        slug: faker.string.uuid(),
-        type:
-          accountType === AccountType.team
-            ? GroupType.team
-            : GroupType.nonprofit,
+        name: companyName,
+        slug: faker.helpers.slugify(companyName),
+        type: accountType,
         description: faker.company.catchPhrase(),
         avatarUrl: faker.image.avatar(),
         website: faker.internet.url(),
         verified: accountType === AccountType.nonprofit,
         documentsUrls: [],
+        ownerId: user.id,
         ein: accountType === AccountType.nonprofit ? faker.string.uuid() : null,
         members: {
           create: {

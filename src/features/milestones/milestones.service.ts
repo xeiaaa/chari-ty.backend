@@ -7,10 +7,7 @@ import {
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { CreateMilestoneDto } from './dtos/create-milestone.dto';
 import { UpdateMilestoneDto } from './dtos/update-milestone.dto';
-import {
-  User as UserEntity,
-  FundraiserOwnerType,
-} from '../../../generated/prisma';
+import { User as UserEntity } from '../../../generated/prisma';
 import { Decimal } from '@prisma/client/runtime/library';
 
 @Injectable()
@@ -19,7 +16,7 @@ export class MilestonesService {
 
   /**
    * List milestones for a fundraiser
-   * Checks permissions based on fundraiser ownership
+   * Checks permissions based on group membership
    */
   async list(user: UserEntity, fundraiserId: string) {
     // First, verify the fundraiser exists and user has permission
@@ -31,30 +28,20 @@ export class MilestonesService {
       throw new NotFoundException('Fundraiser not found');
     }
 
-    // Check permissions based on owner type
-    if (fundraiser.ownerType === FundraiserOwnerType.user) {
-      // For user-owned fundraisers, only the owner can view milestones
-      if (fundraiser.userId !== user.id) {
-        throw new ForbiddenException(
-          'You do not have permission to view milestones for this fundraiser',
-        );
-      }
-    } else if (fundraiser.ownerType === FundraiserOwnerType.group) {
-      // For group-owned fundraisers, check member role
-      const membership = await this.prisma.groupMember.findUnique({
-        where: {
-          unique_user_group: {
-            userId: user.id,
-            groupId: fundraiser.groupId!,
-          },
+    // Check group membership
+    const membership = await this.prisma.groupMember.findUnique({
+      where: {
+        unique_user_group: {
+          userId: user.id,
+          groupId: fundraiser.groupId,
         },
-      });
+      },
+    });
 
-      if (!membership) {
-        throw new ForbiddenException(
-          'You do not have permission to view milestones for this fundraiser',
-        );
-      }
+    if (!membership) {
+      throw new ForbiddenException(
+        'You do not have permission to view milestones for this fundraiser',
+      );
     }
 
     // Get all milestones for this fundraiser
@@ -66,7 +53,7 @@ export class MilestonesService {
 
   /**
    * Create a new milestone for a fundraiser
-   * Checks permissions based on fundraiser ownership
+   * Checks permissions based on group membership
    */
   async create(
     user: UserEntity,
@@ -82,30 +69,20 @@ export class MilestonesService {
       throw new NotFoundException('Fundraiser not found');
     }
 
-    // Check permissions based on owner type
-    if (fundraiser.ownerType === FundraiserOwnerType.user) {
-      // For user-owned fundraisers, only the owner can create milestones
-      if (fundraiser.userId !== user.id) {
-        throw new ForbiddenException(
-          'You do not have permission to create milestones for this fundraiser',
-        );
-      }
-    } else if (fundraiser.ownerType === FundraiserOwnerType.group) {
-      // For group-owned fundraisers, check member role
-      const membership = await this.prisma.groupMember.findUnique({
-        where: {
-          unique_user_group: {
-            userId: user.id,
-            groupId: fundraiser.groupId!,
-          },
+    // Check group membership and role
+    const membership = await this.prisma.groupMember.findUnique({
+      where: {
+        unique_user_group: {
+          userId: user.id,
+          groupId: fundraiser.groupId,
         },
-      });
+      },
+    });
 
-      if (!membership || membership.role === 'viewer') {
-        throw new ForbiddenException(
-          'You do not have permission to create milestones for this fundraiser',
-        );
-      }
+    if (!membership || membership.role === 'viewer') {
+      throw new ForbiddenException(
+        'You do not have permission to create milestones for this fundraiser',
+      );
     }
 
     // Get the current highest step number
@@ -159,28 +136,20 @@ export class MilestonesService {
       throw new BadRequestException('Cannot update an achieved milestone');
     }
 
-    // Check permissions based on owner type
-    if (milestone.fundraiser.ownerType === FundraiserOwnerType.user) {
-      if (milestone.fundraiser.userId !== user.id) {
-        throw new ForbiddenException(
-          'You do not have permission to update this milestone',
-        );
-      }
-    } else if (milestone.fundraiser.ownerType === FundraiserOwnerType.group) {
-      const membership = await this.prisma.groupMember.findUnique({
-        where: {
-          unique_user_group: {
-            userId: user.id,
-            groupId: milestone.fundraiser.groupId!,
-          },
+    // Check group membership and role
+    const membership = await this.prisma.groupMember.findUnique({
+      where: {
+        unique_user_group: {
+          userId: user.id,
+          groupId: milestone.fundraiser.groupId,
         },
-      });
+      },
+    });
 
-      if (!membership || membership.role === 'viewer') {
-        throw new ForbiddenException(
-          'You do not have permission to update this milestone',
-        );
-      }
+    if (!membership || membership.role === 'viewer') {
+      throw new ForbiddenException(
+        'You do not have permission to update this milestone',
+      );
     }
 
     // Update the milestone
@@ -219,28 +188,20 @@ export class MilestonesService {
       throw new BadRequestException('Cannot delete an achieved milestone');
     }
 
-    // Check permissions based on owner type
-    if (milestone.fundraiser.ownerType === FundraiserOwnerType.user) {
-      if (milestone.fundraiser.userId !== user.id) {
-        throw new ForbiddenException(
-          'You do not have permission to delete this milestone',
-        );
-      }
-    } else if (milestone.fundraiser.ownerType === FundraiserOwnerType.group) {
-      const membership = await this.prisma.groupMember.findUnique({
-        where: {
-          unique_user_group: {
-            userId: user.id,
-            groupId: milestone.fundraiser.groupId!,
-          },
+    // Check group membership and role
+    const membership = await this.prisma.groupMember.findUnique({
+      where: {
+        unique_user_group: {
+          userId: user.id,
+          groupId: milestone.fundraiser.groupId,
         },
-      });
+      },
+    });
 
-      if (!membership || membership.role === 'viewer') {
-        throw new ForbiddenException(
-          'You do not have permission to delete this milestone',
-        );
-      }
+    if (!membership || membership.role === 'viewer') {
+      throw new ForbiddenException(
+        'You do not have permission to delete this milestone',
+      );
     }
 
     // Delete the milestone

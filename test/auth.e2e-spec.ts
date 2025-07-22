@@ -88,10 +88,13 @@ describe('Auth Module', () => {
 
     it('should return the authenticated user groups when a valid token is provided', async () => {
       // Create an individual user
-      const { user: individualUser, token: individualToken } =
-        await createFakeUserWithToken({
-          accountType: AccountType.individual,
-        });
+      const {
+        user: individualUser,
+        token: individualToken,
+        group: individualGroup,
+      } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+      });
 
       // Create a team owner (with a group)
       const { group } = await createFakeUserWithToken({
@@ -107,11 +110,12 @@ describe('Auth Module', () => {
         .set('Authorization', `Bearer ${individualToken}`);
 
       expect(response.statusCode).toBe(200);
-      expect(response.body.length).toBe(1);
+      expect(response.body.length).toBe(2);
+      expect(response.body[1].id).toBe(individualGroup!.id);
       expect(response.body[0].id).toBe(group!.id);
     });
 
-    it('should return 200 OK with an empty array when user has no groups', async () => {
+    it('should return 200 OK with a one-item array when user has not been invited to any groups', async () => {
       // Create an individual user
       const { token: individualToken } = await createFakeUserWithToken({
         accountType: AccountType.individual,
@@ -128,7 +132,7 @@ describe('Auth Module', () => {
         .set('Authorization', `Bearer ${individualToken}`);
 
       expect(response.statusCode).toBe(200);
-      expect(response.body.length).toBe(0);
+      expect(response.body.length).toBe(1);
     });
 
     it('should not return groups where user is not an active member', async () => {
@@ -157,14 +161,14 @@ describe('Auth Module', () => {
         .set('Authorization', `Bearer ${individualToken}`);
 
       expect(response1.statusCode).toBe(200);
-      expect(response1.body.length).toBe(1);
+      expect(response1.body.length).toBe(2);
 
       const response2 = await request(app.getHttpServer())
         .get(createApiPath('auth/me/groups'))
         .set('Authorization', `Bearer ${individual2Token}`);
 
       expect(response2.statusCode).toBe(200);
-      expect(response2.body.length).toBe(0);
+      expect(response2.body.length).toBe(1);
     });
   });
 });

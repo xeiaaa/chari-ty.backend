@@ -22,6 +22,7 @@ enum AccountType {
 }
 
 enum GroupType {
+  individual
   team
   nonprofit
 }
@@ -56,8 +57,8 @@ model User {
 
   // Relations
   groupMemberships GroupMember[]
-  Fundraiser       Fundraiser[]
   donations        Donation[]
+  Group            Group[]
 
   @@map("users")
 }
@@ -75,8 +76,11 @@ model Group {
   verified      Boolean   @default(false)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+  stripeId      String? // Connect payout
+  ownerId       String // FK to User who created this group
 
   // Relations
+  owner      User          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   members    GroupMember[]
   Fundraiser Fundraiser[]
 
@@ -121,11 +125,6 @@ enum FundraiserCategory {
   other
 }
 
-enum FundraiserOwnerType {
-  user
-  group
-}
-
 enum FundraiserStatus {
   draft
   pending
@@ -134,28 +133,28 @@ enum FundraiserStatus {
 }
 
 model Fundraiser {
-  id          String              @id @default(cuid())
-  slug        String              @unique
-  title       String
-  summary     String
-  description String
-  category    FundraiserCategory
-  goalAmount  Decimal
-  currency    String
-  endDate     DateTime?
-  coverUrl    String
-  galleryUrls String[]
-  ownerType   FundraiserOwnerType
-  userId      String? // FK to User (nullable)
-  groupId     String? // FK to Group (nullable)
-  status      FundraiserStatus    @default(draft)
-  isPublic    Boolean             @default(false)
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
+  id                  String             @id @default(cuid())
+  slug                String             @unique
+  title               String
+  summary             String
+  description         String
+  category            FundraiserCategory
+  goalAmount          Decimal
+  currency            String
+  endDate             DateTime?
+  coverUrl            String
+  galleryUrls         String[]
+  groupId             String // FK to Group
+  status              FundraiserStatus   @default(draft)
+  isPublic            Boolean            @default(false)
+  stopWhenGoalReached Boolean            @default(false)
+  acceptingDonations  Boolean            @default(true)
+  isGoalReached       Boolean            @default(false)
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
 
   // Relations
-  user       User?            @relation(fields: [userId], references: [id])
-  group      Group?           @relation(fields: [groupId], references: [id])
+  group      Group            @relation(fields: [groupId], references: [id], onDelete: Cascade)
   milestones Milestone[]
   links      FundraiserLink[]
   donations  Donation[]

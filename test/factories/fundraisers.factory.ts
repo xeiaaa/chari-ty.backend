@@ -3,22 +3,18 @@ import { faker } from '@faker-js/faker';
 import {
   Fundraiser,
   FundraiserCategory,
-  FundraiserOwnerType,
   FundraiserStatus,
   Group,
   PrismaClient,
-  User,
 } from '../../generated/prisma';
 import { Decimal } from '@prisma/client/runtime/library';
 
 const prisma = new PrismaClient();
 
 export const createFakeFundraiser = async (
-  owner: User | Group,
+  group: Group,
   override: Partial<Fundraiser> = {},
 ) => {
-  const isUser = 'email' in owner;
-
   const fundraiser = await prisma.fundraiser.create({
     data: {
       id: faker.string.uuid(),
@@ -35,9 +31,7 @@ export const createFakeFundraiser = async (
       endDate: faker.date.future(),
       coverUrl: faker.image.url(),
       galleryUrls: [faker.image.url(), faker.image.url()],
-      ownerType: isUser ? FundraiserOwnerType.user : FundraiserOwnerType.group,
-      userId: isUser ? owner.id : undefined,
-      groupId: !isUser ? owner.id : undefined,
+      groupId: group.id,
       isPublic: false,
       createdAt: faker.date.past(),
       updatedAt: faker.date.recent(),
@@ -49,11 +43,9 @@ export const createFakeFundraiser = async (
 };
 
 export const buildFakeFundraiser = (
-  owner: User | Group,
+  group: Group,
   override: Partial<CreateFundraiserDto> = {},
 ): CreateFundraiserDto => {
-  const isUser = 'email' in owner;
-
   return {
     title: faker.lorem.sentence(),
     summary: faker.lorem.paragraph(1),
@@ -67,9 +59,8 @@ export const buildFakeFundraiser = (
     currency: 'USD',
     endDate: faker.date.future().toISOString(),
     coverUrl: faker.image.url(),
+    groupId: group.id,
     galleryUrls: [faker.image.url(), faker.image.url()],
-    ownerType: isUser ? FundraiserOwnerType.user : FundraiserOwnerType.group,
-    groupId: !isUser ? owner.id : undefined,
     isPublic: false,
     ...override,
   };

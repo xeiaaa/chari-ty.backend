@@ -76,11 +76,18 @@ describe('Auth Module', () => {
         .set('Authorization', `Bearer ${token}`)
         .send(createIndividualOnboardingData());
 
-      console.log(response.body);
-
       expect(response.statusCode).toBe(201);
       expect(response.body.user.accountType).toBe(AccountType.individual);
       expect(response.body.user.setupComplete).toBe(true);
+      // New: Assert group and groupMember are present and correct
+      expect(response.body.group).toBeDefined();
+      expect(response.body.group.type).toBe('individual');
+      expect(response.body.group.ownerId).toBe(response.body.user.id);
+      expect(response.body.groupMember).toBeDefined();
+      expect(response.body.groupMember.userId).toBe(response.body.user.id);
+      expect(response.body.groupMember.groupId).toBe(response.body.group.id);
+      expect(response.body.groupMember.role).toBe('owner');
+      expect(response.body.groupMember.status).toBe('active');
     });
 
     it('should successfully complete team account onboarding', async () => {
@@ -94,11 +101,18 @@ describe('Auth Module', () => {
         .set('Authorization', `Bearer ${token}`)
         .send(createTeamOnboardingData());
 
-      console.log(response.body);
-
       expect(response.statusCode).toBe(201);
       expect(response.body.user.accountType).toBe(AccountType.team);
       expect(response.body.user.setupComplete).toBe(true);
+      // New: Assert group and groupMember are present and correct
+      expect(response.body.group).toBeDefined();
+      expect(response.body.group.type).toBe('team');
+      expect(response.body.group.ownerId).toBe(response.body.user.id);
+      expect(response.body.groupMember).toBeDefined();
+      expect(response.body.groupMember.userId).toBe(response.body.user.id);
+      expect(response.body.groupMember.groupId).toBe(response.body.group.id);
+      expect(response.body.groupMember.role).toBe('owner');
+      expect(response.body.groupMember.status).toBe('active');
     });
 
     it('should successfully complete nonprofit account onboarding', async () => {
@@ -112,11 +126,17 @@ describe('Auth Module', () => {
         .set('Authorization', `Bearer ${token}`)
         .send(createNonprofitOnboardingData());
 
-      console.log(response.body);
-
       expect(response.statusCode).toBe(201);
       expect(response.body.user.accountType).toBe(AccountType.nonprofit);
       expect(response.body.user.setupComplete).toBe(true);
+      // New: Assert group and groupMember are present and correct
+      expect(response.body.group).toBeDefined();
+      expect(response.body.group.type).toBe('nonprofit');
+      expect(response.body.group.ownerId).toBe(response.body.user.id);
+      expect(response.body.groupMember).toBeDefined();
+      expect(response.body.groupMember.userId).toBe(response.body.user.id);
+      expect(response.body.groupMember.groupId).toBe(response.body.group.id);
+      expect(response.body.groupMember.role).toBe('owner');
     });
 
     it('should return 400 Bad Request when accountType is missing', async () => {

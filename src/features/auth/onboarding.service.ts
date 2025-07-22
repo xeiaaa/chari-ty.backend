@@ -57,22 +57,57 @@ export class OnboardingService {
   private async completeIndividualOnboarding(
     user: User,
     data: OnboardingDto,
-  ): Promise<{ user: User }> {
-    // Update user with individual account type and setup completion
-    const updatedUser = await this.prisma.user.update({
-      where: { id: user.id },
-      data: {
-        accountType: 'individual',
-        bio: data.bio,
-        avatarUrl: data.avatarUrl,
-        setupComplete: true,
-      },
+  ): Promise<{ user: User; group: Group; groupMember: GroupMember }> {
+    // Generate group name and slug
+    const groupName = `${user.firstName} ${user.lastName}'s Group`;
+    const groupSlug = await this.generateUniqueGroupSlug(groupName);
+
+    // Use transaction to ensure data consistency
+    const result = await this.prisma.$transaction(async (prisma) => {
+      // Update user
+      const updatedUser = await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          accountType: 'individual',
+          bio: data.bio,
+          avatarUrl: data.avatarUrl,
+          setupComplete: true,
+        },
+      });
+
+      // Create group for individual
+      const group = await prisma.group.create({
+        data: {
+          name: groupName,
+          slug: groupSlug,
+          type: 'individual',
+          ownerId: user.id,
+          description: undefined,
+          avatarUrl: data.avatarUrl,
+          website: undefined,
+          ein: undefined,
+          documentsUrls: [],
+          verified: false,
+        },
+      });
+
+      // Add user as the only group member (owner)
+      const groupMember = await prisma.groupMember.create({
+        data: {
+          userId: user.id,
+          groupId: group.id,
+          role: 'owner',
+          status: 'active',
+        },
+      });
+
+      return { user: updatedUser, group, groupMember };
     });
 
     // Update Clerk metadata
     await this.updateClerkMetadata(user.clerkId, 'individual');
 
-    return { user: updatedUser };
+    return result;
   }
 
   /**
@@ -86,8 +121,13 @@ export class OnboardingService {
       throw new Error('Team name is required for team account type');
     }
 
-    // Generate unique slug for the group
-    const groupSlug = await this.generateUniqueGroupSlug(data.teamName);
+    // Generate unique slug for the team group
+    const teamGroupSlug = await this.generateUniqueGroupSlug(data.teamName);
+
+    // Generate individual group name and slug
+    const individualGroupName = `${user.firstName} ${user.lastName}'s Group`;
+    const individualGroupSlug =
+      await this.generateUniqueGroupSlug(individualGroupName);
 
     // Use transaction to ensure data consistency
     const result = await this.prisma.$transaction(async (prisma) => {
@@ -102,18 +142,45 @@ export class OnboardingService {
         },
       });
 
+      // Create individual group for the user
+      const individualGroup = await prisma.group.create({
+        data: {
+          name: individualGroupName,
+          slug: individualGroupSlug,
+          type: 'individual',
+          ownerId: user.id,
+          description: undefined,
+          avatarUrl: data.avatarUrl,
+          website: undefined,
+          ein: undefined,
+          documentsUrls: [],
+          verified: false,
+        },
+      });
+
+      // Add user as owner of their individual group
+      await prisma.groupMember.create({
+        data: {
+          userId: user.id,
+          groupId: individualGroup.id,
+          role: 'owner',
+          status: 'active',
+        },
+      });
+
       // Create group for team
       const group = await prisma.group.create({
         data: {
           name: data.teamName!, // Safe to use ! after runtime check
-          slug: groupSlug,
+          slug: teamGroupSlug,
           description: data.mission,
           type: 'team',
           website: data.website,
+          ownerId: user.id,
         },
       });
 
-      // Add user as owner of the group
+      // Add user as owner of the team group
       const groupMember = await prisma.groupMember.create({
         data: {
           userId: user.id,
@@ -212,8 +279,15 @@ export class OnboardingService {
       throw new Error('EIN is required for nonprofit account type');
     }
 
-    // Generate unique slug for the group
-    const groupSlug = await this.generateUniqueGroupSlug(data.organizationName);
+    // Generate unique slug for the nonprofit group
+    const nonprofitGroupSlug = await this.generateUniqueGroupSlug(
+      data.organizationName,
+    );
+
+    // Generate individual group name and slug
+    const individualGroupName = `${user.firstName} ${user.lastName}'s Group`;
+    const individualGroupSlug =
+      await this.generateUniqueGroupSlug(individualGroupName);
 
     // Use transaction to ensure data consistency
     const result = await this.prisma.$transaction(async (prisma) => {
@@ -228,26 +302,54 @@ export class OnboardingService {
         },
       });
 
+      // Create individual group for the user
+      const individualGroup = await prisma.group.create({
+        data: {
+          name: individualGroupName,
+          slug: individualGroupSlug,
+          type: 'individual',
+          ownerId: user.id,
+          description: undefined,
+          avatarUrl: data.avatarUrl,
+          website: undefined,
+          ein: undefined,
+          documentsUrls: [],
+          verified: false,
+        },
+      });
+
+      // Add user as owner of their individual group
+      await prisma.groupMember.create({
+        data: {
+          userId: user.id,
+          groupId: individualGroup.id,
+          role: 'owner',
+          status: 'active',
+        },
+      });
+
       // Create group for nonprofit
       const group = await prisma.group.create({
         data: {
           name: data.organizationName!, // Safe to use ! after runtime check
-          slug: groupSlug,
+          slug: nonprofitGroupSlug,
           description: data.mission,
           type: 'nonprofit',
           website: data.website,
           ein: data.ein!, // Safe to use ! after runtime check
           documentsUrls: data.documentsUrls || [],
           verified: false, // Requires manual verification
+          ownerId: user.id,
         },
       });
 
-      // Add user as owner of the group
+      // Add user as owner of the nonprofit group
       const groupMember = await prisma.groupMember.create({
         data: {
           userId: user.id,
           groupId: group.id,
           role: 'owner',
+          status: 'active',
         },
       });
 

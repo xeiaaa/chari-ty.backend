@@ -11,10 +11,7 @@ import {
   Min,
   MaxLength,
 } from 'class-validator';
-import {
-  FundraiserCategory,
-  FundraiserOwnerType,
-} from '../../../../generated/prisma';
+import { FundraiserCategory } from '../../../../generated/prisma';
 
 export class CreateFundraiserDto {
   @IsString()
@@ -57,17 +54,9 @@ export class CreateFundraiserDto {
   @IsOptional()
   galleryUrls?: string[];
 
-  @IsEnum(FundraiserOwnerType)
+  @IsString()
   @IsNotEmpty()
-  ownerType: FundraiserOwnerType;
-
-  @IsString()
-  @IsOptional()
-  userId?: string;
-
-  @IsString()
-  @IsOptional()
-  groupId?: string;
+  groupId: string;
 
   @IsBoolean()
   @IsOptional()
