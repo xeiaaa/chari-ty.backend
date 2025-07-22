@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { CreateCheckoutSessionDto } from './dtos/create-checkout-session.dto';
 import Stripe from 'stripe';
-import { User } from '../../../generated/prisma';
+import { User, DonationStatus } from '../../../generated/prisma';
 
 @Injectable()
 export class DonationsService {
@@ -109,6 +109,163 @@ export class DonationsService {
     return {
       sessionId: session.id,
       sessionUrl: session.url,
+    };
+  }
+
+  /**
+   * List donations for a specific fundraiser
+   */
+  async listByFundraiser(
+    user: User,
+    fundraiserId: string,
+    status?: DonationStatus,
+  ) {
+    // Verify fundraiser exists and user has access
+    const fundraiser = await this.prisma.fundraiser.findUnique({
+      where: { id: fundraiserId },
+    });
+
+    if (!fundraiser) {
+      throw new BadRequestException('Fundraiser not found');
+    }
+
+    // Check if user has access to this fundraiser's group
+    const groupMember = await this.prisma.groupMember.findFirst({
+      where: {
+        groupId: fundraiser.groupId,
+        userId: user.id,
+        status: 'active',
+      },
+    });
+
+    if (!groupMember) {
+      throw new BadRequestException('Access denied');
+    }
+
+    // Build where clause
+    const where: any = {
+      fundraiserId,
+    };
+
+    if (status) {
+      where.status = status;
+    }
+
+    // Get donations
+    const donations = await this.prisma.donation.findMany({
+      where,
+      include: {
+        donor: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            username: true,
+            avatarUrl: true,
+          },
+        },
+        sourceLink: {
+          select: {
+            alias: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    // Calculate totals
+    const totalDonations = await this.prisma.donation.count({ where });
+    const totalAmount = await this.prisma.donation.aggregate({
+      where: {
+        ...where,
+        status: DonationStatus.completed,
+      },
+      _sum: {
+        amount: true,
+      },
+    });
+
+    return {
+      items: donations,
+      meta: {
+        total: totalDonations,
+        totalAmount: totalAmount._sum.amount || 0,
+      },
+    };
+  }
+
+  /**
+   * List public donations for a fundraiser by slug
+   */
+  async listPublicBySlug(slug: string, status?: DonationStatus) {
+    // Verify fundraiser exists and is public
+    const fundraiser = await this.prisma.fundraiser.findUnique({
+      where: { slug },
+    });
+
+    if (!fundraiser) {
+      throw new BadRequestException('Fundraiser not found');
+    }
+
+    if (!fundraiser.isPublic || fundraiser.status !== 'published') {
+      throw new BadRequestException('Fundraiser is not public');
+    }
+
+    // Build where clause - only show completed donations for public view
+    const where: any = {
+      fundraiserId: fundraiser.id,
+      status: DonationStatus.completed,
+    };
+
+    // If a specific status is requested, use it instead of defaulting to completed
+    if (status) {
+      where.status = status;
+    }
+
+    // Get donations
+    const donations = await this.prisma.donation.findMany({
+      where,
+      include: {
+        donor: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            username: true,
+            avatarUrl: true,
+          },
+        },
+        sourceLink: {
+          select: {
+            alias: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    // Calculate totals
+    const totalDonations = await this.prisma.donation.count({ where });
+    const totalAmount = await this.prisma.donation.aggregate({
+      where: {
+        ...where,
+        status: DonationStatus.completed,
+      },
+      _sum: {
+        amount: true,
+      },
+    });
+
+    return {
+      items: donations,
+      meta: {
+        total: totalDonations,
+        totalAmount: totalAmount._sum.amount || 0,
+      },
     };
   }
 }

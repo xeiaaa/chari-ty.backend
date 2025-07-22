@@ -90,7 +90,6 @@ export class PaymentsService {
    * Create a Stripe PaymentIntent and a pending donation
    */
   async createPaymentIntent(
-    user: User,
     dto: CreateIntentDto,
   ): Promise<{ clientSecret: string }> {
     // Fetch fundraiser (must include group and currency)
@@ -115,7 +114,6 @@ export class PaymentsService {
         amount: new Decimal(dto.amount),
         currency: fundraiser.currency,
         fundraiserId: dto.fundraiserId,
-        donorId: user?.id,
         fundraiserLinkId: dto.fundraiserLinkId,
         name: dto.name,
         message: dto.message,
@@ -135,7 +133,6 @@ export class PaymentsService {
       metadata: {
         donationId: donation.id,
         fundraiserId: dto.fundraiserId,
-        userId: user?.id || 'anonymous',
         fundraiserLinkId: dto.fundraiserLinkId || '',
       },
     });

@@ -1,7 +1,9 @@
 import { Controller, Get, Query, Param } from '@nestjs/common';
 import { FundraisersService } from './fundraisers.service';
 import { ListPublicFundraisersDto } from './dtos/list-public-fundraisers.dto';
-import { Public } from '../../common/decorators';
+import { Public } from '../../common/decorators/public.decorator';
+import { DonationsService } from '../donations/donations.service';
+import { ListDonationsDto } from '../donations/dtos/list-donations.dto';
 
 /**
  * Public controller for fundraisers
@@ -9,7 +11,10 @@ import { Public } from '../../common/decorators';
  */
 @Controller('public/fundraisers')
 export class PublicFundraisersController {
-  constructor(private readonly fundraisersService: FundraisersService) {}
+  constructor(
+    private readonly fundraisersService: FundraisersService,
+    private readonly donationsService: DonationsService,
+  ) {}
 
   /**
    * Get all public fundraisers
@@ -29,5 +34,18 @@ export class PublicFundraisersController {
   @Get('slug/:slug')
   async findPublicBySlug(@Param('slug') slug: string) {
     return await this.fundraisersService.findPublicBySlug(slug);
+  }
+
+  /**
+   * List donations for a public fundraiser by slug
+   * GET /api/v1/public/fundraisers/slug/:slug/donations
+   */
+  @Public()
+  @Get('slug/:slug/donations')
+  async listPublicDonations(
+    @Param('slug') slug: string,
+    @Query() query: ListDonationsDto,
+  ) {
+    return await this.donationsService.listPublicBySlug(slug, query.status);
   }
 }

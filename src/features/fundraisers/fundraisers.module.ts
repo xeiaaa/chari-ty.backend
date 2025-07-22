@@ -6,12 +6,14 @@ import { PrismaModule } from '../../core/prisma/prisma.module';
 import { AuthModule } from '../auth/auth.module';
 import { MilestonesModule } from '../milestones/milestones.module';
 import { UsersModule } from '../users/users.module';
+import { DonationsModule } from '../donations/donations.module';
 
 @Module({
   imports: [
     PrismaModule,
     AuthModule,
     MilestonesModule,
+    DonationsModule,
     forwardRef(() => UsersModule),
   ],
   controllers: [FundraisersController, PublicFundraisersController],

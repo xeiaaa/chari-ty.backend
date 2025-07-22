@@ -21,6 +21,8 @@ import { User as UserEntity } from '../../../generated/prisma';
 import { MilestonesService } from '../milestones/milestones.service';
 import { CreateMilestoneDto } from '../milestones/dtos/create-milestone.dto';
 import { UpdateMilestoneDto } from '../milestones/dtos/update-milestone.dto';
+import { DonationsService } from '../donations/donations.service';
+import { ListDonationsDto } from '../donations/dtos/list-donations.dto';
 
 @Controller('fundraisers')
 @UseGuards(AuthGuard)
@@ -28,6 +30,7 @@ export class FundraisersController {
   constructor(
     private readonly fundraisersService: FundraisersService,
     private readonly milestonesService: MilestonesService,
+    private readonly donationsService: DonationsService,
   ) {}
 
   /**
@@ -162,5 +165,22 @@ export class FundraisersController {
     @AuthUser() user: UserEntity,
   ) {
     await this.milestonesService.delete(user, fundraiserId, milestoneId);
+  }
+
+  /**
+   * List donations for a fundraiser
+   * GET /api/v1/fundraisers/:fundraiserId/donations
+   */
+  @Get(':fundraiserId/donations')
+  async listDonations(
+    @Param('fundraiserId') fundraiserId: string,
+    @Query() query: ListDonationsDto,
+    @AuthUser() user: UserEntity,
+  ) {
+    return this.donationsService.listByFundraiser(
+      user,
+      fundraiserId,
+      query.status,
+    );
   }
 }

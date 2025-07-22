@@ -7,5 +7,6 @@ import { PrismaModule } from '../../core/prisma/prisma.module';
   imports: [PrismaModule],
   controllers: [DonationsController],
   providers: [DonationsService],
+  exports: [DonationsService],
 })
 export class DonationsModule {}

@@ -5,7 +5,7 @@ import { PaymentsService } from './payments.service';
 import { CreateConnectAccountDto } from './dtos/create-connect-account.dto';
 import { CreateIntentDto } from './dtos/create-intent.dto';
 import { User } from '../../../generated/prisma';
-import { AuthUser } from 'src/common/decorators';
+import { Public } from 'src/common/decorators';
 
 /**
  * PaymentsController handles payment-related endpoints
@@ -33,12 +33,11 @@ export class PaymentsController {
   /**
    * Create a Stripe PaymentIntent for a donation
    */
-  @UseGuards(AuthGuard)
   @Post('stripe/create-intent')
+  @Public()
   async createIntent(
     @Body() createIntentDto: CreateIntentDto,
-    @AuthUser() user: User,
   ): Promise<{ clientSecret: string }> {
-    return this.paymentsService.createPaymentIntent(user, createIntentDto);
+    return this.paymentsService.createPaymentIntent(createIntentDto);
   }
 }
