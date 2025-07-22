@@ -160,10 +160,14 @@ export class WebhooksService {
    */
   async processStripeWebhook(event: any): Promise<void> {
     this.logger.log(`Processing Stripe webhook: ${event.type}`);
+    console.log(event.data);
 
     try {
       switch (event.type) {
         case 'checkout.session.completed':
+          await this.handleCheckoutSessionCompleted(event.data.object);
+          break;
+        case 'payment_intent.succeeded':
           await this.handleCheckoutSessionCompleted(event.data.object);
           break;
         default:

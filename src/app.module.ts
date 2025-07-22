@@ -11,6 +11,7 @@ import { LinksModule } from './features/links/links.module';
 import { DonationsModule } from './features/donations/donations.module';
 import { UploadsModule } from './features/uploads/uploads.module';
 import { GroupsModule } from './features/groups/groups.module';
+import { PaymentsModule } from './features/payments/payments.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { GroupsModule } from './features/groups/groups.module';
     DonationsModule,
     UploadsModule,
     GroupsModule,
+    PaymentsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

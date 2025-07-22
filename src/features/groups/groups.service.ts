@@ -3,10 +3,15 @@ import {
   NotFoundException,
   Inject,
   forwardRef,
+  ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { FundraisersService } from '../fundraisers/fundraisers.service';
-import { Group } from '../../../generated/prisma';
+import {
+  Group,
+  User as UserEntity,
+  GroupMemberStatus,
+} from '../../../generated/prisma';
 
 /**
  * GroupsService handles all group-related database operations
@@ -74,5 +79,57 @@ export class GroupsService {
       ...query,
       groupId: group.id,
     });
+  }
+
+  /**
+   * Find a group by ID
+   */
+  async findById(id: string): Promise<Group | null> {
+    return this.prisma.group.findUnique({
+      where: { id },
+    });
+  }
+
+  /**
+   * Update the Stripe ID for a group
+   */
+  async updateStripeId(groupId: string, stripeId: string): Promise<Group> {
+    return this.prisma.group.update({
+      where: { id: groupId },
+      data: { stripeId },
+    });
+  }
+
+  /**
+   * Get authenticated group by slug
+   * Returns group data including stripeId for authenticated users who are members
+   */
+  async findAuthenticatedBySlug(
+    user: UserEntity,
+    slug: string,
+  ): Promise<Group> {
+    const group = await this.prisma.group.findUnique({
+      where: { slug },
+      include: {
+        members: {
+          where: {
+            userId: user.id,
+            status: GroupMemberStatus.active,
+          },
+        },
+      },
+    });
+
+    if (!group) {
+      throw new NotFoundException('Group not found');
+    }
+
+    // Check if user is a member of the group
+    if (group.members.length === 0) {
+      throw new ForbiddenException('You do not have access to this group');
+    }
+
+    // Return the group with stripeId included
+    return group;
   }
 }

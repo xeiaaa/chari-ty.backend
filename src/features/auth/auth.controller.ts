@@ -59,6 +59,7 @@ export class AuthController {
       id: member.group.id,
       type: member.group.type,
       name: member.group.name,
+      slug: member.group.slug,
       role: member.role,
       dateActive: member.joinedAt.toISOString(),
     }));
