@@ -163,16 +163,18 @@ model Fundraiser {
 }
 
 model Milestone {
-  id           String    @id @default(cuid())
-  fundraiserId String
-  stepNumber   Int
-  amount       Decimal
-  title        String
-  purpose      String
-  achieved     Boolean   @default(false)
-  achievedAt   DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id                String    @id @default(cuid())
+  fundraiserId      String
+  stepNumber        Int
+  amount            Decimal
+  title             String
+  purpose           String
+  achieved          Boolean   @default(false)
+  achievedAt        DateTime?
+  completionDetails String? // Details about how the milestone was completed
+  proofUrls         String[] // URLs to proof images/videos
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   // Relations
   fundraiser Fundraiser @relation(fields: [fundraiserId], references: [id], onDelete: Cascade)

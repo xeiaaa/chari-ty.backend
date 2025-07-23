@@ -21,6 +21,7 @@ import { User as UserEntity } from '../../../generated/prisma';
 import { MilestonesService } from '../milestones/milestones.service';
 import { CreateMilestoneDto } from '../milestones/dtos/create-milestone.dto';
 import { UpdateMilestoneDto } from '../milestones/dtos/update-milestone.dto';
+import { CompleteMilestoneDto } from '../milestones/dtos/complete-milestone.dto';
 import { DonationsService } from '../donations/donations.service';
 import { ListDonationsDto } from '../donations/dtos/list-donations.dto';
 
@@ -165,6 +166,25 @@ export class FundraisersController {
     @AuthUser() user: UserEntity,
   ) {
     await this.milestonesService.delete(user, fundraiserId, milestoneId);
+  }
+
+  /**
+   * Complete a milestone with details and proof
+   * PATCH /api/v1/fundraisers/:fundraiserId/milestones/:milestoneId/complete
+   */
+  @Patch(':fundraiserId/milestones/:milestoneId/complete')
+  async completeMilestone(
+    @Param('fundraiserId') fundraiserId: string,
+    @Param('milestoneId') milestoneId: string,
+    @Body() data: CompleteMilestoneDto,
+    @AuthUser() user: UserEntity,
+  ) {
+    return this.milestonesService.complete(
+      user,
+      fundraiserId,
+      milestoneId,
+      data,
+    );
   }
 
   /**

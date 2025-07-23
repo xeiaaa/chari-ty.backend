@@ -7,6 +7,7 @@ import {
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { CreateMilestoneDto } from './dtos/create-milestone.dto';
 import { UpdateMilestoneDto } from './dtos/update-milestone.dto';
+import { CompleteMilestoneDto } from './dtos/complete-milestone.dto';
 import { User as UserEntity } from '../../../generated/prisma';
 import { Decimal } from '@prisma/client/runtime/library';
 
@@ -252,5 +253,63 @@ export class MilestonesService {
         });
       }
     }
+  }
+
+  /**
+   * Add completion details and proof to a milestone
+   * Allows adding details to achieved milestones
+   */
+  async complete(
+    user: UserEntity,
+    fundraiserId: string,
+    milestoneId: string,
+    data: CompleteMilestoneDto,
+  ) {
+    // First, verify the fundraiser and milestone exist
+    const milestone = await this.prisma.milestone.findUnique({
+      where: { id: milestoneId },
+      include: { fundraiser: true },
+    });
+
+    if (!milestone) {
+      throw new NotFoundException('Milestone not found');
+    }
+
+    if (milestone.fundraiserId !== fundraiserId) {
+      throw new BadRequestException(
+        'Milestone does not belong to this fundraiser',
+      );
+    }
+
+    if (!milestone.achieved) {
+      throw new BadRequestException(
+        'Cannot add details to a non-achieved milestone',
+      );
+    }
+
+    // Check group membership and role
+    const membership = await this.prisma.groupMember.findUnique({
+      where: {
+        unique_user_group: {
+          userId: user.id,
+          groupId: milestone.fundraiser.groupId,
+        },
+      },
+    });
+
+    if (!membership || membership.role === 'viewer') {
+      throw new ForbiddenException(
+        'You do not have permission to add details to this milestone',
+      );
+    }
+
+    // Update the milestone with completion details
+    return await this.prisma.milestone.update({
+      where: { id: milestoneId },
+      data: {
+        completionDetails: data.completionDetails,
+        proofUrls: data.proofUrls || [],
+      },
+    });
   }
 }
