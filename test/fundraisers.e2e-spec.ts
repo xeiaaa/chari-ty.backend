@@ -908,10 +908,16 @@ describe('Auth Module', () => {
         .expect(401);
     });
 
-    it('should publish a group-owned fundraiser', async () => {
+    it('should publish a group-owned fundraiser when group has Stripe connected', async () => {
       const { token, group } = await createFakeUserWithToken({
         accountType: AccountType.individual,
         setupComplete: true,
+      });
+
+      // Add Stripe ID to the group
+      await prisma.group.update({
+        where: { id: group!.id },
+        data: { stripeId: 'acct_test123' },
       });
 
       const { fundraiser } = await createFakeFundraiser(group!, {
@@ -946,10 +952,16 @@ describe('Auth Module', () => {
       expect(response.body.status).toBe(FundraiserStatus.draft);
     });
 
-    it('should publish a group-owned fundraiser when user is the owner', async () => {
+    it('should publish a group-owned fundraiser when user is the owner and group has Stripe connected', async () => {
       const { token, group } = await createFakeUserWithToken({
         accountType: AccountType.team,
         setupComplete: true,
+      });
+
+      // Add Stripe ID to the group
+      await prisma.group.update({
+        where: { id: group!.id },
+        data: { stripeId: 'acct_test123' },
       });
 
       const { fundraiser } = await createFakeFundraiser(group!, {
@@ -965,10 +977,16 @@ describe('Auth Module', () => {
       expect(response.body.status).toBe(FundraiserStatus.published);
     });
 
-    it('should publish a group-owned fundraiser when user is an admin', async () => {
+    it('should publish a group-owned fundraiser when user is an admin and group has Stripe connected', async () => {
       const { group } = await createFakeUserWithToken({
         accountType: AccountType.team,
         setupComplete: true,
+      });
+
+      // Add Stripe ID to the group
+      await prisma.group.update({
+        where: { id: group!.id },
+        data: { stripeId: 'acct_test123' },
       });
 
       const { token, user } = await createFakeUserWithToken({
@@ -991,10 +1009,16 @@ describe('Auth Module', () => {
       expect(response.body.status).toBe(FundraiserStatus.published);
     });
 
-    it('should publish a group-owned fundraiser when user is an editor', async () => {
+    it('should publish a group-owned fundraiser when user is an editor and group has Stripe connected', async () => {
       const { group } = await createFakeUserWithToken({
         accountType: AccountType.team,
         setupComplete: true,
+      });
+
+      // Add Stripe ID to the group
+      await prisma.group.update({
+        where: { id: group!.id },
+        data: { stripeId: 'acct_test123' },
       });
 
       const { token, user } = await createFakeUserWithToken({
@@ -1036,6 +1060,12 @@ describe('Auth Module', () => {
         setupComplete: true,
       });
 
+      // Add Stripe ID to the group to ensure the test fails due to permissions, not Stripe
+      await prisma.group.update({
+        where: { id: group!.id },
+        data: { stripeId: 'acct_test123' },
+      });
+
       const { fundraiser } = await createFakeFundraiser(group!);
 
       const { token: anotherUserToken } = await createFakeUserWithToken({
@@ -1056,6 +1086,12 @@ describe('Auth Module', () => {
         setupComplete: true,
       });
 
+      // Add Stripe ID to the group to ensure the test fails due to permissions, not Stripe
+      await prisma.group.update({
+        where: { id: group!.id },
+        data: { stripeId: 'acct_test123' },
+      });
+
       const { fundraiser } = await createFakeFundraiser(group!);
 
       const { token: anotherUserToken } = await createFakeUserWithToken({
@@ -1070,10 +1106,57 @@ describe('Auth Module', () => {
         .expect(403);
     });
 
+    it('should throw BadRequestException when trying to publish fundraiser for group without Stripe connection', async () => {
+      const { token, group } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
+
+      const { fundraiser } = await createFakeFundraiser(group!, {
+        status: FundraiserStatus.draft,
+      });
+
+      await request(app.getHttpServer())
+        .patch(createApiPath(`fundraisers/${fundraiser.id}/publish`))
+        .set('Authorization', `Bearer ${token}`)
+        .send({ published: true })
+        .expect(400)
+        .expect((res) => {
+          expect(res.body.message).toBe(
+            'Cannot publish fundraiser: Group must be connected to Stripe to accept donations',
+          );
+        });
+    });
+
+    it('should allow unpublishing fundraiser even when group has no Stripe connection', async () => {
+      const { token, group } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
+
+      const { fundraiser } = await createFakeFundraiser(group!, {
+        status: FundraiserStatus.published,
+      });
+
+      const response = await request(app.getHttpServer())
+        .patch(createApiPath(`fundraisers/${fundraiser.id}/publish`))
+        .set('Authorization', `Bearer ${token}`)
+        .send({ published: false });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.body.status).toBe(FundraiserStatus.draft);
+    });
+
     it('should throw ForbiddenException when the group member has insufficient role (viewer)', async () => {
       const { group } = await createFakeUserWithToken({
         accountType: AccountType.team,
         setupComplete: true,
+      });
+
+      // Add Stripe ID to the group to ensure the test fails due to permissions, not Stripe
+      await prisma.group.update({
+        where: { id: group!.id },
+        data: { stripeId: 'acct_test123' },
       });
 
       const { token, user } = await createFakeUserWithToken({
@@ -1098,6 +1181,12 @@ describe('Auth Module', () => {
         setupComplete: true,
       });
 
+      // Add Stripe ID to the group to ensure the test fails due to validation, not Stripe
+      await prisma.group.update({
+        where: { id: group!.id },
+        data: { stripeId: 'acct_test123' },
+      });
+
       const { fundraiser } = await createFakeFundraiser(group!);
 
       await request(app.getHttpServer())
@@ -1111,6 +1200,12 @@ describe('Auth Module', () => {
       const { token, group } = await createFakeUserWithToken({
         accountType: AccountType.individual,
         setupComplete: true,
+      });
+
+      // Add Stripe ID to the group to ensure the test fails due to validation, not Stripe
+      await prisma.group.update({
+        where: { id: group!.id },
+        data: { stripeId: 'acct_test123' },
       });
 
       const { fundraiser } = await createFakeFundraiser(group!);

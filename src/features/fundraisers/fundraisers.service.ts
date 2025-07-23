@@ -529,6 +529,7 @@ export class FundraisersService {
   async publish(user: UserEntity, fundraiserId: string, published: boolean) {
     const fundraiser = await this.prisma.fundraiser.findUnique({
       where: { id: fundraiserId },
+      include: { group: true },
     });
 
     if (!fundraiser) {
@@ -548,6 +549,13 @@ export class FundraisersService {
     if (!membership || membership.role === 'viewer') {
       throw new ForbiddenException(
         'You do not have permission to publish this fundraiser',
+      );
+    }
+
+    // If trying to publish, check if group has Stripe connected
+    if (published && !fundraiser.group.stripeId) {
+      throw new BadRequestException(
+        'Cannot publish fundraiser: Group must be connected to Stripe to accept donations',
       );
     }
 

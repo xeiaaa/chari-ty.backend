@@ -5,7 +5,7 @@ import { PaymentsService } from './payments.service';
 import { CreateConnectAccountDto } from './dtos/create-connect-account.dto';
 import { CreateIntentDto } from './dtos/create-intent.dto';
 import { User } from '../../../generated/prisma';
-import { Public } from 'src/common/decorators';
+import { Public } from '../../common/decorators';
 
 /**
  * PaymentsController handles payment-related endpoints
