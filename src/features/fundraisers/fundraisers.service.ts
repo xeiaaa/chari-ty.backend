@@ -559,6 +559,22 @@ export class FundraisersService {
       );
     }
 
+    // If trying to unpublish, check if fundraiser has any completed or pending donations
+    if (!published) {
+      const donationCount = await this.prisma.donation.count({
+        where: {
+          fundraiserId,
+          status: { in: ['completed', 'pending'] },
+        },
+      });
+
+      if (donationCount > 0) {
+        throw new BadRequestException(
+          'Cannot unpublish fundraiser: Fundraiser has received donations and cannot be unpublished',
+        );
+      }
+    }
+
     // Update the fundraiser status
     const status = published
       ? FundraiserStatus.published
