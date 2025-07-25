@@ -350,6 +350,29 @@ export class FundraisersService {
       );
     }
 
+    // If goalAmount is being updated, check against total milestone amount
+    if (data.goalAmount !== undefined) {
+      const newGoalAmount = new Decimal(data.goalAmount.toString());
+
+      // Get all milestones for this fundraiser
+      const milestones = await this.prisma.milestone.findMany({
+        where: { fundraiserId },
+      });
+
+      // Calculate total milestone amount
+      const totalMilestoneAmount = milestones.reduce(
+        (sum, milestone) => sum.add(milestone.amount),
+        new Decimal(0),
+      );
+
+      // Reject update if new goal amount is less than total milestone amount
+      if (newGoalAmount.lt(totalMilestoneAmount)) {
+        throw new BadRequestException(
+          `Goal amount cannot be less than the total milestone amount (${totalMilestoneAmount.toString()})`,
+        );
+      }
+    }
+
     // Process the update data
     const updateData = {
       ...data,

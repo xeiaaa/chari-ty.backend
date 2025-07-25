@@ -17,6 +17,8 @@ import {
   createFakeFundraiser,
 } from './factories/fundraisers.factory';
 import { PrismaService } from '../src/core/prisma/prisma.service';
+import { Decimal } from '@prisma/client/runtime/library';
+import { createFakeMilestone } from './factories/milestones.factory';
 
 describe('Auth Module', () => {
   let app: INestApplication<App>;
@@ -749,6 +751,48 @@ describe('Auth Module', () => {
         .set('Authorization', `Bearer ${token}`)
         .send({ groupId: 'cmd3wyy1l0000hl1rd41su9hx' })
         .expect(400);
+    });
+
+    it("should not allow updating the goal amount if it's less than the total milestone amount", async () => {
+      const { token, group } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
+
+      const { fundraiser } = await createFakeFundraiser(group!, {
+        goalAmount: new Decimal(1000),
+      });
+
+      await createFakeMilestone(fundraiser, {
+        amount: new Decimal(1000),
+      });
+
+      await request(app.getHttpServer())
+        .patch(createApiPath(`fundraisers/${fundraiser.id}`))
+        .set('Authorization', `Bearer ${token}`)
+        .send({ goalAmount: 500 })
+        .expect(400);
+    });
+
+    it("should allow updating the goal amount if it's bigger than the total milestone amount", async () => {
+      const { token, group } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
+
+      const { fundraiser } = await createFakeFundraiser(group!, {
+        goalAmount: new Decimal(1000),
+      });
+
+      await createFakeMilestone(fundraiser, {
+        amount: new Decimal(1000),
+      });
+
+      await request(app.getHttpServer())
+        .patch(createApiPath(`fundraisers/${fundraiser.id}`))
+        .set('Authorization', `Bearer ${token}`)
+        .send({ goalAmount: 1001 })
+        .expect(200);
     });
   });
 
