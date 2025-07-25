@@ -86,6 +86,19 @@ export class MilestonesService {
       );
     }
 
+    // Get all existing milestones to calculate total
+    const existingMilestones = await this.prisma.milestone.findMany({
+      where: { fundraiserId },
+    });
+
+    const existingTotal = existingMilestones.reduce(
+      (sum, milestone) => sum.add(milestone.amount),
+      new Decimal(0),
+    );
+
+    const newMilestoneAmount = new Decimal(data.amount.toString());
+    const totalMilestoneAmount = existingTotal.add(newMilestoneAmount);
+
     // Get the current highest step number
     const lastMilestone = await this.prisma.milestone.findFirst({
       where: { fundraiserId },
@@ -94,16 +107,29 @@ export class MilestonesService {
 
     const nextStepNumber = (lastMilestone?.stepNumber ?? 0) + 1;
 
-    // Create the milestone
-    return await this.prisma.milestone.create({
-      data: {
-        fundraiserId,
-        stepNumber: nextStepNumber,
-        amount: new Decimal(data.amount.toString()),
-        title: data.title,
-        purpose: data.purpose,
-        achieved: false, // Always start as not achieved
-      },
+    // Use a transaction to create milestone and update fundraiser goal if needed
+    return await this.prisma.$transaction(async (tx) => {
+      // Create the milestone
+      const milestone = await tx.milestone.create({
+        data: {
+          fundraiserId,
+          stepNumber: nextStepNumber,
+          amount: newMilestoneAmount,
+          title: data.title,
+          purpose: data.purpose,
+          achieved: false, // Always start as not achieved
+        },
+      });
+
+      // Update fundraiser goal amount if total milestone amount exceeds current goal
+      if (totalMilestoneAmount.gt(fundraiser.goalAmount)) {
+        await tx.fundraiser.update({
+          where: { id: fundraiserId },
+          data: { goalAmount: totalMilestoneAmount },
+        });
+      }
+
+      return milestone;
     });
   }
 

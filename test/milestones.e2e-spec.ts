@@ -17,12 +17,16 @@ import {
   buildFakeMilestone,
   createFakeMilestone,
 } from './factories/milestones.factory';
+import { Decimal } from '@prisma/client/runtime/library';
+import { PrismaService } from '../src/core/prisma/prisma.service';
 
 describe('Milestones Module', () => {
   let app: INestApplication<App>;
+  let prisma: PrismaService;
 
   beforeAll(async () => {
     app = await createTestApp();
+    prisma = app.get(PrismaService);
   });
 
   afterAll(async () => {
@@ -255,6 +259,68 @@ describe('Milestones Module', () => {
         .set('Authorization', `Bearer ${token}`)
         .send(milestone)
         .expect(403);
+    });
+
+    it('should update fundraiser goal amount when milestone is added (if the total milestone amount exceeds the current goal amount)', async () => {
+      const { token, group } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
+
+      const { fundraiser } = await createFakeFundraiser(group!, {
+        goalAmount: new Decimal(1500),
+      });
+      await createFakeMilestone(fundraiser, {
+        amount: new Decimal(1000),
+      });
+      const milestone = buildFakeMilestone({
+        amount: 1000,
+      });
+
+      const response = await request(app.getHttpServer())
+        .post(createApiPath(`fundraisers/${fundraiser.id}/milestones`))
+        .set('Authorization', `Bearer ${token}`)
+        .send(milestone);
+
+      expect(response.statusCode).toBe(201);
+      expect(response.body).toMatchObject(formatMilestoneResponse(milestone));
+
+      const updatedFundraiser = await prisma.fundraiser.findUnique({
+        where: { id: fundraiser.id },
+      });
+
+      expect(updatedFundraiser?.goalAmount.toString()).toBe('2000');
+    });
+
+    it('should not update fundraiser goal amount when milestone is added (if the total milestone amount does not exceed the current goal amount)', async () => {
+      const { token, group } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
+
+      const { fundraiser } = await createFakeFundraiser(group!, {
+        goalAmount: new Decimal(1500),
+      });
+      await createFakeMilestone(fundraiser, {
+        amount: new Decimal(1000),
+      });
+      const milestone = buildFakeMilestone({
+        amount: 499,
+      });
+
+      const response = await request(app.getHttpServer())
+        .post(createApiPath(`fundraisers/${fundraiser.id}/milestones`))
+        .set('Authorization', `Bearer ${token}`)
+        .send(milestone);
+
+      expect(response.statusCode).toBe(201);
+      expect(response.body).toMatchObject(formatMilestoneResponse(milestone));
+
+      const updatedFundraiser = await prisma.fundraiser.findUnique({
+        where: { id: fundraiser.id },
+      });
+
+      expect(updatedFundraiser?.goalAmount.toString()).toBe('1500');
     });
   });
 
