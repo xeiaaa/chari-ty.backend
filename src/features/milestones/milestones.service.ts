@@ -179,14 +179,48 @@ export class MilestonesService {
       );
     }
 
-    // Update the milestone
-    return await this.prisma.milestone.update({
-      where: { id: milestoneId },
-      data: {
-        ...(data.amount && { amount: new Decimal(data.amount.toString()) }),
-        ...(data.title && { title: data.title }),
-        ...(data.purpose && { purpose: data.purpose }),
-      },
+    // If amount is being updated, calculate new total and check fundraiser goal
+    let totalMilestoneAmount: Decimal | undefined;
+    if (data.amount !== undefined) {
+      // Get all milestones for this fundraiser
+      const allMilestones = await this.prisma.milestone.findMany({
+        where: { fundraiserId },
+      });
+
+      // Calculate total excluding the current milestone being updated
+      const otherMilestonesTotal = allMilestones
+        .filter((m) => m.id !== milestoneId)
+        .reduce((sum, m) => sum.add(m.amount), new Decimal(0));
+
+      // Add the new milestone amount
+      const newMilestoneAmount = new Decimal(data.amount.toString());
+      totalMilestoneAmount = otherMilestonesTotal.add(newMilestoneAmount);
+    }
+
+    // Use a transaction to update milestone and fundraiser goal if needed
+    return await this.prisma.$transaction(async (tx) => {
+      // Update the milestone
+      const updatedMilestone = await tx.milestone.update({
+        where: { id: milestoneId },
+        data: {
+          ...(data.amount && { amount: new Decimal(data.amount.toString()) }),
+          ...(data.title && { title: data.title }),
+          ...(data.purpose && { purpose: data.purpose }),
+        },
+      });
+
+      // Update fundraiser goal amount if total milestone amount exceeds current goal
+      if (
+        totalMilestoneAmount &&
+        totalMilestoneAmount.gt(milestone.fundraiser.goalAmount)
+      ) {
+        await tx.fundraiser.update({
+          where: { id: fundraiserId },
+          data: { goalAmount: totalMilestoneAmount },
+        });
+      }
+
+      return updatedMilestone;
     });
   }
 

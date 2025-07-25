@@ -893,6 +893,47 @@ describe('Milestones Module', () => {
         'Milestone does not belong to this fundraiser',
       );
     });
+
+    it('should not update fundraiser goal amount when milestone is updated (if the total milestone amount does not exceed the current goal amount)', async () => {
+      const { token, group } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
+
+      const { fundraiser } = await createFakeFundraiser(group!, {
+        goalAmount: new Decimal(2000),
+      });
+      const { milestone } = await createFakeMilestone(fundraiser, {
+        amount: new Decimal(1500),
+      });
+
+      const updateData = {
+        title: 'Updated Title',
+        purpose: 'Updated Purpose',
+        amount: 1999,
+      };
+
+      const response = await request(app.getHttpServer())
+        .patch(
+          createApiPath(
+            `fundraisers/${fundraiser.id}/milestones/${milestone.id}`,
+          ),
+        )
+        .set('Authorization', `Bearer ${token}`)
+        .send(updateData);
+
+      expect(response.statusCode).toBe(200);
+      expect(response.body).toMatchObject({
+        ...formatMilestoneResponse(updateData),
+        id: milestone.id,
+      });
+
+      const updatedFundraiser = await prisma.fundraiser.findUnique({
+        where: { id: fundraiser.id },
+      });
+
+      expect(updatedFundraiser?.goalAmount.toString()).toBe('2000');
+    });
   });
 
   describe('DELETE /api/v1/fundraisers/:id/milestones/:milestoneId', () => {
