@@ -120,10 +120,11 @@ export const createTeamOnboardingData = (
 ) => {
   return {
     accountType: AccountType.team,
-    teamName: faker.company.name(),
+    name: faker.company.name(),
     mission: faker.company.catchPhrase(),
     avatarUrl: faker.image.url(),
     website: faker.internet.url(),
+    documentsUrls: [faker.internet.url(), faker.internet.url()],
     members: [
       {
         name: faker.person.fullName(),
@@ -140,12 +141,19 @@ export const createNonprofitOnboardingData = (
 ) => {
   return {
     accountType: AccountType.nonprofit,
-    organizationName: faker.company.name(),
+    name: faker.company.name(),
     mission: faker.company.catchPhrase(),
     avatarUrl: faker.image.url(),
     website: faker.internet.url(),
     ein: faker.string.numeric(9),
     documentsUrls: [faker.internet.url(), faker.internet.url()],
+    members: [
+      {
+        name: faker.person.fullName(),
+        email: faker.internet.email(),
+        role: GroupMemberRole.admin,
+      },
+    ],
     ...override,
   };
 };

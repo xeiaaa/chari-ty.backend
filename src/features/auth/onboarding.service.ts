@@ -82,11 +82,11 @@ export class OnboardingService {
           slug: groupSlug,
           type: 'individual',
           ownerId: user.id,
-          description: undefined,
+          description: data.mission,
           avatarUrl: data.avatarUrl,
-          website: undefined,
+          website: data.website,
           ein: undefined,
-          documentsUrls: [],
+          documentsUrls: data.documentsUrls || [],
           verified: false,
         },
       });
@@ -117,12 +117,12 @@ export class OnboardingService {
     user: User,
     data: OnboardingDto,
   ): Promise<{ user: User; group: Group; groupMember: GroupMember }> {
-    if (!data.teamName) {
-      throw new Error('Team name is required for team account type');
+    if (!data.name) {
+      throw new Error('Name is required for team account type');
     }
 
     // Generate unique slug for the team group
-    const teamGroupSlug = await this.generateUniqueGroupSlug(data.teamName);
+    const teamGroupSlug = await this.generateUniqueGroupSlug(data.name);
 
     // Generate individual group name and slug
     const individualGroupName = `${user.firstName} ${user.lastName}'s Group`;
@@ -150,7 +150,7 @@ export class OnboardingService {
           type: 'individual',
           ownerId: user.id,
           description: undefined,
-          avatarUrl: data.avatarUrl,
+          avatarUrl: undefined,
           website: undefined,
           ein: undefined,
           documentsUrls: [],
@@ -171,12 +171,15 @@ export class OnboardingService {
       // Create group for team
       const group = await prisma.group.create({
         data: {
-          name: data.teamName!, // Safe to use ! after runtime check
+          name: data.name!, // Safe to use ! after runtime check
           slug: teamGroupSlug,
           description: data.mission,
           type: 'team',
           website: data.website,
+          avatarUrl: data.avatarUrl,
           ownerId: user.id,
+          documentsUrls: data.documentsUrls || [],
+          verified: false,
         },
       });
 
@@ -194,14 +197,13 @@ export class OnboardingService {
       if (data.members && data.members.length > 0) {
         const baseUrl = process.env.FRONTEND_URL;
         for (const member of data.members) {
-          console.log('member', member);
           // Use the provided role, default to 'viewer' if not set
           const memberRole = member.role || 'viewer';
           // Check if user is already registered in Clerk
           const existingUsers = await this.clerkService
             .getClerkClient()
             .users.getUserList({ emailAddress: [member.email] });
-          console.log('existingUsers', existingUsers);
+
           if (existingUsers.data.length > 0) {
             // Registered: log the invite link
             if (baseUrl) {
@@ -270,19 +272,15 @@ export class OnboardingService {
     user: User,
     data: OnboardingDto,
   ): Promise<{ user: User; group: Group; groupMember: GroupMember }> {
-    if (!data.organizationName) {
-      throw new Error(
-        'Organization name is required for nonprofit account type',
-      );
+    if (!data.name) {
+      throw new Error('Name is required for nonprofit account type');
     }
     if (!data.ein) {
       throw new Error('EIN is required for nonprofit account type');
     }
 
     // Generate unique slug for the nonprofit group
-    const nonprofitGroupSlug = await this.generateUniqueGroupSlug(
-      data.organizationName,
-    );
+    const nonprofitGroupSlug = await this.generateUniqueGroupSlug(data.name);
 
     // Generate individual group name and slug
     const individualGroupName = `${user.firstName} ${user.lastName}'s Group`;
@@ -310,7 +308,7 @@ export class OnboardingService {
           type: 'individual',
           ownerId: user.id,
           description: undefined,
-          avatarUrl: data.avatarUrl,
+          avatarUrl: undefined,
           website: undefined,
           ein: undefined,
           documentsUrls: [],
@@ -331,12 +329,13 @@ export class OnboardingService {
       // Create group for nonprofit
       const group = await prisma.group.create({
         data: {
-          name: data.organizationName!, // Safe to use ! after runtime check
+          name: data.name!, // Safe to use ! after runtime check
           slug: nonprofitGroupSlug,
           description: data.mission,
           type: 'nonprofit',
           website: data.website,
           ein: data.ein!, // Safe to use ! after runtime check
+          avatarUrl: data.avatarUrl,
           documentsUrls: data.documentsUrls || [],
           verified: false, // Requires manual verification
           ownerId: user.id,

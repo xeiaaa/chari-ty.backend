@@ -79,13 +79,13 @@ export class OnboardingDto {
   @IsUrl()
   avatarUrl?: string;
 
-  // Team-specific fields
-  @ValidateIf((o) => o.accountType === 'team')
+  // Name field - required for team and nonprofit, not applicable for individual
+  @ValidateIf((o) => o.accountType === 'team' || o.accountType === 'nonprofit')
   @IsString()
   @IsNotEmpty()
   @MinLength(2)
   @MaxLength(100)
-  teamName?: string;
+  name?: string;
 
   @IsString()
   @IsOptional()
@@ -107,102 +107,9 @@ export class OnboardingDto {
   @ValidateIf((o) => o.accountType === 'nonprofit')
   @IsString()
   @IsNotEmpty()
-  @MinLength(2)
-  @MaxLength(100)
-  organizationName?: string;
-
-  @ValidateIf((o) => o.accountType === 'nonprofit')
-  @IsString()
-  @IsNotEmpty()
   @MinLength(9)
   @MaxLength(10)
   ein?: string;
-
-  @IsArray()
-  @IsString({ each: true })
-  @IsUrl({}, { each: true })
-  @IsOptional()
-  documentsUrls?: string[];
-}
-
-// Legacy exports for backward compatibility
-export class BaseOnboardingDto {
-  @IsEnum(AccountType)
-  @IsNotEmpty()
-  accountType: AccountType;
-
-  @IsString()
-  @IsOptional()
-  @MaxLength(500)
-  bio?: string;
-
-  @IsString()
-  @IsOptional()
-  @IsUrl()
-  avatarUrl?: string;
-}
-
-export class IndividualOnboardingDto extends BaseOnboardingDto {
-  @IsEnum(AccountType)
-  @IsNotEmpty()
-  accountType: 'individual';
-}
-
-export class TeamOnboardingDto extends BaseOnboardingDto {
-  @IsEnum(AccountType)
-  @IsNotEmpty()
-  accountType: 'team';
-
-  @IsString()
-  @IsNotEmpty()
-  @MinLength(2)
-  @MaxLength(100)
-  teamName: string;
-
-  @IsString()
-  @IsOptional()
-  @MaxLength(500)
-  mission?: string;
-
-  @IsString()
-  @IsOptional()
-  @IsUrl()
-  website?: string;
-
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => TeamMemberDto)
-  @IsOptional()
-  members?: TeamMemberDto[];
-}
-
-export class NonprofitOnboardingDto extends BaseOnboardingDto {
-  @IsEnum(AccountType)
-  @IsNotEmpty()
-  accountType: 'nonprofit';
-
-  @IsString()
-  @IsNotEmpty()
-  @MinLength(2)
-  @MaxLength(100)
-  organizationName: string;
-
-  @IsString()
-  @IsOptional()
-  @MaxLength(500)
-  mission?: string;
-
-  @IsString()
-  @IsOptional()
-  @IsUrl()
-  website?: string;
-
-  @ValidateIf((o) => o.accountType === 'nonprofit')
-  @IsString()
-  @IsNotEmpty()
-  @MinLength(9)
-  @MaxLength(10)
-  ein: string;
 
   @IsArray()
   @IsString({ each: true })

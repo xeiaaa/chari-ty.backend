@@ -176,7 +176,7 @@ describe('Auth Module', () => {
       expect(hasError).toBe(true);
     });
 
-    it('should return 400 Bad Request when team accountType is missing teamName', async () => {
+    it('should return 400 Bad Request when team accountType is missing name', async () => {
       const { token } = await createFakeUserWithToken({
         accountType: AccountType.team,
         setupComplete: false,
@@ -185,16 +185,16 @@ describe('Auth Module', () => {
       const response = await request(app.getHttpServer())
         .post(createApiPath('auth/onboarding'))
         .set('Authorization', `Bearer ${token}`)
-        .send(createTeamOnboardingData({ teamName: undefined }));
+        .send(createTeamOnboardingData({ name: undefined }));
 
       expect(response.statusCode).toBe(400);
       const hasError = (response.body as { message: string[] }).message.some(
-        (msg) => msg.includes('teamName'),
+        (msg) => msg.includes('name'),
       );
       expect(hasError).toBe(true);
     });
 
-    it('should return 400 Bad Request when team teamName is too short', async () => {
+    it('should return 400 Bad Request when team name is too short', async () => {
       const { token } = await createFakeUserWithToken({
         accountType: AccountType.team,
         setupComplete: false,
@@ -203,16 +203,16 @@ describe('Auth Module', () => {
       const response = await request(app.getHttpServer())
         .post(createApiPath('auth/onboarding'))
         .set('Authorization', `Bearer ${token}`)
-        .send(createTeamOnboardingData({ teamName: 'a' }));
+        .send(createTeamOnboardingData({ name: 'a' }));
 
       expect(response.statusCode).toBe(400);
       const hasError = (response.body as { message: string[] }).message.some(
-        (msg) => msg.includes('teamName'),
+        (msg) => msg.includes('name'),
       );
       expect(hasError).toBe(true);
     });
 
-    it('should return 400 Bad Request when team teamName is too long', async () => {
+    it('should return 400 Bad Request when team name is too long', async () => {
       const { token } = await createFakeUserWithToken({
         accountType: AccountType.team,
         setupComplete: false,
@@ -221,16 +221,16 @@ describe('Auth Module', () => {
       const response = await request(app.getHttpServer())
         .post(createApiPath('auth/onboarding'))
         .set('Authorization', `Bearer ${token}`)
-        .send(createTeamOnboardingData({ teamName: 'a'.repeat(101) }));
+        .send(createTeamOnboardingData({ name: 'a'.repeat(101) }));
 
       expect(response.statusCode).toBe(400);
       const hasError = (response.body as { message: string[] }).message.some(
-        (msg) => msg.includes('teamName'),
+        (msg) => msg.includes('name'),
       );
       expect(hasError).toBe(true);
     });
 
-    it('should return 400 Bad Request when nonprofit accountType is missing organizationName', async () => {
+    it('should return 400 Bad Request when nonprofit accountType is missing name', async () => {
       const { token } = await createFakeUserWithToken({
         accountType: AccountType.nonprofit,
         setupComplete: false,
@@ -239,11 +239,11 @@ describe('Auth Module', () => {
       const response = await request(app.getHttpServer())
         .post(createApiPath('auth/onboarding'))
         .set('Authorization', `Bearer ${token}`)
-        .send(createNonprofitOnboardingData({ organizationName: undefined }));
+        .send(createNonprofitOnboardingData({ name: undefined }));
 
       expect(response.statusCode).toBe(400);
       const hasError = (response.body as { message: string[] }).message.some(
-        (msg) => msg.includes('organizationName'),
+        (msg) => msg.includes('name'),
       );
       expect(hasError).toBe(true);
     });
