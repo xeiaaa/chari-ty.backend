@@ -37,6 +37,40 @@ export class UsersController {
   }
 
   /**
+   * Search for users by partial name, exact email, or exact username
+   * Used for invitation purposes
+   */
+  @Get('search')
+  async searchUsers(
+    @Query('q') q: string,
+    @Query('limit') limit?: string,
+    @Query('groupId') groupId?: string,
+  ): Promise<
+    Array<{
+      id: string;
+      name: string;
+      username: string;
+      email: string;
+      avatarUrl: string | null;
+    }>
+  > {
+    if (!q) {
+      throw new BadRequestException('Search query parameter "q" is required');
+    }
+
+    const limitNumber = limit ? parseInt(limit, 10) : 10;
+    if (isNaN(limitNumber) || limitNumber < 1 || limitNumber > 50) {
+      throw new BadRequestException('Limit must be a number between 1 and 50');
+    }
+
+    return this.usersService.searchUsers({
+      q: q.trim(),
+      limit: limitNumber,
+      groupId,
+    });
+  }
+
+  /**
    * Get user by ID
    */
   @Get(':id')

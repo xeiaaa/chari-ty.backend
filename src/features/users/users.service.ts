@@ -124,4 +124,82 @@ export class UsersService {
       userId: user.id,
     });
   }
+
+  /**
+   * Search for users by partial name, exact email, or exact username
+   * Optionally exclude users already in a specific group
+   */
+  async searchUsers(params: {
+    q: string;
+    limit?: number;
+    groupId?: string;
+  }): Promise<
+    Array<{
+      id: string;
+      name: string;
+      username: string;
+      email: string;
+      avatarUrl: string | null;
+    }>
+  > {
+    const { q, limit = 10, groupId } = params;
+
+    // Build the where clause for the search
+    const whereClause: any = {
+      OR: [
+        // Search by partial name (firstName or lastName)
+        {
+          OR: [
+            { firstName: { contains: q, mode: 'insensitive' } },
+            { lastName: { contains: q, mode: 'insensitive' } },
+          ],
+        },
+        // Search by exact email
+        { email: { equals: q, mode: 'insensitive' } },
+        // Search by exact username
+        { username: { equals: q, mode: 'insensitive' } },
+      ],
+    };
+
+    // If groupId is provided, exclude users already in that group
+    if (groupId) {
+      whereClause.NOT = {
+        groupMemberships: {
+          some: {
+            groupId,
+            status: { in: ['active', 'invited'] }, // Exclude both active and invited members
+          },
+        },
+      };
+    }
+
+    const users = await this.prisma.user.findMany({
+      where: whereClause,
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        username: true,
+        email: true,
+        avatarUrl: true,
+      },
+      take: limit,
+      orderBy: [
+        // Prioritize exact matches
+        { email: 'asc' },
+        { username: 'asc' },
+        { firstName: 'asc' },
+        { lastName: 'asc' },
+      ],
+    });
+
+    // Transform the results to match the expected format
+    return users.map((user) => ({
+      id: user.id,
+      name: `${user.firstName} ${user.lastName}`,
+      username: user.username,
+      email: user.email,
+      avatarUrl: user.avatarUrl,
+    }));
+  }
 }
