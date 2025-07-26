@@ -12,6 +12,7 @@ import {
   User as UserEntity,
   GroupMemberStatus,
 } from '../../../generated/prisma';
+import { UpdateGroupDto } from './dtos/update-group.dto';
 
 /**
  * GroupsService handles all group-related database operations
@@ -131,5 +132,50 @@ export class GroupsService {
 
     // Return the group with stripeId included
     return group;
+  }
+
+  /**
+   * Update group by slug
+   * Only group owners and admins can update the group
+   */
+  async updateBySlug(
+    user: UserEntity,
+    slug: string,
+    updateData: UpdateGroupDto,
+  ): Promise<Group> {
+    const group = await this.prisma.group.findUnique({
+      where: { slug },
+      include: {
+        members: {
+          where: {
+            userId: user.id,
+            status: GroupMemberStatus.active,
+          },
+        },
+      },
+    });
+
+    if (!group) {
+      throw new NotFoundException('Group not found');
+    }
+
+    // Check if user is a member of the group
+    if (group.members.length === 0) {
+      throw new ForbiddenException('You do not have access to this group');
+    }
+
+    // Check if user has permission to update (owner or admin)
+    const member = group.members[0];
+    if (member.role !== 'owner' && member.role !== 'admin') {
+      throw new ForbiddenException(
+        'You do not have permission to update this group',
+      );
+    }
+
+    // Update the group
+    return this.prisma.group.update({
+      where: { slug },
+      data: updateData,
+    });
   }
 }
