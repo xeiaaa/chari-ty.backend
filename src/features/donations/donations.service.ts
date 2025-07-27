@@ -1,7 +1,13 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { CreateCheckoutSessionDto } from './dtos/create-checkout-session.dto';
+import { ListGroupDonationsDto } from './dtos/list-group-donations.dto';
 import Stripe from 'stripe';
 import { User, DonationStatus } from '../../../generated/prisma';
 
@@ -265,6 +271,136 @@ export class DonationsService {
       meta: {
         total: totalDonations,
         totalAmount: totalAmount._sum.amount || 0,
+      },
+    };
+  }
+
+  /**
+   * List donations for a group with pagination, sorting, and filtering
+   */
+  async listByGroup(
+    user: User,
+    groupSlug: string,
+    query: ListGroupDonationsDto,
+  ) {
+    // Verify group exists and user has access
+    const group = await this.prisma.group.findUnique({
+      where: { slug: groupSlug },
+      include: {
+        members: {
+          where: {
+            userId: user.id,
+            status: 'active',
+          },
+        },
+      },
+    });
+
+    if (!group) {
+      throw new NotFoundException('Group not found');
+    }
+
+    if (group.members.length === 0) {
+      throw new ForbiddenException('You do not have access to this group');
+    }
+
+    // Build where clause for donations
+    const where: any = {
+      fundraiser: {
+        groupId: group.id,
+      },
+    };
+
+    // Apply filters
+    if (query.fundraiserId) {
+      where.fundraiserId = query.fundraiserId;
+    }
+
+    if (query.fundraiserLinkId) {
+      where.fundraiserLinkId = query.fundraiserLinkId;
+    }
+
+    if (query.status) {
+      where.status = query.status;
+    }
+
+    if (query.isAnonymous !== undefined) {
+      where.isAnonymous = query.isAnonymous;
+    }
+
+    if (query.currency) {
+      where.currency = query.currency;
+    }
+
+    if (query.updatedAt) {
+      where.updatedAt = {
+        gte: new Date(query.updatedAt),
+      };
+    }
+
+    // Calculate pagination
+    const page = query.page || 1;
+    const limit = query.limit || 20;
+    const skip = (page - 1) * limit;
+
+    // Build order by clause
+    const orderBy: any = {};
+    orderBy[query.sortBy || 'createdAt'] = query.sortOrder || 'desc';
+
+    // Get donations with pagination
+    const [donations, totalCount] = await Promise.all([
+      this.prisma.donation.findMany({
+        where,
+        include: {
+          fundraiser: {
+            select: {
+              id: true,
+              title: true,
+              slug: true,
+            },
+          },
+          donor: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              username: true,
+              avatarUrl: true,
+            },
+          },
+          sourceLink: {
+            select: {
+              id: true,
+              alias: true,
+            },
+          },
+        },
+        orderBy,
+        skip,
+        take: limit,
+      }),
+      this.prisma.donation.count({ where }),
+    ]);
+
+    // Calculate total amount for completed donations
+    const totalAmount = await this.prisma.donation.aggregate({
+      where: {
+        ...where,
+        status: DonationStatus.completed,
+      },
+      _sum: {
+        amount: true,
+      },
+    });
+
+    return {
+      items: donations,
+      meta: {
+        total: totalCount,
+        totalAmount: totalAmount._sum.amount || 0,
+        page,
+        limit,
+        totalPages: Math.ceil(totalCount / limit),
       },
     };
   }

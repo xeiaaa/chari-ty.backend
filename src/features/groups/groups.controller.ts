@@ -6,14 +6,17 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { User as UserEntity } from '../../../generated/prisma';
 import { GroupsService } from './groups.service';
+import { DonationsService } from '../donations/donations.service';
 import { UpdateGroupDto } from './dtos/update-group.dto';
 import { CreateInviteDto } from './dtos/create-invite.dto';
 import { UpdateMemberRoleDto } from './dtos/update-member-role.dto';
 import { DashboardDto } from './dtos/dashboard.dto';
+import { ListGroupDonationsDto } from '../donations/dtos/list-group-donations.dto';
 import { AuthGuard } from '../auth/auth.guard';
 import { AuthUser } from '../../common/decorators';
 
@@ -23,7 +26,10 @@ import { AuthUser } from '../../common/decorators';
 @Controller('groups')
 @UseGuards(AuthGuard)
 export class GroupsController {
-  constructor(private readonly groupsService: GroupsService) {}
+  constructor(
+    private readonly groupsService: GroupsService,
+    private readonly donationsService: DonationsService,
+  ) {}
 
   /**
    * Get authenticated group by slug
@@ -102,5 +108,18 @@ export class GroupsController {
     @AuthUser() user: UserEntity,
   ): Promise<DashboardDto> {
     return this.groupsService.getDashboard(user, slug);
+  }
+
+  /**
+   * Get donations for a group with pagination, sorting, and filtering
+   * GET /api/v1/groups/slug/:slug/donations
+   */
+  @Get('slug/:slug/donations')
+  async getGroupDonations(
+    @Param('slug') slug: string,
+    @Query() query: ListGroupDonationsDto,
+    @AuthUser() user: UserEntity,
+  ) {
+    return this.donationsService.listByGroup(user, slug, query);
   }
 }
