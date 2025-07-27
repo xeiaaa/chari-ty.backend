@@ -94,7 +94,7 @@ export const addUserToGroup = async (
   role: GroupMemberRole = GroupMemberRole.viewer,
   status: GroupMemberStatus = GroupMemberStatus.active,
 ) => {
-  await prisma.groupMember.create({
+  return await prisma.groupMember.create({
     data: {
       userId: user.id,
       groupId: group.id,

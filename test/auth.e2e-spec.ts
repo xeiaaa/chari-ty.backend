@@ -7,6 +7,7 @@ import {
   addUserToGroup,
   createFakeUserWithToken,
 } from './factories/users.factory';
+import { GroupMemberStatus, GroupMemberRole } from '../generated/prisma';
 
 describe('Auth Module', () => {
   let app: INestApplication<App>;
@@ -169,6 +170,105 @@ describe('Auth Module', () => {
 
       expect(response2.statusCode).toBe(200);
       expect(response2.body.length).toBe(1);
+    });
+  });
+
+  describe('POST /api/v1/auth/accept-invitation', () => {
+    it('should accept a valid group invitation', async () => {
+      // Create a user who will receive the invitation
+      const { user: invitedUser, token: invitedUserToken } =
+        await createFakeUserWithToken({
+          accountType: AccountType.individual,
+        });
+
+      // Create a group owner
+      const { group } = await createFakeUserWithToken({
+        accountType: AccountType.team,
+        setupComplete: true,
+      });
+
+      // Add the user to the group with invited status
+      await addUserToGroup(
+        invitedUser,
+        group!,
+        GroupMemberRole.viewer,
+        GroupMemberStatus.invited,
+      );
+
+      const response = await request(app.getHttpServer())
+        .post(createApiPath('auth/accept-invitation'))
+        .set('Authorization', `Bearer ${invitedUserToken}`)
+        .send({
+          groupId: group!.id,
+        });
+
+      expect(response.statusCode).toBe(201);
+      expect(response.body.message).toContain('Successfully joined');
+      expect(response.body.groupMember.status).toBe('active');
+      expect(response.body.groupMember.groupId).toBe(group!.id);
+      expect(response.body.groupMember.userId).toBe(invitedUser.id);
+    });
+
+    it('should return 404 when invitation does not exist', async () => {
+      const { token: userToken } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+      });
+
+      const response = await request(app.getHttpServer())
+        .post(createApiPath('auth/accept-invitation'))
+        .set('Authorization', `Bearer ${userToken}`)
+        .send({
+          groupId: 'non-existent-group-id',
+        });
+
+      expect(response.statusCode).toBe(404);
+      expect(response.body.message).toBe(
+        'Invitation not found or already accepted',
+      );
+    });
+
+    it('should return 404 when invitation is already accepted', async () => {
+      // Create a user who will receive the invitation
+      const { user: invitedUser, token: invitedUserToken } =
+        await createFakeUserWithToken({
+          accountType: AccountType.individual,
+        });
+
+      // Create a group owner
+      const { group } = await createFakeUserWithToken({
+        accountType: AccountType.team,
+        setupComplete: true,
+      });
+
+      // Add the user to the group with active status (already accepted)
+      await addUserToGroup(
+        invitedUser,
+        group!,
+        GroupMemberRole.viewer,
+        GroupMemberStatus.active,
+      );
+
+      const response = await request(app.getHttpServer())
+        .post(createApiPath('auth/accept-invitation'))
+        .set('Authorization', `Bearer ${invitedUserToken}`)
+        .send({
+          groupId: group!.id,
+        });
+
+      expect(response.statusCode).toBe(404);
+      expect(response.body.message).toBe(
+        'Invitation not found or already accepted',
+      );
+    });
+
+    it('should return 401 when no authentication token is provided', async () => {
+      const response = await request(app.getHttpServer())
+        .post(createApiPath('auth/accept-invitation'))
+        .send({
+          groupId: 'some-group-id',
+        });
+
+      expect(response.statusCode).toBe(401);
     });
   });
 });

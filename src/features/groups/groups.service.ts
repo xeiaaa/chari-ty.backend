@@ -147,6 +147,9 @@ export class GroupsService {
           include: {
             user: true,
           },
+          orderBy: {
+            joinedAt: 'asc',
+          },
         },
       },
     });
@@ -344,6 +347,210 @@ export class GroupsService {
       status: invitation.status,
       createdAt: invitation.createdAt,
       invitationId: invitation.invitationId || undefined,
+    };
+  }
+
+  /**
+   * Update a group member's role
+   * Only owners and admins can update member roles
+   */
+  async updateMemberRole(
+    user: UserEntity,
+    groupId: string,
+    memberId: string,
+    newRole: Exclude<GroupMemberRole, 'owner'>,
+  ): Promise<{
+    id: string;
+    userId: string;
+    groupId: string;
+    role: GroupMemberRole;
+    status: GroupMemberStatus;
+    updatedAt: Date;
+  }> {
+    // Find the group and check if user has permission
+    const group = await this.prisma.group.findUnique({
+      where: { id: groupId },
+      include: {
+        members: {
+          where: {
+            userId: user.id,
+            status: GroupMemberStatus.active,
+          },
+        },
+      },
+    });
+
+    if (!group) {
+      throw new NotFoundException('Group not found');
+    }
+
+    // Check if user is a member of the group
+    if (group.members.length === 0) {
+      throw new ForbiddenException('You do not have access to this group');
+    }
+
+    const currentUserMember = group.members[0];
+
+    // Check if user has permission to update roles
+    if (
+      currentUserMember.role === 'editor' ||
+      currentUserMember.role === 'viewer'
+    ) {
+      throw new ForbiddenException(
+        'You do not have permission to update member roles',
+      );
+    }
+
+    // Find the member to be updated
+    const memberToUpdate = await this.prisma.groupMember.findUnique({
+      where: { id: memberId },
+      include: {
+        user: true,
+      },
+    });
+
+    if (!memberToUpdate) {
+      throw new NotFoundException('Member not found');
+    }
+
+    // Check if the member belongs to the specified group
+    if (memberToUpdate.groupId !== groupId) {
+      throw new NotFoundException('Member not found in this group');
+    }
+
+    // Check if trying to update the current user
+    if (memberToUpdate.userId === user.id) {
+      throw new BadRequestException('Cannot update your own role');
+    }
+
+    // Check if the member is active
+    if (memberToUpdate.status !== GroupMemberStatus.active) {
+      throw new BadRequestException('Can only update active members');
+    }
+
+    // Role-based permission checks
+    if (currentUserMember.role === 'owner') {
+      // Owner can change any role except owner
+      if (memberToUpdate.role === 'owner') {
+        throw new ForbiddenException('Cannot change owner role');
+      }
+    } else if (currentUserMember.role === 'admin') {
+      // Admin can only change editor/viewer roles
+      if (memberToUpdate.role === 'owner' || memberToUpdate.role === 'admin') {
+        throw new ForbiddenException(
+          'Admins can only change editor and viewer roles',
+        );
+      }
+    }
+
+    // Update the member's role
+    const updatedMember = await this.prisma.groupMember.update({
+      where: { id: memberId },
+      data: { role: newRole },
+    });
+
+    return {
+      id: updatedMember.id,
+      userId: updatedMember.userId!,
+      groupId: updatedMember.groupId,
+      role: updatedMember.role,
+      status: updatedMember.status,
+      updatedAt: updatedMember.updatedAt,
+    };
+  }
+
+  /**
+   * Remove a member from a group
+   * Only owners and admins can remove members
+   */
+  async removeMember(
+    user: UserEntity,
+    groupId: string,
+    memberId: string,
+  ): Promise<{ message: string }> {
+    // Find the group and check if user has permission
+    const group = await this.prisma.group.findUnique({
+      where: { id: groupId },
+      include: {
+        members: {
+          where: {
+            userId: user.id,
+            status: GroupMemberStatus.active,
+          },
+        },
+      },
+    });
+
+    if (!group) {
+      throw new NotFoundException('Group not found');
+    }
+
+    // Check if user is a member of the group
+    if (group.members.length === 0) {
+      throw new ForbiddenException('You do not have access to this group');
+    }
+
+    const currentUserMember = group.members[0];
+
+    // Check if user has permission to remove members
+    if (
+      currentUserMember.role === 'editor' ||
+      currentUserMember.role === 'viewer'
+    ) {
+      throw new ForbiddenException(
+        'You do not have permission to remove members',
+      );
+    }
+
+    // Find the member to be removed
+    const memberToRemove = await this.prisma.groupMember.findUnique({
+      where: { id: memberId },
+      include: {
+        user: true,
+      },
+    });
+
+    if (!memberToRemove) {
+      throw new NotFoundException('Member not found');
+    }
+
+    // Check if the member belongs to the specified group
+    if (memberToRemove.groupId !== groupId) {
+      throw new NotFoundException('Member not found in this group');
+    }
+
+    // Check if trying to remove the current user
+    if (memberToRemove.userId === user.id) {
+      throw new BadRequestException('Cannot remove yourself from the group');
+    }
+
+    // Check if the member is active
+    if (memberToRemove.status !== GroupMemberStatus.active) {
+      throw new BadRequestException('Can only remove active members');
+    }
+
+    // Role-based permission checks
+    if (currentUserMember.role === 'owner') {
+      // Owner can remove any member except themselves
+      if (memberToRemove.role === 'owner') {
+        throw new ForbiddenException('Cannot remove the group owner');
+      }
+    } else if (currentUserMember.role === 'admin') {
+      // Admin can only remove editor/viewer members
+      if (memberToRemove.role === 'owner' || memberToRemove.role === 'admin') {
+        throw new ForbiddenException(
+          'Admins can only remove editor and viewer members',
+        );
+      }
+    }
+
+    // Delete the member from the group
+    await this.prisma.groupMember.delete({
+      where: { id: memberId },
+    });
+
+    return {
+      message: `Successfully removed ${memberToRemove.user?.firstName || 'member'} from the group`,
     };
   }
 }

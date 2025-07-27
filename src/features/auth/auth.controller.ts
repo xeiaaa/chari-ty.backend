@@ -12,6 +12,7 @@ import { OnboardingService } from './onboarding.service';
 import { User as UserEntity } from '../../../generated/prisma';
 import { OnboardingDto } from './dtos/onboarding.dto';
 import { OrganizationDto } from './dtos/organization.dto';
+import { AcceptInvitationDto } from './dtos/accept-invitation.dto';
 import { PrismaService } from '../../core/prisma/prisma.service';
 
 /**
@@ -136,6 +137,51 @@ export class AuthController {
       role: member.role,
       dateActive: member.joinedAt.toISOString(),
     }));
+  }
+
+  /**
+   * Accept a group invitation
+   * POST /api/v1/auth/accept-invitation
+   */
+  @Post('accept-invitation')
+  async acceptInvitation(
+    @AuthUser() user: UserEntity,
+    @Body() acceptInvitationData: AcceptInvitationDto,
+  ): Promise<{ message: string; groupMember: any }> {
+    // Check if the invitation exists and belongs to the current user
+    const groupMember = await this.prisma.groupMember.findFirst({
+      where: {
+        groupId: acceptInvitationData.groupId,
+        userId: user.id,
+        status: 'invited',
+      },
+      include: {
+        group: true,
+      },
+    });
+
+    if (!groupMember) {
+      throw new NotFoundException('Invitation not found or already accepted');
+    }
+
+    // Update the group member status to active
+    const updatedGroupMember = await this.prisma.groupMember.update({
+      where: {
+        id: groupMember.id,
+      },
+      data: {
+        status: 'active',
+        joinedAt: new Date(),
+      },
+      include: {
+        group: true,
+      },
+    });
+
+    return {
+      message: `Successfully joined ${updatedGroupMember.group.name}`,
+      groupMember: updatedGroupMember,
+    };
   }
 
   /**

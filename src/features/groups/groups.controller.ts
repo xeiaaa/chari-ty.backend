@@ -3,6 +3,7 @@ import {
   Get,
   Patch,
   Post,
+  Delete,
   Body,
   Param,
   UseGuards,
@@ -11,6 +12,7 @@ import { User as UserEntity } from '../../../generated/prisma';
 import { GroupsService } from './groups.service';
 import { UpdateGroupDto } from './dtos/update-group.dto';
 import { CreateInviteDto } from './dtos/create-invite.dto';
+import { UpdateMemberRoleDto } from './dtos/update-member-role.dto';
 import { AuthGuard } from '../auth/auth.guard';
 import { AuthUser } from '../../common/decorators';
 
@@ -55,5 +57,37 @@ export class GroupsController {
     @AuthUser() user: UserEntity,
   ) {
     return this.groupsService.inviteUser(user, groupId, createInviteDto);
+  }
+
+  /**
+   * Update a group member's role
+   * PATCH /api/v1/groups/:groupId/members/:memberId
+   */
+  @Patch(':groupId/members/:memberId')
+  async updateMemberRole(
+    @Param('groupId') groupId: string,
+    @Param('memberId') memberId: string,
+    @Body() updateMemberRoleDto: UpdateMemberRoleDto,
+    @AuthUser() user: UserEntity,
+  ) {
+    return this.groupsService.updateMemberRole(
+      user,
+      groupId,
+      memberId,
+      updateMemberRoleDto.role,
+    );
+  }
+
+  /**
+   * Remove a member from a group
+   * DELETE /api/v1/groups/:groupId/members/:memberId
+   */
+  @Delete(':groupId/members/:memberId')
+  async removeMember(
+    @Param('groupId') groupId: string,
+    @Param('memberId') memberId: string,
+    @AuthUser() user: UserEntity,
+  ) {
+    return this.groupsService.removeMember(user, groupId, memberId);
   }
 }
