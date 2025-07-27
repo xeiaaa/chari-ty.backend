@@ -4,6 +4,7 @@ import { AuthGuard } from '../auth/auth.guard';
 import { PaymentsService } from './payments.service';
 import { CreateConnectAccountDto } from './dtos/create-connect-account.dto';
 import { CreateIntentDto } from './dtos/create-intent.dto';
+import { DisconnectAccountDto } from './dtos/disconnect-account.dto';
 import { User } from '../../../generated/prisma';
 import { Public } from '../../common/decorators';
 
@@ -39,5 +40,21 @@ export class PaymentsController {
     @Body() createIntentDto: CreateIntentDto,
   ): Promise<{ clientSecret: string }> {
     return this.paymentsService.createPaymentIntent(createIntentDto);
+  }
+
+  /**
+   * Disconnect a Stripe Connect account for a group
+   */
+  @UseGuards(AuthGuard)
+  @Post('stripe/disconnect')
+  async disconnectAccount(
+    @Body() disconnectAccountDto: DisconnectAccountDto,
+    @Req() req: Request,
+  ): Promise<{ message: string }> {
+    const user = req.authUser as User;
+    return this.paymentsService.disconnectStripeAccount(
+      user,
+      disconnectAccountDto.groupId,
+    );
   }
 }

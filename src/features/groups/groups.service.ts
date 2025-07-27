@@ -101,7 +101,10 @@ export class GroupsService {
   /**
    * Update the Stripe ID for a group
    */
-  async updateStripeId(groupId: string, stripeId: string): Promise<Group> {
+  async updateStripeId(
+    groupId: string,
+    stripeId: string | null,
+  ): Promise<Group> {
     return this.prisma.group.update({
       where: { id: groupId },
       data: { stripeId },

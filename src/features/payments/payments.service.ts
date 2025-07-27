@@ -143,4 +143,47 @@ export class PaymentsService {
     });
     return { clientSecret: paymentIntent.client_secret || '' };
   }
+
+  /**
+   * Disconnect a Stripe Connect account for a group
+   */
+  async disconnectStripeAccount(
+    user: User,
+    groupId: string,
+  ): Promise<{ message: string }> {
+    // Find the group and verify ownership
+    const group = await this.groupsService.findById(groupId);
+    if (!group) {
+      throw new NotFoundException('Group not found');
+    }
+
+    if (group.ownerId !== user.id) {
+      throw new BadRequestException(
+        'You are not allowed to disconnect this group',
+      );
+    }
+
+    if (!group.stripeId) {
+      throw new BadRequestException('Group is not connected to Stripe');
+    }
+
+    // Check if group has published fundraisers
+    const publishedFundraisers = await this.prisma.fundraiser.findMany({
+      where: {
+        groupId: group.id,
+        status: 'published',
+      },
+    });
+
+    if (publishedFundraisers.length > 0) {
+      throw new BadRequestException(
+        'Cannot disconnect Stripe account while group has published fundraisers. Please unpublish all fundraisers first.',
+      );
+    }
+
+    // Disconnect the Stripe account by setting stripeId to null
+    await this.groupsService.updateStripeId(group.id, null);
+
+    return { message: 'Stripe account disconnected successfully' };
+  }
 }
