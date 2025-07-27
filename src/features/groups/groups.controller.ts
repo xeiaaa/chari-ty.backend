@@ -1,12 +1,21 @@
-import { Controller, Get, Param, UseGuards, Patch, Body } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Patch,
+  Post,
+  Body,
+  Param,
+  UseGuards,
+} from '@nestjs/common';
+import { User as UserEntity } from '../../../generated/prisma';
 import { GroupsService } from './groups.service';
+import { UpdateGroupDto } from './dtos/update-group.dto';
+import { CreateInviteDto } from './dtos/create-invite.dto';
 import { AuthGuard } from '../auth/auth.guard';
 import { AuthUser } from '../../common/decorators';
-import { User as UserEntity } from '../../../generated/prisma';
-import { UpdateGroupDto } from './dtos/update-group.dto';
 
 /**
- * Groups controller for authenticated endpoints
+ * GroupsController handles HTTP requests for group management
  */
 @Controller('groups')
 @UseGuards(AuthGuard)
@@ -33,5 +42,18 @@ export class GroupsController {
     @AuthUser() user: UserEntity,
   ) {
     return this.groupsService.updateBySlug(user, slug, updateGroupDto);
+  }
+
+  /**
+   * Invite a user to a group
+   * POST /api/v1/groups/:groupId/invites
+   */
+  @Post(':groupId/invites')
+  async inviteUser(
+    @Param('groupId') groupId: string,
+    @Body() createInviteDto: CreateInviteDto,
+    @AuthUser() user: UserEntity,
+  ) {
+    return this.groupsService.inviteUser(user, groupId, createInviteDto);
   }
 }

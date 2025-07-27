@@ -4,15 +4,20 @@ import {
   Inject,
   forwardRef,
   ForbiddenException,
+  BadRequestException,
+  ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { FundraisersService } from '../fundraisers/fundraisers.service';
+import { ClerkService } from '../auth/clerk.service';
 import {
   Group,
   User as UserEntity,
   GroupMemberStatus,
+  GroupMemberRole,
 } from '../../../generated/prisma';
 import { UpdateGroupDto } from './dtos/update-group.dto';
+import { CreateInviteDto } from './dtos/create-invite.dto';
 
 /**
  * GroupsService handles all group-related database operations
@@ -23,6 +28,7 @@ export class GroupsService {
     private readonly prisma: PrismaService,
     @Inject(forwardRef(() => FundraisersService))
     private readonly fundraisersService: FundraisersService,
+    private readonly clerkService: ClerkService,
   ) {}
 
   /**
@@ -109,6 +115,7 @@ export class GroupsService {
     user: UserEntity,
     slug: string,
   ): Promise<Group> {
+    // This group is to check if the user is a member of the group
     const group = await this.prisma.group.findUnique({
       where: { slug },
       include: {
@@ -130,8 +137,26 @@ export class GroupsService {
       throw new ForbiddenException('You do not have access to this group');
     }
 
+    const groupData = await this.prisma.group.findUnique({
+      where: { slug },
+      include: {
+        members: {
+          where: {
+            groupId: group.id,
+          },
+          include: {
+            user: true,
+          },
+        },
+      },
+    });
+
+    if (!groupData) {
+      throw new NotFoundException('Group not found');
+    }
+
     // Return the group with stripeId included
-    return group;
+    return groupData;
   }
 
   /**
@@ -159,6 +184,8 @@ export class GroupsService {
       throw new NotFoundException('Group not found');
     }
 
+    console.log('group', group);
+
     // Check if user is a member of the group
     if (group.members.length === 0) {
       throw new ForbiddenException('You do not have access to this group');
@@ -177,5 +204,146 @@ export class GroupsService {
       where: { slug },
       data: updateData,
     });
+  }
+
+  /**
+   * Invite a user to a group
+   * Only group owners and admins can invite users
+   */
+  async inviteUser(
+    user: UserEntity,
+    groupId: string,
+    inviteData: CreateInviteDto,
+  ): Promise<{
+    id: string;
+    groupId: string;
+    userId?: string;
+    invitedEmail?: string;
+    invitedName?: string;
+    role: GroupMemberRole;
+    status: GroupMemberStatus;
+    createdAt: Date;
+    invitationId?: string;
+  }> {
+    // Validate that either email or userId is provided, but not both
+    if (!inviteData.email && !inviteData.userId) {
+      throw new BadRequestException('Either email or userId must be provided');
+    }
+    if (inviteData.email && inviteData.userId) {
+      throw new BadRequestException('Cannot provide both email and userId');
+    }
+
+    // Validate that role is not owner (this is already enforced by the DTO type)
+    if (inviteData.role === ('owner' as any)) {
+      throw new BadRequestException('Cannot invite users with owner role');
+    }
+
+    // Find the group and check if user has permission to invite
+    const group = await this.prisma.group.findUnique({
+      where: { id: groupId },
+      include: {
+        members: {
+          where: {
+            userId: user.id,
+            status: GroupMemberStatus.active,
+          },
+        },
+      },
+    });
+
+    if (!group) {
+      throw new NotFoundException('Group not found');
+    }
+
+    // Check if user is a member of the group
+    if (group.members.length === 0) {
+      throw new ForbiddenException('You do not have access to this group');
+    }
+
+    // Check if user has permission to invite (owner or admin)
+    const member = group.members[0];
+    if (member.role !== 'owner' && member.role !== 'admin') {
+      throw new ForbiddenException(
+        'You do not have permission to invite users to this group',
+      );
+    }
+
+    // Check if the user is already a member or invited
+    let existingMember;
+
+    if (inviteData.userId) {
+      // Check by userId
+      existingMember = await this.prisma.groupMember.findFirst({
+        where: {
+          groupId,
+          userId: inviteData.userId,
+          status: {
+            in: [GroupMemberStatus.active, GroupMemberStatus.invited],
+          },
+        },
+      });
+    } else if (inviteData.email) {
+      // Check by email
+      existingMember = await this.prisma.groupMember.findFirst({
+        where: {
+          groupId,
+          invitedEmail: inviteData.email,
+          status: {
+            in: [GroupMemberStatus.active, GroupMemberStatus.invited],
+          },
+        },
+      });
+    }
+
+    if (existingMember) {
+      throw new ConflictException(
+        'User is already a member or has been invited to this group',
+      );
+    }
+
+    let invitationId: string | undefined;
+
+    // If inviting by email, send Clerk invitation
+    if (inviteData.email) {
+      try {
+        const invitation = await this.clerkService.inviteUser({
+          email: inviteData.email,
+          invitedByEmail: user.email,
+          invitedByName: `${user.firstName} ${user.lastName}`,
+          groupId: group.id,
+          groupName: group.name,
+          role: inviteData.role,
+        });
+        invitationId = invitation.id;
+      } catch (error) {
+        throw new BadRequestException(
+          `Failed to send invitation email: ${error.message}`,
+        );
+      }
+    }
+
+    // Create the invitation record
+    const invitation = await this.prisma.groupMember.create({
+      data: {
+        groupId,
+        userId: inviteData.userId || null,
+        invitedEmail: inviteData.email || null,
+        role: inviteData.role,
+        status: GroupMemberStatus.invited,
+        invitationId,
+      },
+    });
+
+    return {
+      id: invitation.id,
+      groupId: invitation.groupId,
+      userId: invitation.userId || undefined,
+      invitedEmail: invitation.invitedEmail || undefined,
+      invitedName: invitation.invitedName || undefined,
+      role: invitation.role,
+      status: invitation.status,
+      createdAt: invitation.createdAt,
+      invitationId: invitation.invitationId || undefined,
+    };
   }
 }

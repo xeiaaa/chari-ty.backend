@@ -1,5 +1,15 @@
-import { IsOptional, IsString, IsEnum, IsArray, IsUrl } from 'class-validator';
+import {
+  IsOptional,
+  IsString,
+  IsEnum,
+  IsArray,
+  IsUrl,
+  ValidateIf,
+  MinLength,
+  MaxLength,
+} from 'class-validator';
 import { GroupType } from '../../../../generated/prisma';
+import { Transform } from 'class-transformer';
 
 /**
  * DTO for updating a group
@@ -7,6 +17,8 @@ import { GroupType } from '../../../../generated/prisma';
 export class UpdateGroupDto {
   @IsOptional()
   @IsString()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @MinLength(1, { message: 'Name is required' })
   name?: string;
 
   @IsOptional()
@@ -18,15 +30,20 @@ export class UpdateGroupDto {
   type?: GroupType;
 
   @IsOptional()
+  @ValidateIf((o) => o.avatarUrl !== '')
   @IsUrl()
   avatarUrl?: string;
 
   @IsOptional()
+  @ValidateIf((o) => o.website !== '')
   @IsUrl()
   website?: string;
 
   @IsOptional()
   @IsString()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @MinLength(9, { message: 'EIN must be at least 9 characters' })
+  @MaxLength(10, { message: 'EIN must be at most 10 characters' })
   ein?: string;
 
   @IsOptional()
