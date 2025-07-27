@@ -13,6 +13,7 @@ import { GroupsService } from './groups.service';
 import { UpdateGroupDto } from './dtos/update-group.dto';
 import { CreateInviteDto } from './dtos/create-invite.dto';
 import { UpdateMemberRoleDto } from './dtos/update-member-role.dto';
+import { DashboardDto } from './dtos/dashboard.dto';
 import { AuthGuard } from '../auth/auth.guard';
 import { AuthUser } from '../../common/decorators';
 
@@ -89,5 +90,17 @@ export class GroupsController {
     @AuthUser() user: UserEntity,
   ) {
     return this.groupsService.removeMember(user, groupId, memberId);
+  }
+
+  /**
+   * Get dashboard data for a group
+   * GET /api/v1/groups/slug/:slug/dashboard
+   */
+  @Get('slug/:slug/dashboard')
+  async getDashboard(
+    @Param('slug') slug: string,
+    @AuthUser() user: UserEntity,
+  ): Promise<DashboardDto> {
+    return this.groupsService.getDashboard(user, slug);
   }
 }

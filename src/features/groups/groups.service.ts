@@ -18,6 +18,7 @@ import {
 } from '../../../generated/prisma';
 import { UpdateGroupDto } from './dtos/update-group.dto';
 import { CreateInviteDto } from './dtos/create-invite.dto';
+import { DashboardDto } from './dtos/dashboard.dto';
 
 /**
  * GroupsService handles all group-related database operations
@@ -551,6 +552,325 @@ export class GroupsService {
 
     return {
       message: `Successfully removed ${memberToRemove.user?.firstName || 'member'} from the group`,
+    };
+  }
+
+  /**
+   * Get dashboard data for a group
+   * Returns comprehensive statistics and activity data
+   */
+  async getDashboard(user: UserEntity, slug: string): Promise<DashboardDto> {
+    // First verify the group exists and user has access
+    const group = await this.findAuthenticatedBySlug(user, slug);
+
+    // Get fundraising overview data
+    const fundraisers = await this.prisma.fundraiser.findMany({
+      where: {
+        groupId: group.id,
+        status: 'published',
+      },
+      include: {
+        donations: {
+          where: {
+            status: 'completed',
+          },
+        },
+      },
+    });
+
+    // Calculate fundraising statistics
+    const totalRaised = fundraisers.reduce((sum, fundraiser) => {
+      const fundraiserTotal = fundraiser.donations.reduce(
+        (donationSum, donation) => donationSum + Number(donation.amount),
+        0,
+      );
+      return sum + fundraiserTotal;
+    }, 0);
+
+    const completedGoals = fundraisers.filter(
+      (fundraiser) => fundraiser.isGoalReached,
+    ).length;
+
+    const avgDonationPerFundraiser =
+      fundraisers.length > 0 ? totalRaised / fundraisers.length : 0;
+
+    // Get team overview data
+    const members = await this.prisma.groupMember.findMany({
+      where: {
+        groupId: group.id,
+        status: GroupMemberStatus.active,
+      },
+      include: {
+        user: true,
+      },
+      orderBy: {
+        joinedAt: 'desc',
+      },
+    });
+
+    const pendingInvitations = await this.prisma.groupMember.count({
+      where: {
+        groupId: group.id,
+        status: GroupMemberStatus.invited,
+      },
+    });
+
+    // Get recent activity data
+    const recentActivity = await this.getRecentActivity(group.id);
+
+    // Get fundraiser highlights
+    const highlights = await this.getFundraiserHighlights(group.id);
+
+    return {
+      fundraising: {
+        activeFundraisers: fundraisers.length,
+        totalRaised,
+        goalCompletionRate: {
+          completed: completedGoals,
+          total: fundraisers.length,
+        },
+        avgDonationPerFundraiser,
+      },
+      team: {
+        members: members.length,
+        pendingInvitations,
+        lastMemberJoined: {
+          name: members[0]?.user
+            ? `${members[0].user.firstName} ${members[0].user.lastName}`
+            : members[0]?.invitedName || 'Unknown',
+          date:
+            members[0]?.joinedAt.toLocaleDateString('en-US', {
+              year: 'numeric',
+              month: 'short',
+              day: 'numeric',
+            }) || '',
+        },
+      },
+      recentActivity,
+      highlights,
+    };
+  }
+
+  /**
+   * Get recent activity for a group
+   */
+  private async getRecentActivity(groupId: string) {
+    const activities: any[] = [];
+
+    // Get recent fundraisers created
+    const recentFundraisers = await this.prisma.fundraiser.findMany({
+      where: { groupId },
+      include: {
+        group: {
+          include: {
+            members: {
+              include: {
+                user: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+    });
+
+    for (const fundraiser of recentFundraisers) {
+      const creator = fundraiser.group.members.find(
+        (member) => member.userId === fundraiser.group.ownerId,
+      );
+      activities.push({
+        type: 'fundraiser_created' as const,
+        user: creator?.user?.email || 'Unknown',
+        action: 'created fundraiser',
+        target: fundraiser.title,
+        date: fundraiser.createdAt.toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+        }),
+      });
+    }
+
+    // Get recent donations
+    const recentDonations = await this.prisma.donation.findMany({
+      where: {
+        fundraiser: { groupId },
+        status: 'completed',
+      },
+      include: {
+        fundraiser: true,
+        donor: true,
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+    });
+
+    for (const donation of recentDonations) {
+      activities.push({
+        type: 'donation_received' as const,
+        user: donation.isAnonymous
+          ? 'Anonymous'
+          : donation.donor?.firstName || 'Unknown',
+        action: 'donated',
+        amount: `₱${Number(donation.amount).toLocaleString()}`,
+        target: donation.fundraiser.title,
+        date: donation.createdAt.toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+        }),
+      });
+    }
+
+    // Get recent member joins
+    const recentMembers = await this.prisma.groupMember.findMany({
+      where: {
+        groupId,
+        status: GroupMemberStatus.active,
+      },
+      include: {
+        user: true,
+      },
+      orderBy: { joinedAt: 'desc' },
+      take: 5,
+    });
+
+    for (const member of recentMembers) {
+      activities.push({
+        type: 'member_joined' as const,
+        user: member.user
+          ? `${member.user.firstName} ${member.user.lastName}`
+          : member.invitedName || 'Unknown',
+        action: 'joined the group',
+        date: member.joinedAt.toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+        }),
+      });
+    }
+
+    // Sort all activities by date and take the most recent 10
+    return activities
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, 10);
+  }
+
+  /**
+   * Get fundraiser highlights for a group
+   */
+  private async getFundraiserHighlights(groupId: string) {
+    // Get top performing fundraiser (most raised)
+    const topPerforming = await this.prisma.fundraiser.findFirst({
+      where: {
+        groupId,
+        status: 'published',
+      },
+      include: {
+        donations: {
+          where: {
+            status: 'completed',
+          },
+        },
+      },
+      orderBy: {
+        donations: {
+          _count: 'desc',
+        },
+      },
+    });
+
+    // Get most recent fundraiser
+    const mostRecent = await this.prisma.fundraiser.findFirst({
+      where: {
+        groupId,
+        status: 'published',
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    // Get most donated today
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const mostDonatedToday = await this.prisma.fundraiser.findFirst({
+      where: {
+        groupId,
+        status: 'published',
+        donations: {
+          some: {
+            status: 'completed',
+            createdAt: {
+              gte: today,
+            },
+          },
+        },
+      },
+      include: {
+        donations: {
+          where: {
+            status: 'completed',
+            createdAt: {
+              gte: today,
+            },
+          },
+        },
+      },
+      orderBy: {
+        donations: {
+          _count: 'desc',
+        },
+      },
+    });
+
+    return {
+      topPerforming: {
+        name: topPerforming?.title || 'No fundraisers',
+        raised: topPerforming
+          ? topPerforming.donations.reduce(
+              (sum, donation) => sum + Number(donation.amount),
+              0,
+            )
+          : 0,
+        goal: topPerforming ? Number(topPerforming.goalAmount) : 0,
+      },
+      mostRecent: {
+        name: mostRecent?.title || 'No fundraisers',
+        created:
+          mostRecent?.createdAt.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+          }) || '',
+        raised: mostRecent
+          ? Number(
+              (
+                await this.prisma.donation.aggregate({
+                  where: {
+                    fundraiserId: mostRecent.id,
+                    status: 'completed',
+                  },
+                  _sum: {
+                    amount: true,
+                  },
+                })
+              )._sum.amount || 0,
+            )
+          : 0,
+      },
+      mostDonatedToday: {
+        name: mostDonatedToday?.title || 'No donations today',
+        donations: mostDonatedToday?.donations.length || 0,
+        amount: mostDonatedToday
+          ? mostDonatedToday.donations.reduce(
+              (sum, donation) => sum + Number(donation.amount),
+              0,
+            )
+          : 0,
+      },
     };
   }
 }
