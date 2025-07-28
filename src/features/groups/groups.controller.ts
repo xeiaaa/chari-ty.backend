@@ -14,6 +14,7 @@ import { GroupsService } from './groups.service';
 import { DonationsService } from '../donations/donations.service';
 import { UpdateGroupDto } from './dtos/update-group.dto';
 import { CreateInviteDto } from './dtos/create-invite.dto';
+import { CreateGroupDto } from './dtos/create-group.dto';
 import { UpdateMemberRoleDto } from './dtos/update-member-role.dto';
 import { DashboardDto } from './dtos/dashboard.dto';
 import { ListGroupDonationsDto } from '../donations/dtos/list-group-donations.dto';
@@ -30,6 +31,18 @@ export class GroupsController {
     private readonly groupsService: GroupsService,
     private readonly donationsService: DonationsService,
   ) {}
+
+  /**
+   * Create a new group
+   * POST /api/v1/groups
+   */
+  @Post()
+  async createGroup(
+    @Body() createGroupDto: CreateGroupDto,
+    @AuthUser() user: UserEntity,
+  ) {
+    return this.groupsService.createGroup(user, createGroupDto);
+  }
 
   /**
    * Get authenticated group by slug

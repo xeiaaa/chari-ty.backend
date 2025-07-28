@@ -18,6 +18,7 @@ import {
 } from '../../../generated/prisma';
 import { UpdateGroupDto } from './dtos/update-group.dto';
 import { CreateInviteDto } from './dtos/create-invite.dto';
+import { CreateGroupDto } from './dtos/create-group.dto';
 import { DashboardDto } from './dtos/dashboard.dto';
 
 /**
@@ -96,6 +97,86 @@ export class GroupsService {
     return this.prisma.group.findUnique({
       where: { id },
     });
+  }
+
+  /**
+   * Create a new group
+   */
+  async createGroup(
+    user: UserEntity,
+    createGroupDto: CreateGroupDto,
+  ): Promise<{ group: Group; groupMember: any }> {
+    // Validate that user has completed setup
+    if (!user.setupComplete) {
+      throw new BadRequestException(
+        'User must complete onboarding before creating groups',
+      );
+    }
+
+    // Validate EIN is provided for nonprofit type
+    if (createGroupDto.type === 'nonprofit' && !createGroupDto.ein) {
+      throw new BadRequestException('EIN is required for nonprofit groups');
+    }
+
+    // Generate unique slug for the group
+    const groupSlug = await this.generateUniqueGroupSlug(createGroupDto.name);
+
+    // Use transaction to ensure data consistency
+    const result = await this.prisma.$transaction(async (prisma) => {
+      // Create group
+      const group = await prisma.group.create({
+        data: {
+          name: createGroupDto.name,
+          slug: groupSlug,
+          description: createGroupDto.description,
+          type: createGroupDto.type,
+          website: createGroupDto.website,
+          ein: createGroupDto.ein,
+          avatarUrl: createGroupDto.avatarUrl,
+          documentsUrls: createGroupDto.documentsUrls || [],
+          verified: false,
+          ownerId: user.id,
+        },
+      });
+
+      // Add user as owner of the group
+      const groupMember = await prisma.groupMember.create({
+        data: {
+          userId: user.id,
+          groupId: group.id,
+          role: 'owner',
+          status: 'active',
+        },
+      });
+
+      return { group, groupMember };
+    });
+
+    return result;
+  }
+
+  /**
+   * Generate a unique URL-friendly slug from a group name
+   */
+  private async generateUniqueGroupSlug(name: string): Promise<string> {
+    // Convert name to lowercase and replace spaces/special chars with hyphens
+    let slug = name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+
+    // Check if slug exists
+    const existing = await this.prisma.group.findUnique({
+      where: { slug },
+    });
+
+    // If slug exists, append a random string
+    if (existing) {
+      const randomStr = Math.random().toString(36).substring(2, 8);
+      slug = `${slug}-${randomStr}`;
+    }
+
+    return slug;
   }
 
   /**
