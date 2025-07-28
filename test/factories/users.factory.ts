@@ -2,6 +2,7 @@ import { faker } from '@faker-js/faker/.';
 import {
   AccountType,
   Group,
+  GroupMember,
   GroupMemberRole,
   GroupMemberStatus,
   PrismaClient,
@@ -20,6 +21,7 @@ interface CreateFakeUserOptions {
 interface CreateFakeUserResult {
   user: User;
   group?: Group;
+  groupMember?: GroupMember;
 }
 
 interface CreateFakeUserWithTokenResult extends CreateFakeUserResult {
@@ -74,7 +76,16 @@ export const createFakeUser = async (
       },
     });
 
-    return { user, group };
+    const groupMember = await prisma.groupMember.findUnique({
+      where: {
+        unique_user_group: {
+          groupId: group.id,
+          userId: user.id,
+        },
+      },
+    });
+
+    return { user, group, groupMember: groupMember || undefined };
   }
 
   return { user };
@@ -83,9 +94,9 @@ export const createFakeUser = async (
 export const createFakeUserWithToken = async (
   options: CreateFakeUserOptions = {},
 ): Promise<CreateFakeUserWithTokenResult> => {
-  const { user, group } = await createFakeUser(options);
+  const { user, group, groupMember } = await createFakeUser(options);
   const token = createDevelopmentToken(user.clerkId);
-  return { user, group, token };
+  return { user, group, token, groupMember };
 };
 
 export const addUserToGroup = async (

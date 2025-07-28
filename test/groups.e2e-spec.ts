@@ -261,11 +261,7 @@ describe('Groups Module', () => {
 
   describe('PATCH /api/v1/groups/:groupId/members/:memberId', () => {
     it('should allow owner to update member role from editor to admin', async () => {
-      const {
-        user: owner,
-        token: ownerToken,
-        group,
-      } = await createFakeUserWithToken({
+      const { token: ownerToken, group } = await createFakeUserWithToken({
         accountType: AccountType.team,
         setupComplete: true,
       });
@@ -409,25 +405,16 @@ describe('Groups Module', () => {
 
     it('should prevent user from updating their own role', async () => {
       const {
-        user: owner,
         token: ownerToken,
         group,
+        groupMember,
       } = await createFakeUserWithToken({
         accountType: AccountType.team,
         setupComplete: true,
       });
 
-      // Get the owner's member record
-      const ownerMemberRecord = await addUserToGroup(
-        owner,
-        group!,
-        GroupMemberRole.owner,
-      );
-
       await request(app.getHttpServer())
-        .patch(
-          createApiPath(`groups/${group!.id}/members/${ownerMemberRecord.id}`),
-        )
+        .patch(createApiPath(`groups/${group!.id}/members/${groupMember!.id}`))
         .set('Authorization', `Bearer ${ownerToken}`)
         .send({ role: GroupMemberRole.admin })
         .expect(400);
@@ -451,11 +438,7 @@ describe('Groups Module', () => {
 
   describe('DELETE /api/v1/groups/:groupId/members/:memberId', () => {
     it('should allow owner to remove admin member', async () => {
-      const {
-        user: owner,
-        token: ownerToken,
-        group,
-      } = await createFakeUserWithToken({
+      const { token: ownerToken, group } = await createFakeUserWithToken({
         accountType: AccountType.team,
         setupComplete: true,
       });
@@ -583,25 +566,16 @@ describe('Groups Module', () => {
 
     it('should prevent user from removing themselves', async () => {
       const {
-        user: owner,
         token: ownerToken,
         group,
+        groupMember,
       } = await createFakeUserWithToken({
         accountType: AccountType.team,
         setupComplete: true,
       });
 
-      // Get the owner's member record
-      const ownerMemberRecord = await addUserToGroup(
-        owner,
-        group!,
-        GroupMemberRole.owner,
-      );
-
       await request(app.getHttpServer())
-        .delete(
-          createApiPath(`groups/${group!.id}/members/${ownerMemberRecord.id}`),
-        )
+        .delete(createApiPath(`groups/${group!.id}/members/${groupMember!.id}`))
         .set('Authorization', `Bearer ${ownerToken}`)
         .expect(400);
     });

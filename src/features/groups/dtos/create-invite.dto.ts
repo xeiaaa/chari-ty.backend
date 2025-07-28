@@ -1,4 +1,4 @@
-import { IsString, IsEnum, ValidateIf } from 'class-validator';
+import { IsString, IsEnum, ValidateIf, IsEmail } from 'class-validator';
 import { GroupMemberRole } from '../../../../generated/prisma';
 
 /**
@@ -6,7 +6,7 @@ import { GroupMemberRole } from '../../../../generated/prisma';
  */
 export class CreateInviteDto {
   @ValidateIf((o) => !o.userId)
-  @IsString()
+  @IsEmail()
   email?: string;
 
   @ValidateIf((o) => !o.email)

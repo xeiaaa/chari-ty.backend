@@ -7,14 +7,23 @@ import {
   createFakeUserWithToken,
   addUserToGroup,
 } from './factories/users.factory';
+import { ClerkService } from '../src/features/auth/clerk.service';
+import { faker } from '@faker-js/faker';
 
 describe('Groups Invites (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
+  let clerkService: ClerkService;
 
   beforeAll(async () => {
     app = await createTestApp();
     prisma = app.get<PrismaService>(PrismaService);
+    clerkService = app.get(ClerkService);
+
+    // Mock inviteUser method (so it doesn't actually send an email)
+    jest
+      .spyOn(clerkService, 'inviteUser')
+      .mockImplementation(() => Promise.resolve({ id: faker.string.uuid() }));
   });
 
   beforeEach(async () => {
@@ -237,14 +246,16 @@ describe('Groups Invites (e2e)', () => {
     });
 
     it('should validate email format when provided', async () => {
-      await request(app.getHttpServer())
+      const response = await request(app.getHttpServer())
         .post(createApiPath(`groups/${group.id}/invites`))
         .set('Authorization', `Bearer ${ownerToken}`)
         .send({
           email: 'invalid-email',
           role: 'viewer',
-        })
-        .expect(400);
+        });
+
+      console.log(response.body);
+      expect(response.statusCode).toBe(400);
     });
 
     it('should handle Clerk invitation errors gracefully', async () => {
