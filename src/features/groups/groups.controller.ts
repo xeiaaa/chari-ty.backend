@@ -18,6 +18,7 @@ import { CreateGroupDto } from './dtos/create-group.dto';
 import { UpdateMemberRoleDto } from './dtos/update-member-role.dto';
 import { DashboardDto } from './dtos/dashboard.dto';
 import { ListGroupDonationsDto } from '../donations/dtos/list-group-donations.dto';
+import { CreateGroupUploadDto } from './dtos/create-group-upload.dto';
 import { AuthGuard } from '../auth/auth.guard';
 import { AuthUser } from '../../common/decorators';
 
@@ -134,5 +135,18 @@ export class GroupsController {
     @AuthUser() user: UserEntity,
   ) {
     return this.donationsService.listByGroup(user, slug, query);
+  }
+
+  /**
+   * Add uploads to a group
+   * POST /api/v1/groups/:groupId/uploads
+   */
+  @Post(':groupId/uploads')
+  async createGroupUpload(
+    @Param('groupId') groupId: string,
+    @Body() data: CreateGroupUploadDto,
+    @AuthUser() user: UserEntity,
+  ) {
+    return this.groupsService.createGroupUpload(user, groupId, data);
   }
 }

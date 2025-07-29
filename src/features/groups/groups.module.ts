@@ -7,6 +7,7 @@ import { FundraisersModule } from '../fundraisers/fundraisers.module';
 import { AuthModule } from '../auth/auth.module';
 import { UsersModule } from '../users/users.module';
 import { DonationsModule } from '../donations/donations.module';
+import { UploadsModule } from '../uploads/uploads.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { DonationsModule } from '../donations/donations.module';
     AuthModule,
     UsersModule,
     DonationsModule,
+    UploadsModule,
   ],
   controllers: [GroupsController, PublicGroupsController],
   providers: [GroupsService],
