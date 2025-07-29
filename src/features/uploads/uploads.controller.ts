@@ -1,4 +1,11 @@
-import { Controller, Post, Body, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  UseGuards,
+  Delete,
+  Param,
+} from '@nestjs/common';
 import { UploadsService, UploadSignature } from './uploads.service';
 import { AuthGuard } from '../auth/auth.guard';
 import { CreateUploadSignatureDto } from './dtos/create-upload-signature.dto';
@@ -32,5 +39,14 @@ export class UploadsController {
     @AuthUser() user: UserEntity,
   ) {
     return await this.uploadsService.createUpload(asset, user.id);
+  }
+
+  /**
+   * Delete a Cloudinary resource by its public ID
+   * DELETE /api/v1/uploads/cloudinary/:publicId
+   */
+  @Delete('cloudinary/:publicId')
+  async deleteCloudinaryResource(@Param('publicId') publicId: string) {
+    return await this.uploadsService.deleteCloudinaryResource(publicId);
   }
 }

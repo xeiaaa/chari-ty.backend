@@ -11,6 +11,38 @@ export interface UploadSignature {
   cloudName: string;
 }
 
+export interface CloudinaryDerivedResource {
+  transformation: string;
+  transformation_signature: string;
+  format: string;
+  bytes: number;
+  id: string;
+  url: string;
+  secure_url: string;
+}
+
+export interface CloudinaryResource {
+  asset_id: string;
+  public_id: string;
+  format: string;
+  version: number;
+  resource_type: string;
+  type: string;
+  created_at: string;
+  bytes: number;
+  width: number;
+  height: number;
+  asset_folder: string;
+  display_name: string;
+  url: string;
+  secure_url: string;
+  next_cursor?: string;
+  derived: CloudinaryDerivedResource[];
+  rate_limit_allowed: number;
+  rate_limit_reset_at: string;
+  rate_limit_remaining: number;
+}
+
 @Injectable()
 export class UploadsService {
   constructor(private readonly prisma: PrismaService) {
@@ -32,7 +64,13 @@ export class UploadsService {
 
     // Generate signature using Cloudinary's utility
     const signature = cloudinary.utils.api_sign_request(
-      { timestamp, folder, eager },
+      {
+        timestamp,
+        folder,
+        eager,
+        use_filename: 'true',
+        unique_filename: 'true',
+      },
       process.env.CLOUDINARY_API_SECRET!,
     );
 
@@ -57,6 +95,8 @@ export class UploadsService {
       eager: 'q_auto,f_auto',
       timestamp,
       folder,
+      use_filename: 'true',
+      unique_filename: 'true',
     };
 
     const paramString = Object.keys(params)
@@ -96,5 +136,21 @@ export class UploadsService {
         uploadedById,
       },
     });
+  }
+
+  /**
+   * Get a Cloudinary resource by its public ID
+   */
+  async getResourceByPublicId(publicId: string): Promise<CloudinaryResource> {
+    return await cloudinary.api.resource(publicId);
+  }
+
+  /**
+   * Delete a Cloudinary resource by its public ID
+   */
+  async deleteCloudinaryResource(
+    publicId: string,
+  ): Promise<{ result: string }> {
+    return await cloudinary.uploader.destroy(publicId);
   }
 }

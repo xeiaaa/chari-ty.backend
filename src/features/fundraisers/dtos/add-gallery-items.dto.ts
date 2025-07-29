@@ -1,18 +1,16 @@
 import { IsArray, IsOptional, IsString, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
-import { CloudinaryAssetDto } from '../../../common/dtos/cloudinary-asset.dto';
 
 export class GalleryItemDto {
-  @ValidateNested()
-  @Type(() => CloudinaryAssetDto)
-  asset: CloudinaryAssetDto;
+  @IsString()
+  publicId: string;
 
   @IsOptional()
   @IsString()
   caption?: string;
 }
 
-export class CreateGalleryDto {
+export class AddGalleryItemsDto {
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => GalleryItemDto)

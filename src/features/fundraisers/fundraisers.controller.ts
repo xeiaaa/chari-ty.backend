@@ -24,7 +24,9 @@ import { UpdateMilestoneDto } from '../milestones/dtos/update-milestone.dto';
 import { CompleteMilestoneDto } from '../milestones/dtos/complete-milestone.dto';
 import { DonationsService } from '../donations/donations.service';
 import { ListDonationsDto } from '../donations/dtos/list-donations.dto';
-import { CreateGalleryDto } from './dtos/create-gallery.dto';
+import { AddGalleryItemsDto } from './dtos/add-gallery-items.dto';
+import { UpdateGalleryItemDto } from './dtos/update-gallery-item.dto';
+import { ReorderGalleryItemsDto } from './dtos/reorder-gallery-items.dto';
 
 @Controller('fundraisers')
 @UseGuards(AuthGuard)
@@ -210,11 +212,66 @@ export class FundraisersController {
    * POST /api/v1/fundraisers/:fundraiserId/gallery
    */
   @Post(':fundraiserId/gallery')
-  async createGallery(
+  async addGalleryItems(
     @Param('fundraiserId') fundraiserId: string,
-    @Body() data: CreateGalleryDto,
+    @Body() data: AddGalleryItemsDto,
     @AuthUser() user: UserEntity,
   ) {
-    return this.fundraisersService.createGallery(user, fundraiserId, data);
+    return this.fundraisersService.addGalleryItems(user, fundraiserId, data);
+  }
+
+  /**
+   * Reorder gallery items
+   * PATCH /api/v1/fundraisers/:fundraiserId/gallery/reorder
+   */
+  @Patch(':fundraiserId/gallery/reorder')
+  async reorderGalleryItems(
+    @Param('fundraiserId') fundraiserId: string,
+    @Body() data: ReorderGalleryItemsDto,
+    @AuthUser() user: UserEntity,
+  ) {
+    console.log('reorderGalleryItems', data);
+    return this.fundraisersService.reorderGalleryItems(
+      user,
+      fundraiserId,
+      data,
+    );
+  }
+
+  /**
+   * Update a gallery item caption
+   * PATCH /api/v1/fundraisers/:fundraiserId/gallery/:galleryItemId
+   */
+  @Patch(':fundraiserId/gallery/:galleryItemId')
+  async updateGalleryItem(
+    @Param('fundraiserId') fundraiserId: string,
+    @Param('galleryItemId') galleryItemId: string,
+    @Body() data: UpdateGalleryItemDto,
+    @AuthUser() user: UserEntity,
+  ) {
+    return this.fundraisersService.updateGalleryItem(
+      user,
+      fundraiserId,
+      galleryItemId,
+      data,
+    );
+  }
+
+  /**
+   * Delete a gallery item
+   * DELETE /api/v1/fundraisers/:fundraiserId/gallery/:galleryItemId
+   */
+  @Delete(':fundraiserId/gallery/:galleryItemId')
+  @HttpCode(204)
+  async deleteGalleryItem(
+    @Param('fundraiserId') fundraiserId: string,
+    @Param('galleryItemId') galleryItemId: string,
+    @AuthUser() user: UserEntity,
+  ) {
+    await this.fundraisersService.deleteGalleryItem(
+      user,
+      fundraiserId,
+      galleryItemId,
+    );
   }
 }

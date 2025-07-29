@@ -15,7 +15,9 @@ import { Decimal } from '@prisma/client/runtime/library';
 import { ListFundraisersDto } from './dtos/list-fundraisers.dto';
 import { ListPublicFundraisersDto } from './dtos/list-public-fundraisers.dto';
 import { UpdateFundraiserDto } from './dtos/update-fundraiser.dto';
-import { CreateGalleryDto } from './dtos/create-gallery.dto';
+import { AddGalleryItemsDto } from './dtos/add-gallery-items.dto';
+import { UpdateGalleryItemDto } from './dtos/update-gallery-item.dto';
+import { ReorderGalleryItemsDto } from './dtos/reorder-gallery-items.dto';
 import { UploadsService } from '../uploads/uploads.service';
 
 @Injectable()
@@ -304,6 +306,9 @@ export class FundraisersService {
         fundraiserGallery: {
           include: {
             upload: true,
+          },
+          orderBy: {
+            order: 'asc',
           },
         },
       },
@@ -632,10 +637,10 @@ export class FundraisersService {
    * Add gallery items to a fundraiser
    * Creates Upload records and FundraiserGallery entries
    */
-  async createGallery(
+  async addGalleryItems(
     user: UserEntity,
     fundraiserId: string,
-    data: CreateGalleryDto,
+    data: AddGalleryItemsDto,
   ) {
     // Verify fundraiser exists and user has permission
     const fundraiser = await this.prisma.fundraiser.findUnique({
@@ -663,34 +668,33 @@ export class FundraisersService {
       );
     }
 
-    // Handle uploads - check if they already exist or create new ones
-    const uploads: any[] = [];
-    for (const item of data.items) {
-      // Check if upload already exists
-      let upload = await this.prisma.upload.findUnique({
-        where: { cloudinaryAssetId: item.asset.cloudinaryAssetId },
-      });
-
-      if (!upload) {
-        // Create new upload if it doesn't exist
-        upload = await this.uploadsService.createUpload(item.asset, user.id);
-      }
-
-      uploads.push(upload);
-    }
-
     // Create gallery items in transaction
     return await this.prisma.$transaction(async (tx) => {
-      // First, delete existing gallery items for this fundraiser
-      await tx.fundraiserGallery.deleteMany({
-        where: { fundraiserId },
-      });
-
       const galleryItems: any[] = [];
 
       for (let i = 0; i < data.items.length; i++) {
         const item = data.items[i];
-        const upload = uploads[i];
+
+        // Get Cloudinary resource by publicId
+        const cloudinaryResource =
+          await this.uploadsService.getResourceByPublicId(item.publicId);
+
+        // Convert Cloudinary resource to CloudinaryAssetDto format
+        const asset = {
+          cloudinaryAssetId: cloudinaryResource.asset_id,
+          publicId: cloudinaryResource.public_id,
+          url: cloudinaryResource.secure_url,
+          eagerUrl: cloudinaryResource.derived?.[0]?.secure_url,
+          format: cloudinaryResource.format,
+          resourceType: cloudinaryResource.resource_type,
+          size: cloudinaryResource.bytes,
+          pages: cloudinaryResource.derived?.[0]?.bytes || undefined,
+          originalFilename: cloudinaryResource.display_name,
+          uploadedAt: cloudinaryResource.created_at,
+        };
+
+        // Create upload record
+        const upload = await this.uploadsService.createUpload(asset, user.id);
 
         // Create gallery item
         const galleryItem = await tx.fundraiserGallery.create({
@@ -709,6 +713,196 @@ export class FundraisersService {
       }
 
       return galleryItems;
+    });
+  }
+
+  /**
+   * Update a gallery item caption
+   */
+  async updateGalleryItem(
+    user: UserEntity,
+    fundraiserId: string,
+    galleryItemId: string,
+    data: UpdateGalleryItemDto,
+  ) {
+    // Verify fundraiser exists and user has permission
+    const fundraiser = await this.prisma.fundraiser.findUnique({
+      where: { id: fundraiserId },
+      include: { group: true },
+    });
+
+    if (!fundraiser) {
+      throw new NotFoundException('Fundraiser not found');
+    }
+
+    // Check member role
+    const membership = await this.prisma.groupMember.findUnique({
+      where: {
+        unique_user_group: {
+          userId: user.id,
+          groupId: fundraiser.groupId,
+        },
+      },
+    });
+
+    if (!membership || membership.role === 'viewer') {
+      throw new ForbiddenException(
+        'You do not have permission to update gallery items for this fundraiser',
+      );
+    }
+
+    // Verify gallery item exists and belongs to this fundraiser
+    const galleryItem = await this.prisma.fundraiserGallery.findFirst({
+      where: {
+        id: galleryItemId,
+        fundraiserId,
+      },
+      include: {
+        upload: true,
+      },
+    });
+
+    if (!galleryItem) {
+      throw new NotFoundException('Gallery item not found');
+    }
+
+    // Update the gallery item
+    return await this.prisma.fundraiserGallery.update({
+      where: { id: galleryItemId },
+      data: {
+        caption: data.caption,
+      },
+      include: {
+        upload: true,
+      },
+    });
+  }
+
+  /**
+   * Delete a gallery item
+   */
+  async deleteGalleryItem(
+    user: UserEntity,
+    fundraiserId: string,
+    galleryItemId: string,
+  ) {
+    // Verify fundraiser exists and user has permission
+    const fundraiser = await this.prisma.fundraiser.findUnique({
+      where: { id: fundraiserId },
+      include: { group: true },
+    });
+
+    if (!fundraiser) {
+      throw new NotFoundException('Fundraiser not found');
+    }
+
+    // Check member role
+    const membership = await this.prisma.groupMember.findUnique({
+      where: {
+        unique_user_group: {
+          userId: user.id,
+          groupId: fundraiser.groupId,
+        },
+      },
+    });
+
+    if (!membership || membership.role === 'viewer') {
+      throw new ForbiddenException(
+        'You do not have permission to delete gallery items for this fundraiser',
+      );
+    }
+
+    // Verify gallery item exists and belongs to this fundraiser
+    const galleryItem = await this.prisma.fundraiserGallery.findFirst({
+      where: {
+        id: galleryItemId,
+        fundraiserId,
+      },
+      include: {
+        upload: true,
+      },
+    });
+
+    if (!galleryItem) {
+      throw new NotFoundException('Gallery item not found');
+    }
+
+    // Delete the Cloudinary resource
+    await this.uploadsService.deleteCloudinaryResource(
+      galleryItem.upload.publicId,
+    );
+
+    // Delete the gallery item (this will also delete the upload due to cascade)
+    await this.prisma.fundraiserGallery.delete({
+      where: { id: galleryItemId },
+    });
+  }
+
+  /**
+   * Reorder gallery items
+   */
+  async reorderGalleryItems(
+    user: UserEntity,
+    fundraiserId: string,
+    data: ReorderGalleryItemsDto,
+  ) {
+    // Verify fundraiser exists and user has permission
+    const fundraiser = await this.prisma.fundraiser.findUnique({
+      where: { id: fundraiserId },
+      include: { group: true },
+    });
+
+    if (!fundraiser) {
+      throw new NotFoundException('Fundraiser not found');
+    }
+
+    // Check member role
+    const membership = await this.prisma.groupMember.findUnique({
+      where: {
+        unique_user_group: {
+          userId: user.id,
+          groupId: fundraiser.groupId,
+        },
+      },
+    });
+
+    if (!membership || membership.role === 'viewer') {
+      throw new ForbiddenException(
+        'You do not have permission to reorder gallery items for this fundraiser',
+      );
+    }
+
+    // Verify all gallery items exist and belong to this fundraiser
+    const galleryItemIds = data.orderMap.map(
+      (item) => item.fundraiserGalleryId,
+    );
+    const existingItems = await this.prisma.fundraiserGallery.findMany({
+      where: {
+        id: { in: galleryItemIds },
+        fundraiserId,
+      },
+    });
+
+    if (existingItems.length !== galleryItemIds.length) {
+      throw new NotFoundException('One or more gallery items not found');
+    }
+
+    // Update the order of all items in a transaction
+    return await this.prisma.$transaction(async (tx) => {
+      const updatedItems: any[] = [];
+
+      for (const item of data.orderMap) {
+        const updatedItem = await tx.fundraiserGallery.update({
+          where: { id: item.fundraiserGalleryId },
+          data: { order: item.order },
+          include: {
+            upload: true,
+          },
+        });
+        updatedItems.push(updatedItem);
+      }
+
+      return updatedItems;
     });
   }
 }
