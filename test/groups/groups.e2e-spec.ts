@@ -1,18 +1,18 @@
 import { INestApplication } from '@nestjs/common';
 import { App } from 'supertest/types';
-import { createApiPath, createTestApp, resetDatabase } from './test-utils';
+import { createApiPath, createTestApp, resetDatabase } from '../test-utils';
 import {
   AccountType,
   GroupMemberRole,
   GroupMemberStatus,
-} from '../generated/prisma';
+} from '../../generated/prisma';
 import * as request from 'supertest';
 import {
   createFakeUserWithToken,
   addUserToGroup,
-} from './factories/users.factory';
+} from '../factories/users.factory';
 
-describe('Groups Module', () => {
+describe('Groups Module - CRUD', () => {
   let app: INestApplication<App>;
 
   beforeAll(async () => {

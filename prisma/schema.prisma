@@ -58,31 +58,35 @@ model User {
   // Relations
   groupMemberships GroupMember[]
   donations        Donation[]
-  Group            Group[]
+  groups           Group[]
+  uploads          Upload[]
 
   @@map("users")
 }
 
 model Group {
-  id            String    @id @default(cuid())
-  name          String
-  slug          String    @unique
-  description   String?
-  type          GroupType
-  avatarUrl     String?
-  website       String?
-  ein           String? // For nonprofits
-  documentsUrls String[] // For verification documents
-  verified      Boolean   @default(false)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  stripeId      String? // Connect payout
-  ownerId       String // FK to User who created this group
+  id             String    @id @default(cuid())
+  name           String
+  slug           String    @unique
+  description    String?
+  type           GroupType
+  avatarUrl      String?
+  website        String?
+  ein            String? // For nonprofits
+  documentsUrls  String[] // For verification documents
+  verified       Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  stripeId       String? // Connect payout
+  ownerId        String // FK to User who created this group
+  avatarUploadId String?
 
   // Relations
-  owner      User          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  members    GroupMember[]
-  Fundraiser Fundraiser[]
+  owner        User          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  members      GroupMember[]
+  fundraisers  Fundraiser[]
+  groupUploads GroupUpload[]
+  avatar       Upload?       @relation(fields: [avatarUploadId], references: [id], onDelete: SetNull)
 
   @@map("groups")
 }
@@ -154,10 +158,11 @@ model Fundraiser {
   updatedAt           DateTime           @updatedAt
 
   // Relations
-  group      Group            @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  milestones Milestone[]
-  links      FundraiserLink[]
-  donations  Donation[]
+  group             Group               @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  milestones        Milestone[]
+  links             FundraiserLink[]
+  donations         Donation[]
+  fundraiserGallery FundraiserGallery[]
 
   @@map("fundraisers")
 }
@@ -177,7 +182,8 @@ model Milestone {
   updatedAt         DateTime  @updatedAt
 
   // Relations
-  fundraiser Fundraiser @relation(fields: [fundraiserId], references: [id], onDelete: Cascade)
+  fundraiser       Fundraiser        @relation(fields: [fundraiserId], references: [id], onDelete: Cascade)
+  milestoneUploads MilestoneUpload[]
 
   // Ensure stepNumber is unique within a fundraiser
   @@unique([fundraiserId, stepNumber], name: "unique_fundraiser_step")
@@ -229,4 +235,79 @@ model Donation {
   sourceLink FundraiserLink? @relation(fields: [fundraiserLinkId], references: [id])
 
   @@map("donations")
+}
+
+model Upload {
+  id                String   @id @default(cuid())
+  cloudinaryAssetId String   @unique
+  publicId          String
+  url               String
+  eagerUrl          String?
+  format            String
+  resourceType      String
+  size              Int
+  pages             Int?
+  originalFilename  String
+  uploadedAt        DateTime
+  uploadedById      String // FK to User who uploaded the file
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  uploadedBy        User                @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
+  fundraiserGallery FundraiserGallery[]
+  groupUploads      GroupUpload[]
+  groups            Group[]
+  milestoneUploads  MilestoneUpload[]
+
+  @@map("uploads")
+}
+
+model FundraiserGallery {
+  id           String   @id @default(cuid())
+  fundraiserId String
+  uploadId     String
+  order        Int      @default(0)
+  caption      String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  fundraiser Fundraiser @relation(fields: [fundraiserId], references: [id], onDelete: Cascade)
+  upload     Upload     @relation(fields: [uploadId], references: [id], onDelete: Cascade)
+
+  @@map("fundraiser_gallery")
+}
+
+model GroupUpload {
+  id        String   @id @default(cuid())
+  groupId   String
+  uploadId  String
+  type      String // e.g., "verification", "gallery"
+  caption   String?
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  group  Group  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  upload Upload @relation(fields: [uploadId], references: [id], onDelete: Cascade)
+
+  @@map("group_uploads")
+}
+
+model MilestoneUpload {
+  id          String   @id @default(cuid())
+  milestoneId String
+  uploadId    String
+  caption     String?
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  milestone Milestone @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+  upload    Upload    @relation(fields: [uploadId], references: [id], onDelete: Cascade)
+
+  @@map("milestone_uploads")
 }

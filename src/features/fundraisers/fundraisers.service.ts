@@ -15,10 +15,15 @@ import { Decimal } from '@prisma/client/runtime/library';
 import { ListFundraisersDto } from './dtos/list-fundraisers.dto';
 import { ListPublicFundraisersDto } from './dtos/list-public-fundraisers.dto';
 import { UpdateFundraiserDto } from './dtos/update-fundraiser.dto';
+import { CreateGalleryDto } from './dtos/create-gallery.dto';
+import { UploadsService } from '../uploads/uploads.service';
 
 @Injectable()
 export class FundraisersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly uploadsService: UploadsService,
+  ) {}
 
   /**
    * Create a new fundraiser
@@ -251,6 +256,13 @@ export class FundraisersService {
   async findOne(user: UserEntity, fundraiserId: string) {
     const fundraiser = await this.prisma.fundraiser.findUnique({
       where: { id: fundraiserId },
+      include: {
+        fundraiserGallery: {
+          include: {
+            upload: true,
+          },
+        },
+      },
     });
 
     if (!fundraiser) {
@@ -288,6 +300,13 @@ export class FundraisersService {
   async findBySlug(user: UserEntity, slug: string) {
     const fundraiser = await this.prisma.fundraiser.findUnique({
       where: { slug },
+      include: {
+        fundraiserGallery: {
+          include: {
+            upload: true,
+          },
+        },
+      },
     });
 
     if (!fundraiser) {
@@ -606,6 +625,90 @@ export class FundraisersService {
     return await this.prisma.fundraiser.update({
       where: { id: fundraiserId },
       data: { status },
+    });
+  }
+
+  /**
+   * Add gallery items to a fundraiser
+   * Creates Upload records and FundraiserGallery entries
+   */
+  async createGallery(
+    user: UserEntity,
+    fundraiserId: string,
+    data: CreateGalleryDto,
+  ) {
+    // Verify fundraiser exists and user has permission
+    const fundraiser = await this.prisma.fundraiser.findUnique({
+      where: { id: fundraiserId },
+      include: { group: true },
+    });
+
+    if (!fundraiser) {
+      throw new NotFoundException('Fundraiser not found');
+    }
+
+    // Check member role
+    const membership = await this.prisma.groupMember.findUnique({
+      where: {
+        unique_user_group: {
+          userId: user.id,
+          groupId: fundraiser.groupId,
+        },
+      },
+    });
+
+    if (!membership || membership.role === 'viewer') {
+      throw new ForbiddenException(
+        'You do not have permission to add gallery items to this fundraiser',
+      );
+    }
+
+    // Handle uploads - check if they already exist or create new ones
+    const uploads: any[] = [];
+    for (const item of data.items) {
+      // Check if upload already exists
+      let upload = await this.prisma.upload.findUnique({
+        where: { cloudinaryAssetId: item.asset.cloudinaryAssetId },
+      });
+
+      if (!upload) {
+        // Create new upload if it doesn't exist
+        upload = await this.uploadsService.createUpload(item.asset, user.id);
+      }
+
+      uploads.push(upload);
+    }
+
+    // Create gallery items in transaction
+    return await this.prisma.$transaction(async (tx) => {
+      // First, delete existing gallery items for this fundraiser
+      await tx.fundraiserGallery.deleteMany({
+        where: { fundraiserId },
+      });
+
+      const galleryItems: any[] = [];
+
+      for (let i = 0; i < data.items.length; i++) {
+        const item = data.items[i];
+        const upload = uploads[i];
+
+        // Create gallery item
+        const galleryItem = await tx.fundraiserGallery.create({
+          data: {
+            fundraiserId,
+            uploadId: upload.id,
+            caption: item.caption,
+            order: i, // Use array index as order
+          },
+          include: {
+            upload: true,
+          },
+        });
+
+        galleryItems.push(galleryItem);
+      }
+
+      return galleryItems;
     });
   }
 }

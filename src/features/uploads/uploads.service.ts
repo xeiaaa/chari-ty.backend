@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { v2 as cloudinary } from 'cloudinary';
 import * as crypto from 'crypto';
+import { PrismaService } from '../../core/prisma/prisma.service';
+import { CloudinaryAssetDto } from '../../common/dtos/cloudinary-asset.dto';
 
 export interface UploadSignature {
   signature: string;
@@ -11,7 +13,7 @@ export interface UploadSignature {
 
 @Injectable()
 export class UploadsService {
-  constructor() {
+  constructor(private readonly prisma: PrismaService) {
     // Configure Cloudinary
     cloudinary.config({
       cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -26,10 +28,11 @@ export class UploadsService {
    */
   generateUploadSignature(folder: string = 'uploads'): UploadSignature {
     const timestamp = Math.round(new Date().getTime() / 1000);
+    const eager = 'q_auto,f_auto';
 
     // Generate signature using Cloudinary's utility
     const signature = cloudinary.utils.api_sign_request(
-      { timestamp, folder },
+      { timestamp, folder, eager },
       process.env.CLOUDINARY_API_SECRET!,
     );
 
@@ -50,19 +53,17 @@ export class UploadsService {
   ): UploadSignature {
     const timestamp = Math.round(new Date().getTime() / 1000);
 
-    // Create the parameters to sign
     const params = {
+      eager: 'q_auto,f_auto',
       timestamp,
       folder,
     };
 
-    // Convert params to string for signing
     const paramString = Object.keys(params)
       .sort()
       .map((key) => `${key}=${params[key as keyof typeof params]}`)
       .join('&');
 
-    // Generate SHA1 signature
     const signature = crypto
       .createHash('sha1')
       .update(paramString + process.env.CLOUDINARY_API_SECRET!)
@@ -74,5 +75,26 @@ export class UploadsService {
       apiKey: process.env.CLOUDINARY_API_KEY!,
       cloudName: process.env.CLOUDINARY_CLOUD_NAME!,
     };
+  }
+
+  /**
+   * Create an upload record in the database
+   */
+  async createUpload(asset: CloudinaryAssetDto, uploadedById: string) {
+    return await this.prisma.upload.create({
+      data: {
+        cloudinaryAssetId: asset.cloudinaryAssetId,
+        publicId: asset.publicId,
+        url: asset.url,
+        eagerUrl: asset.eagerUrl,
+        format: asset.format,
+        resourceType: asset.resourceType,
+        size: asset.size,
+        pages: asset.pages,
+        originalFilename: asset.originalFilename,
+        uploadedAt: new Date(asset.uploadedAt),
+        uploadedById,
+      },
+    });
   }
 }

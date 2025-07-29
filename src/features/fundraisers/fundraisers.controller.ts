@@ -24,6 +24,7 @@ import { UpdateMilestoneDto } from '../milestones/dtos/update-milestone.dto';
 import { CompleteMilestoneDto } from '../milestones/dtos/complete-milestone.dto';
 import { DonationsService } from '../donations/donations.service';
 import { ListDonationsDto } from '../donations/dtos/list-donations.dto';
+import { CreateGalleryDto } from './dtos/create-gallery.dto';
 
 @Controller('fundraisers')
 @UseGuards(AuthGuard)
@@ -202,5 +203,18 @@ export class FundraisersController {
       fundraiserId,
       query.status,
     );
+  }
+
+  /**
+   * Add gallery items to a fundraiser
+   * POST /api/v1/fundraisers/:fundraiserId/gallery
+   */
+  @Post(':fundraiserId/gallery')
+  async createGallery(
+    @Param('fundraiserId') fundraiserId: string,
+    @Body() data: CreateGalleryDto,
+    @AuthUser() user: UserEntity,
+  ) {
+    return this.fundraisersService.createGallery(user, fundraiserId, data);
   }
 }

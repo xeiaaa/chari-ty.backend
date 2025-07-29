@@ -1,9 +1,9 @@
 import { INestApplication } from '@nestjs/common';
 import { App } from 'supertest/types';
-import { createApiPath, createTestApp, resetDatabase } from './test-utils';
-import { AccountType } from '../generated/prisma';
+import { createApiPath, createTestApp, resetDatabase } from '../test-utils';
+import { AccountType } from '../../generated/prisma';
 import * as request from 'supertest';
-import { createFakeUserWithToken } from './factories/users.factory';
+import { createFakeUserWithToken } from '../factories/users.factory';
 
 describe('Payments Module', () => {
   let app: INestApplication<App>;

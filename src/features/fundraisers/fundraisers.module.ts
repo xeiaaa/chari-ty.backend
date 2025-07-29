@@ -7,6 +7,7 @@ import { AuthModule } from '../auth/auth.module';
 import { MilestonesModule } from '../milestones/milestones.module';
 import { UsersModule } from '../users/users.module';
 import { DonationsModule } from '../donations/donations.module';
+import { UploadsModule } from '../uploads/uploads.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { DonationsModule } from '../donations/donations.module';
     AuthModule,
     MilestonesModule,
     DonationsModule,
+    UploadsModule,
     forwardRef(() => UsersModule),
   ],
   controllers: [FundraisersController, PublicFundraisersController],

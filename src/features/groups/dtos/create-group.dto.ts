@@ -7,9 +7,11 @@ import {
   MinLength,
   MaxLength,
   ValidateIf,
+  ValidateNested,
 } from 'class-validator';
 import { GroupType } from '../../../../generated/prisma';
-import { Transform } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
+import { CloudinaryAssetDto } from '../../../common/dtos/cloudinary-asset.dto';
 
 /**
  * DTO for creating a new group
@@ -28,6 +30,11 @@ export class CreateGroupDto {
 
   @IsEnum(GroupType)
   type: Exclude<GroupType, 'individual'>;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => CloudinaryAssetDto)
+  avatar?: CloudinaryAssetDto;
 
   @IsOptional()
   @ValidateIf((o) => o.avatarUrl !== '')

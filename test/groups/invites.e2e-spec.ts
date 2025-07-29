@@ -1,16 +1,16 @@
 import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
-import { PrismaService } from '../src/core/prisma/prisma.service';
-import { User, AccountType, GroupMemberRole } from '../generated/prisma';
-import { createTestApp, resetDatabase, createApiPath } from './test-utils';
+import { PrismaService } from '../../src/core/prisma/prisma.service';
+import { User, AccountType, GroupMemberRole } from '../../generated/prisma';
+import { createTestApp, resetDatabase, createApiPath } from '../test-utils';
 import {
   createFakeUserWithToken,
   addUserToGroup,
-} from './factories/users.factory';
-import { ClerkService } from '../src/features/auth/clerk.service';
+} from '../factories/users.factory';
+import { ClerkService } from '../../src/features/auth/clerk.service';
 import { faker } from '@faker-js/faker';
 
-describe('Groups Invites (e2e)', () => {
+describe('Groups Module - Invites', () => {
   let app: INestApplication;
   let prisma: PrismaService;
   let clerkService: ClerkService;

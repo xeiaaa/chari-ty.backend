@@ -1,9 +1,9 @@
 import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
-import { PrismaService } from '../src/core/prisma/prisma.service';
-import { User, AccountType } from '../generated/prisma';
-import { createTestApp, resetDatabase, createApiPath } from './test-utils';
-import { createFakeUserWithToken } from './factories/users.factory';
+import { PrismaService } from '../../src/core/prisma/prisma.service';
+import { User, AccountType } from '../../generated/prisma';
+import { createTestApp, resetDatabase, createApiPath } from '../test-utils';
+import { createFakeUserWithToken } from '../factories/users.factory';
 
 describe('UsersController (e2e)', () => {
   let app: INestApplication;

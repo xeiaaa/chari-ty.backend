@@ -1,15 +1,15 @@
 import { INestApplication } from '@nestjs/common';
 import { App } from 'supertest/types';
-import { createApiPath, createTestApp, resetDatabase } from './test-utils';
+import { createApiPath, createTestApp, resetDatabase } from '../test-utils';
 import {
   AccountType,
   FundraiserCategory,
   FundraiserStatus,
-} from '../generated/prisma';
+} from '../../generated/prisma';
 import * as request from 'supertest';
-import { createFakeUserWithToken } from './factories/users.factory';
-import { createFakeFundraiser } from './factories/fundraisers.factory';
-import { createFakeMilestone } from './factories/milestones.factory';
+import { createFakeUserWithToken } from '../factories/users.factory';
+import { createFakeFundraiser } from '../factories/fundraisers.factory';
+import { createFakeMilestone } from '../factories/milestones.factory';
 import { Decimal } from '@prisma/client/runtime/library';
 
 describe('Public Fundraisers', () => {

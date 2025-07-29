@@ -1,14 +1,14 @@
 import { INestApplication } from '@nestjs/common';
 import { App } from 'supertest/types';
-import { createApiPath, createTestApp, resetDatabase } from './test-utils';
-import { AccountType, GroupMemberRole } from '../generated/prisma';
+import { createApiPath, createTestApp, resetDatabase } from '../test-utils';
+import { AccountType, GroupMemberRole } from '../../generated/prisma';
 import * as request from 'supertest';
 import {
   addUserToGroup,
   createFakeUserWithToken,
-} from './factories/users.factory';
-import { createFakeFundraiser } from './factories/fundraisers.factory';
-import { buildFakeLink, createFakeLink } from './factories/links.factory';
+} from '../factories/users.factory';
+import { createFakeFundraiser } from '../factories/fundraisers.factory';
+import { buildFakeLink, createFakeLink } from '../factories/links.factory';
 
 describe('Links Module', () => {
   let app: INestApplication<App>;

@@ -1,19 +1,19 @@
 import { INestApplication } from '@nestjs/common';
 import { App } from 'supertest/types';
-import { createApiPath, createTestApp, resetDatabase } from './test-utils';
-import { AccountType } from '../generated/prisma';
+import { createApiPath, createTestApp, resetDatabase } from '../test-utils';
+import { AccountType } from '../../generated/prisma';
 import * as request from 'supertest';
-import { ClerkService } from '../src/features/auth/clerk.service';
+import { ClerkService } from '../../src/features/auth/clerk.service';
 import { faker } from '@faker-js/faker';
 import {
   createFakeUserWithToken,
   createIndividualOnboardingData,
   createNonprofitOnboardingData,
   createTeamOnboardingData,
-} from './factories/users.factory';
-import { TeamMemberRole } from '../src/features/auth/dtos/onboarding.dto';
+} from '../factories/users.factory';
+import { TeamMemberRole } from '../../src/features/auth/dtos/onboarding.dto';
 
-describe('Auth Module', () => {
+describe('Auth Module - Onboarding', () => {
   let app: INestApplication<App>;
   let clerkService: ClerkService;
 

@@ -1,26 +1,26 @@
 import { INestApplication } from '@nestjs/common';
 import { App } from 'supertest/types';
-import { createApiPath, createTestApp, resetDatabase } from './test-utils';
+import { createApiPath, createTestApp, resetDatabase } from '../test-utils';
 import {
   AccountType,
   GroupMemberRole,
   FundraiserStatus,
-} from '../generated/prisma';
+} from '../../generated/prisma';
 import * as request from 'supertest';
 import {
   addUserToGroup,
   createFakeUserWithToken,
-} from './factories/users.factory';
-import { createFakeFundraiser } from './factories/fundraisers.factory';
-import { PrismaService } from '../src/core/prisma/prisma.service';
+} from '../factories/users.factory';
+import { createFakeFundraiser } from '../factories/fundraisers.factory';
+import { PrismaService } from '../../src/core/prisma/prisma.service';
 import {
   createFakeDonation,
   createFakeFailedDonation,
   createFakePendingDonation,
   createFakeRefundedDonation,
-} from './factories/donations.factory';
+} from '../factories/donations.factory';
 
-describe('Auth Module', () => {
+describe('Fundraisers Module - Publish', () => {
   let app: INestApplication<App>;
   let prisma: PrismaService;
 

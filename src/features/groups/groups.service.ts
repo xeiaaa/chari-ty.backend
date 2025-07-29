@@ -123,6 +123,28 @@ export class GroupsService {
 
     // Use transaction to ensure data consistency
     const result = await this.prisma.$transaction(async (prisma) => {
+      let avatarUploadId: string | undefined;
+
+      // Create upload record if avatar is provided
+      if (createGroupDto.avatar) {
+        const upload = await prisma.upload.create({
+          data: {
+            cloudinaryAssetId: createGroupDto.avatar.cloudinaryAssetId,
+            publicId: createGroupDto.avatar.publicId,
+            url: createGroupDto.avatar.url,
+            eagerUrl: createGroupDto.avatar.eagerUrl,
+            format: createGroupDto.avatar.format,
+            resourceType: createGroupDto.avatar.resourceType,
+            size: createGroupDto.avatar.size,
+            pages: createGroupDto.avatar.pages,
+            originalFilename: createGroupDto.avatar.originalFilename,
+            uploadedAt: new Date(createGroupDto.avatar.uploadedAt),
+            uploadedById: user.id,
+          },
+        });
+        avatarUploadId = upload.id;
+      }
+
       // Create group
       const group = await prisma.group.create({
         data: {
@@ -133,6 +155,7 @@ export class GroupsService {
           website: createGroupDto.website,
           ein: createGroupDto.ein,
           avatarUrl: createGroupDto.avatarUrl,
+          avatarUploadId,
           documentsUrls: createGroupDto.documentsUrls || [],
           verified: false,
           ownerId: user.id,

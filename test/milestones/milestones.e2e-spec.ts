@@ -5,20 +5,20 @@ import {
   createTestApp,
   resetDatabase,
   formatMilestoneResponse,
-} from './test-utils';
-import { AccountType, GroupMemberRole } from '../generated/prisma';
+} from '../test-utils';
+import { AccountType, GroupMemberRole } from '../../generated/prisma';
 import * as request from 'supertest';
 import {
   addUserToGroup,
   createFakeUserWithToken,
-} from './factories/users.factory';
-import { createFakeFundraiser } from './factories/fundraisers.factory';
+} from '../factories/users.factory';
+import { createFakeFundraiser } from '../factories/fundraisers.factory';
 import {
   buildFakeMilestone,
   createFakeMilestone,
-} from './factories/milestones.factory';
+} from '../factories/milestones.factory';
 import { Decimal } from '@prisma/client/runtime/library';
-import { PrismaService } from '../src/core/prisma/prisma.service';
+import { PrismaService } from '../../src/core/prisma/prisma.service';
 
 describe('Milestones Module', () => {
   let app: INestApplication<App>;

@@ -1,13 +1,13 @@
 import { INestApplication } from '@nestjs/common';
 import { App } from 'supertest/types';
-import { createApiPath, createTestApp, resetDatabase } from './test-utils';
-import { AccountType } from '../generated/prisma';
+import { createApiPath, createTestApp, resetDatabase } from '../test-utils';
+import { AccountType } from '../../generated/prisma';
 import * as request from 'supertest';
 import {
   addUserToGroup,
   createFakeUserWithToken,
-} from './factories/users.factory';
-import { GroupMemberStatus, GroupMemberRole } from '../generated/prisma';
+} from '../factories/users.factory';
+import { GroupMemberStatus, GroupMemberRole } from '../../generated/prisma';
 
 describe('Auth Module', () => {
   let app: INestApplication<App>;
