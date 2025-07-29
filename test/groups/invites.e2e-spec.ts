@@ -254,7 +254,6 @@ describe('Groups Module - Invites', () => {
           role: 'viewer',
         });
 
-      console.log(response.body);
       expect(response.statusCode).toBe(400);
     });
 

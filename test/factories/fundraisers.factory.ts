@@ -29,10 +29,10 @@ export const createFakeFundraiser = async (
       ),
       currency: 'USD',
       endDate: faker.date.future(),
-      coverUrl: faker.image.url(),
       galleryUrls: [faker.image.url(), faker.image.url()],
       groupId: group.id,
       isPublic: false,
+      coverId: undefined,
       createdAt: faker.date.past(),
       updatedAt: faker.date.recent(),
       ...override,
@@ -58,10 +58,10 @@ export const buildFakeFundraiser = (
     }),
     currency: 'USD',
     endDate: faker.date.future().toISOString(),
-    coverUrl: faker.image.url(),
     groupId: group.id,
     galleryUrls: [faker.image.url(), faker.image.url()],
     isPublic: false,
+    coverPublicId: undefined,
     ...override,
   };
 };

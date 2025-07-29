@@ -51,10 +51,13 @@ export class UpdateFundraiserDto {
   @IsOptional()
   endDate?: string;
 
-  @IsUrl()
-  @IsNotEmpty()
+  @IsString()
   @IsOptional()
-  coverUrl?: string;
+  coverPublicId?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  removeCover?: boolean;
 
   @IsArray()
   @IsUrl({}, { each: true })

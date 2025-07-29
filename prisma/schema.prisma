@@ -146,8 +146,8 @@ model Fundraiser {
   goalAmount          Decimal
   currency            String
   endDate             DateTime?
-  coverUrl            String
   galleryUrls         String[]
+  coverId             String? // FK to Upload
   groupId             String // FK to Group
   status              FundraiserStatus   @default(draft)
   isPublic            Boolean            @default(false)
@@ -163,6 +163,7 @@ model Fundraiser {
   links             FundraiserLink[]
   donations         Donation[]
   fundraiserGallery FundraiserGallery[]
+  cover             Upload?             @relation(fields: [coverId], references: [id], onDelete: SetNull)
 
   @@map("fundraisers")
 }
@@ -259,6 +260,7 @@ model Upload {
   groupUploads      GroupUpload[]
   groups            Group[]
   milestoneUploads  MilestoneUpload[]
+  Fundraiser        Fundraiser[]
 
   @@map("uploads")
 }

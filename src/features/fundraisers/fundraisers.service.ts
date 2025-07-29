@@ -43,7 +43,6 @@ export class FundraisersService {
       goalAmount: new Decimal(data.goalAmount.toString()),
       currency: data.currency,
       endDate: data.endDate ? new Date(data.endDate) : null,
-      coverUrl: data.coverUrl,
       galleryUrls: data.galleryUrls || [],
       status: FundraiserStatus.draft,
       isPublic: data.isPublic ?? false,
@@ -81,8 +80,43 @@ export class FundraisersService {
         );
       }
 
+      // Handle cover upload if coverPublicId is provided
+      let coverId: string | undefined;
+      if (data.coverPublicId) {
+        // Get Cloudinary resource by publicId
+        const cloudinaryResource =
+          await this.uploadsService.getResourceByPublicId(data.coverPublicId);
+
+        // Convert Cloudinary resource to CloudinaryAssetDto format
+        const asset = {
+          cloudinaryAssetId: cloudinaryResource.asset_id,
+          publicId: cloudinaryResource.public_id,
+          url: cloudinaryResource.secure_url,
+          eagerUrl: cloudinaryResource.derived?.[0]?.secure_url,
+          format: cloudinaryResource.format,
+          resourceType: cloudinaryResource.resource_type,
+          size: cloudinaryResource.bytes,
+          pages: cloudinaryResource.derived?.[0]?.bytes || undefined,
+          originalFilename: cloudinaryResource.display_name,
+          uploadedAt: cloudinaryResource.created_at,
+        };
+
+        // Create upload record
+        const upload = await this.uploadsService.createUpload(asset, user.id);
+        coverId = upload.id;
+      }
+
+      const createData: any = {
+        ...fundraiserData,
+        groupId: data.groupId,
+      };
+
+      if (coverId) {
+        createData.coverId = coverId;
+      }
+
       return await tx.fundraiser.create({
-        data: { ...fundraiserData, groupId: data.groupId },
+        data: createData,
       });
     });
   }
@@ -397,14 +431,55 @@ export class FundraisersService {
       }
     }
 
+    // Handle cover upload if coverPublicId is provided
+    let coverId: string | undefined;
+    if (data.coverPublicId) {
+      // Get Cloudinary resource by publicId
+      const cloudinaryResource =
+        await this.uploadsService.getResourceByPublicId(data.coverPublicId);
+
+      // Convert Cloudinary resource to CloudinaryAssetDto format
+      const asset = {
+        cloudinaryAssetId: cloudinaryResource.asset_id,
+        publicId: cloudinaryResource.public_id,
+        url: cloudinaryResource.secure_url,
+        eagerUrl: cloudinaryResource.derived?.[0]?.secure_url,
+        format: cloudinaryResource.format,
+        resourceType: cloudinaryResource.resource_type,
+        size: cloudinaryResource.bytes,
+        pages: cloudinaryResource.derived?.[0]?.bytes || undefined,
+        originalFilename: cloudinaryResource.display_name,
+        uploadedAt: cloudinaryResource.created_at,
+      };
+
+      // Create upload record
+      const upload = await this.uploadsService.createUpload(asset, user.id);
+      coverId = upload.id;
+    }
+
+    // Handle cover removal if removeCover is true
+    if (data.removeCover) {
+      coverId = undefined;
+    }
+
     // Process the update data
-    const updateData = {
+    const updateData: any = {
       ...data,
       goalAmount: data.goalAmount
         ? new Decimal(data.goalAmount.toString())
         : undefined,
       endDate: data.endDate ? new Date(data.endDate) : undefined,
     };
+
+    // Handle coverId in update data
+    if (data.removeCover) {
+      updateData.coverId = null; // Explicitly set to null to remove the cover
+    } else if (coverId) {
+      updateData.coverId = coverId; // Set new cover ID
+    }
+
+    delete updateData.removeCover;
+    delete updateData.coverPublicId;
 
     // Update the fundraiser
     return await this.prisma.fundraiser.update({

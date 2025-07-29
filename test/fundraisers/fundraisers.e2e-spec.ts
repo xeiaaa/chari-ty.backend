@@ -8,6 +8,7 @@ import {
   FundraiserStatus,
 } from '../../generated/prisma';
 import * as request from 'supertest';
+import { faker } from '@faker-js/faker';
 import {
   addUserToGroup,
   createFakeUserWithToken,
@@ -19,15 +20,18 @@ import {
 import { PrismaService } from '../../src/core/prisma/prisma.service';
 import { Decimal } from '@prisma/client/runtime/library';
 import { createFakeMilestone } from '../factories/milestones.factory';
+import { UploadsService } from '../../src/features/uploads/uploads.service';
 
 describe('Fundraisers Module - CRUD', () => {
   let app: INestApplication<App>;
   let prisma: PrismaService;
+  let uploadsService: UploadsService;
 
   beforeAll(async () => {
     // Create test app before all tests
     app = await createTestApp();
     prisma = app.get(PrismaService);
+    uploadsService = app.get(UploadsService);
     // clerkService = app.get(ClerkService);
   });
 
@@ -39,6 +43,44 @@ describe('Fundraisers Module - CRUD', () => {
   beforeEach(async () => {
     // Reset database before each test
     await resetDatabase();
+
+    // Mock UploadsService methods
+    jest.spyOn(uploadsService, 'getResourceByPublicId').mockResolvedValue({
+      asset_id: 'test-asset-id',
+      public_id: 'test-public-id',
+      secure_url: 'https://res.cloudinary.com/test/image/upload/test.jpg',
+      derived: [
+        {
+          transformation: 'q_auto,f_auto',
+          transformation_signature: 'test-signature',
+          format: 'jpg',
+          bytes: 1024,
+          id: 'test-derived-id',
+          url: 'https://res.cloudinary.com/test/image/upload/q_auto,f_auto/test.jpg',
+          secure_url:
+            'https://res.cloudinary.com/test/image/upload/q_auto,f_auto/test.jpg',
+        },
+      ],
+      format: 'jpg',
+      resource_type: 'image',
+      version: 1,
+      type: 'upload',
+      created_at: '2025-01-01T00:00:00Z',
+      bytes: 1024,
+      width: 800,
+      height: 600,
+      asset_folder: 'test-folder',
+      display_name: 'test-image.jpg',
+      url: 'https://res.cloudinary.com/test/image/upload/test.jpg',
+      next_cursor: undefined,
+      rate_limit_allowed: 1000,
+      rate_limit_reset_at: '2025-01-01T00:00:00Z',
+      rate_limit_remaining: 999,
+    });
+
+    jest.spyOn(uploadsService, 'deleteCloudinaryResource').mockResolvedValue({
+      result: 'ok',
+    });
   });
 
   describe('POST /api/v1/fundraisers', () => {
@@ -135,13 +177,6 @@ describe('Fundraisers Module - CRUD', () => {
         )
         .expect(400);
 
-      // Cover URL not valid
-      await request(app.getHttpServer())
-        .post(createApiPath('fundraisers'))
-        .set('Authorization', `Bearer ${token}`)
-        .send(buildFakeFundraiser(group!, { coverUrl: 'invalid' }))
-        .expect(400);
-
       // Gallery URLs not valid
       await request(app.getHttpServer())
         .post(createApiPath('fundraisers'))
@@ -226,6 +261,30 @@ describe('Fundraisers Module - CRUD', () => {
         .set('Authorization', `Bearer ${individualToken}`)
         .send(fundraiser)
         .expect(403);
+    });
+
+    it('should create a fundraiser with coverPublicId and create upload record', async () => {
+      const { token, group } = await createFakeUserWithToken({
+        accountType: AccountType.team,
+        setupComplete: true,
+      });
+
+      const coverPublicId = faker.string.uuid();
+      const fundraiser = buildFakeFundraiser(group!, {
+        coverPublicId,
+      });
+
+      const response = await request(app.getHttpServer())
+        .post(createApiPath('fundraisers'))
+        .set('Authorization', `Bearer ${token}`)
+        .send(fundraiser);
+
+      expect(response.statusCode).toBe(201);
+      expect(response.body.coverId).toBeDefined();
+
+      // Verify that the fundraiser was created with a coverId
+      expect(response.body.coverId).toBeDefined();
+      expect(response.body.coverId).toBeTruthy();
     });
   });
 
@@ -793,6 +852,57 @@ describe('Fundraisers Module - CRUD', () => {
         .set('Authorization', `Bearer ${token}`)
         .send({ goalAmount: 1001 })
         .expect(200);
+    });
+
+    it('should update a fundraiser with coverPublicId and create upload record', async () => {
+      const { token, group } = await createFakeUserWithToken({
+        accountType: AccountType.team,
+        setupComplete: true,
+      });
+
+      const { fundraiser } = await createFakeFundraiser(group!);
+      const coverPublicId = faker.string.uuid();
+
+      const response = await request(app.getHttpServer())
+        .patch(createApiPath(`fundraisers/${fundraiser.id}`))
+        .set('Authorization', `Bearer ${token}`)
+        .send({ coverPublicId });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.body.coverId).toBeDefined();
+      expect(response.body.coverId).toBeTruthy();
+    });
+
+    it('should update a fundraiser and remove cover when removeCover is true', async () => {
+      const { token, group } = await createFakeUserWithToken({
+        accountType: AccountType.team,
+        setupComplete: true,
+      });
+
+      // Create a fundraiser with a coverId
+      const { fundraiser } = await createFakeFundraiser(group!);
+
+      // First, add a cover to the fundraiser
+      const coverPublicId = faker.string.uuid();
+      await request(app.getHttpServer())
+        .patch(createApiPath(`fundraisers/${fundraiser.id}`))
+        .set('Authorization', `Bearer ${token}`)
+        .send({ coverPublicId });
+
+      // Verify the cover was added
+      const fundraiserWithCover = await prisma.fundraiser.findUnique({
+        where: { id: fundraiser.id },
+      });
+      expect(fundraiserWithCover?.coverId).toBeDefined();
+
+      // Now remove the cover
+      const response = await request(app.getHttpServer())
+        .patch(createApiPath(`fundraisers/${fundraiser.id}`))
+        .set('Authorization', `Bearer ${token}`)
+        .send({ removeCover: true });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.body.coverId).toBeNull();
     });
   });
 

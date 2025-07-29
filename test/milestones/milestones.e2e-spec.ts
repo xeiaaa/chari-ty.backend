@@ -494,7 +494,7 @@ describe('Milestones Module', () => {
       const response = await request(app.getHttpServer())
         .get(createApiPath(`fundraisers/${fundraiser.id}/milestones`))
         .set('Authorization', `Bearer ${token}`);
-      console.log(response.body);
+
       expect(response.statusCode).toBe(403);
     });
 

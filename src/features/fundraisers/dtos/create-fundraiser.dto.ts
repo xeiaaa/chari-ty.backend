@@ -45,9 +45,9 @@ export class CreateFundraiserDto {
   @IsOptional()
   endDate?: string;
 
-  @IsUrl()
-  @IsNotEmpty()
-  coverUrl: string;
+  @IsString()
+  @IsOptional()
+  coverPublicId?: string;
 
   @IsArray()
   @IsUrl({}, { each: true })
