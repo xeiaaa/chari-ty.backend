@@ -70,7 +70,6 @@ model Group {
   slug           String    @unique
   description    String?
   type           GroupType
-  avatarUrl      String?
   website        String?
   ein            String? // For nonprofits
   documentsUrls  String[] // For verification documents

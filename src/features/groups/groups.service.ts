@@ -65,7 +65,6 @@ export class GroupsService {
       slug: group.slug,
       description: group.description,
       type: group.type,
-      avatarUrl: group.avatarUrl,
       website: group.website,
       verified: group.verified,
       createdAt: group.createdAt,
@@ -128,23 +127,30 @@ export class GroupsService {
     const result = await this.prisma.$transaction(async (prisma) => {
       let avatarUploadId: string | undefined;
 
-      // Create upload record if avatar is provided
-      if (createGroupDto.avatar) {
-        const upload = await prisma.upload.create({
-          data: {
-            cloudinaryAssetId: createGroupDto.avatar.cloudinaryAssetId,
-            publicId: createGroupDto.avatar.publicId,
-            url: createGroupDto.avatar.url,
-            eagerUrl: createGroupDto.avatar.eagerUrl,
-            format: createGroupDto.avatar.format,
-            resourceType: createGroupDto.avatar.resourceType,
-            size: createGroupDto.avatar.size,
-            pages: createGroupDto.avatar.pages,
-            originalFilename: createGroupDto.avatar.originalFilename,
-            uploadedAt: new Date(createGroupDto.avatar.uploadedAt),
-            uploadedById: user.id,
-          },
-        });
+      // Handle avatar upload if avatarPublicId is provided
+      if (createGroupDto.avatarPublicId) {
+        // Get Cloudinary resource by publicId
+        const cloudinaryResource =
+          await this.uploadsService.getResourceByPublicId(
+            createGroupDto.avatarPublicId,
+          );
+
+        // Convert Cloudinary resource to CloudinaryAssetDto format
+        const asset = {
+          cloudinaryAssetId: cloudinaryResource.asset_id,
+          publicId: cloudinaryResource.public_id,
+          url: cloudinaryResource.secure_url,
+          eagerUrl: cloudinaryResource.derived?.[0]?.secure_url,
+          format: cloudinaryResource.format,
+          resourceType: cloudinaryResource.resource_type,
+          size: cloudinaryResource.bytes,
+          pages: cloudinaryResource.derived?.[0]?.bytes || undefined,
+          originalFilename: cloudinaryResource.display_name,
+          uploadedAt: cloudinaryResource.created_at,
+        };
+
+        // Create upload record
+        const upload = await this.uploadsService.createUpload(asset, user.id);
         avatarUploadId = upload.id;
       }
 
@@ -157,7 +163,6 @@ export class GroupsService {
           type: createGroupDto.type,
           website: createGroupDto.website,
           ein: createGroupDto.ein,
-          avatarUrl: createGroupDto.avatarUrl,
           avatarUploadId,
           documentsUrls: createGroupDto.documentsUrls || [],
           verified: false,

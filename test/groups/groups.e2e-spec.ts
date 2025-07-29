@@ -11,12 +11,15 @@ import {
   createFakeUserWithToken,
   addUserToGroup,
 } from '../factories/users.factory';
+import { UploadsService } from '../../src/features/uploads/uploads.service';
 
 describe('Groups Module - CRUD', () => {
   let app: INestApplication<App>;
+  let uploadsService: UploadsService;
 
   beforeAll(async () => {
     app = await createTestApp();
+    uploadsService = app.get(UploadsService);
   });
 
   afterAll(async () => {
@@ -25,6 +28,44 @@ describe('Groups Module - CRUD', () => {
 
   beforeEach(async () => {
     await resetDatabase();
+
+    // Mock UploadsService methods
+    jest.spyOn(uploadsService, 'getResourceByPublicId').mockResolvedValue({
+      asset_id: 'test-asset-id',
+      public_id: 'test-public-id',
+      secure_url: 'https://res.cloudinary.com/test/image/upload/test.jpg',
+      derived: [
+        {
+          transformation: 'q_auto,f_auto',
+          transformation_signature: 'test-signature',
+          format: 'jpg',
+          bytes: 1024,
+          id: 'test-derived-id',
+          url: 'https://res.cloudinary.com/test/image/upload/q_auto,f_auto/test.jpg',
+          secure_url:
+            'https://res.cloudinary.com/test/image/upload/q_auto,f_auto/test.jpg',
+        },
+      ],
+      format: 'jpg',
+      resource_type: 'image',
+      version: 1,
+      type: 'upload',
+      created_at: '2025-01-01T00:00:00Z',
+      bytes: 1024,
+      width: 800,
+      height: 600,
+      asset_folder: 'test-folder',
+      display_name: 'test-image.jpg',
+      url: 'https://res.cloudinary.com/test/image/upload/test.jpg',
+      next_cursor: undefined,
+      rate_limit_allowed: 1000,
+      rate_limit_reset_at: '2025-01-01T00:00:00Z',
+      rate_limit_remaining: 999,
+    });
+
+    jest.spyOn(uploadsService, 'deleteCloudinaryResource').mockResolvedValue({
+      result: 'ok',
+    });
   });
 
   describe('GET /api/v1/groups/slug/:slug', () => {
@@ -592,6 +633,242 @@ describe('Groups Module - CRUD', () => {
         )
         .set('Authorization', `Bearer ${token}`)
         .expect(404);
+    });
+  });
+
+  describe('POST /api/v1/groups', () => {
+    it('should create a group successfully with basic data', async () => {
+      const { token } = await createFakeUserWithToken({
+        accountType: AccountType.team,
+        setupComplete: true,
+      });
+
+      const groupData = {
+        name: 'Test Group',
+        description: 'A test group for testing',
+        type: 'team',
+        website: 'https://testgroup.com',
+      };
+
+      const response = await request(app.getHttpServer())
+        .post(createApiPath('groups'))
+        .set('Authorization', `Bearer ${token}`)
+        .send(groupData);
+
+      expect(response.statusCode).toBe(201);
+      expect(response.body).toMatchObject({
+        group: {
+          name: groupData.name,
+          description: groupData.description,
+          type: groupData.type,
+          website: groupData.website,
+          verified: false,
+          slug: expect.any(String),
+          createdAt: expect.any(String),
+          updatedAt: expect.any(String),
+        },
+        groupMember: {
+          role: 'owner',
+          status: 'active',
+        },
+      });
+    });
+
+    it('should create a nonprofit group with EIN', async () => {
+      const { token } = await createFakeUserWithToken({
+        accountType: AccountType.team,
+        setupComplete: true,
+      });
+
+      const groupData = {
+        name: 'Nonprofit Test Group',
+        description: 'A nonprofit test group',
+        type: 'nonprofit',
+        ein: '123456789',
+        website: 'https://nonprofit-test.com',
+      };
+
+      const response = await request(app.getHttpServer())
+        .post(createApiPath('groups'))
+        .set('Authorization', `Bearer ${token}`)
+        .send(groupData);
+
+      expect(response.statusCode).toBe(201);
+      expect(response.body.group).toMatchObject({
+        name: groupData.name,
+        description: groupData.description,
+        type: groupData.type,
+        ein: groupData.ein,
+        website: groupData.website,
+        verified: false,
+      });
+    });
+
+    it('should create a group with avatar using avatarPublicId', async () => {
+      const { token } = await createFakeUserWithToken({
+        accountType: AccountType.team,
+        setupComplete: true,
+      });
+
+      const groupData = {
+        name: 'Group with Avatar',
+        description: 'A group with an avatar',
+        type: 'team',
+        avatarPublicId: 'test-public-id',
+      };
+
+      const response = await request(app.getHttpServer())
+        .post(createApiPath('groups'))
+        .set('Authorization', `Bearer ${token}`)
+        .send(groupData);
+
+      expect(response.statusCode).toBe(201);
+      expect(response.body.group).toMatchObject({
+        name: groupData.name,
+        description: groupData.description,
+        type: groupData.type,
+        avatarUploadId: expect.any(String),
+      });
+    });
+
+    it('should return 400 if user has not completed setup', async () => {
+      const { token } = await createFakeUserWithToken({
+        accountType: AccountType.team,
+        setupComplete: false,
+      });
+
+      const groupData = {
+        name: 'Test Group',
+        type: 'team',
+      };
+
+      await request(app.getHttpServer())
+        .post(createApiPath('groups'))
+        .set('Authorization', `Bearer ${token}`)
+        .send(groupData)
+        .expect(400);
+    });
+
+    it('should return 400 if nonprofit group is missing EIN', async () => {
+      const { token } = await createFakeUserWithToken({
+        accountType: AccountType.team,
+        setupComplete: true,
+      });
+
+      const groupData = {
+        name: 'Nonprofit Group',
+        type: 'nonprofit',
+        description: 'A nonprofit group without EIN',
+      };
+
+      await request(app.getHttpServer())
+        .post(createApiPath('groups'))
+        .set('Authorization', `Bearer ${token}`)
+        .send(groupData)
+        .expect(400);
+    });
+
+    it('should return 401 for unauthenticated request', async () => {
+      const groupData = {
+        name: 'Test Group',
+        type: 'team',
+      };
+
+      await request(app.getHttpServer())
+        .post(createApiPath('groups'))
+        .send(groupData)
+        .expect(401);
+    });
+
+    it('should return 400 for invalid group type', async () => {
+      const { token } = await createFakeUserWithToken({
+        accountType: AccountType.team,
+        setupComplete: true,
+      });
+
+      const groupData = {
+        name: 'Test Group',
+        type: 'invalid-type',
+      };
+
+      await request(app.getHttpServer())
+        .post(createApiPath('groups'))
+        .set('Authorization', `Bearer ${token}`)
+        .send(groupData)
+        .expect(400);
+    });
+
+    it('should return 400 for invalid website URL', async () => {
+      const { token } = await createFakeUserWithToken({
+        accountType: AccountType.team,
+        setupComplete: true,
+      });
+
+      const groupData = {
+        name: 'Test Group',
+        type: 'team',
+        website: 'invalid-url',
+      };
+
+      await request(app.getHttpServer())
+        .post(createApiPath('groups'))
+        .set('Authorization', `Bearer ${token}`)
+        .send(groupData)
+        .expect(400);
+    });
+
+    it('should return 400 for invalid documents URLs', async () => {
+      const { token } = await createFakeUserWithToken({
+        accountType: AccountType.team,
+        setupComplete: true,
+      });
+
+      const groupData = {
+        name: 'Test Group',
+        type: 'team',
+        documentsUrls: ['invalid-url', 'https://valid-url.com'],
+      };
+
+      await request(app.getHttpServer())
+        .post(createApiPath('groups'))
+        .set('Authorization', `Bearer ${token}`)
+        .send(groupData)
+        .expect(400);
+    });
+
+    it('should generate unique slug for groups with same name', async () => {
+      const { token } = await createFakeUserWithToken({
+        accountType: AccountType.team,
+        setupComplete: true,
+      });
+
+      const groupData = {
+        name: 'Same Name Group',
+        type: 'team',
+      };
+
+      // Create first group
+      const response1 = await request(app.getHttpServer())
+        .post(createApiPath('groups'))
+        .set('Authorization', `Bearer ${token}`)
+        .send(groupData);
+
+      expect(response1.statusCode).toBe(201);
+      const slug1 = response1.body.group.slug;
+
+      // Create second group with same name
+      const response2 = await request(app.getHttpServer())
+        .post(createApiPath('groups'))
+        .set('Authorization', `Bearer ${token}`)
+        .send(groupData);
+
+      expect(response2.statusCode).toBe(201);
+      const slug2 = response2.body.group.slug;
+
+      // Slugs should be different
+      expect(slug1).not.toBe(slug2);
+      expect(slug1).toContain('same-name-group');
+      expect(slug2).toContain('same-name-group');
     });
   });
 });

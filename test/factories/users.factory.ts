@@ -60,7 +60,6 @@ export const createFakeUser = async (
         slug: faker.helpers.slugify(companyName),
         type: accountType,
         description: faker.company.catchPhrase(),
-        avatarUrl: faker.image.avatar(),
         website: faker.internet.url(),
         verified: accountType === AccountType.nonprofit,
         documentsUrls: [],
