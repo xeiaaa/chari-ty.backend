@@ -7,6 +7,7 @@ import {
   ValidateIf,
   MinLength,
   MaxLength,
+  IsBoolean,
 } from 'class-validator';
 import { GroupType } from '../../../../generated/prisma';
 import { Transform } from 'class-transformer';
@@ -50,4 +51,8 @@ export class UpdateGroupDto {
   @IsArray()
   @IsString({ each: true })
   documentsUrls?: string[];
+
+  @IsOptional()
+  @IsBoolean()
+  removeAvatar?: boolean;
 }

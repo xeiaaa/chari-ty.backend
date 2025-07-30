@@ -298,6 +298,92 @@ describe('Groups Module - CRUD', () => {
         slug: group!.slug,
       });
     });
+
+    it('should remove avatar when removeAvatar is true', async () => {
+      const { token } = await createFakeUserWithToken({
+        accountType: AccountType.team,
+        setupComplete: true,
+      });
+
+      // First, create a group with an avatar
+      const createGroupData = {
+        name: 'Group with Avatar',
+        description: 'A group with an avatar',
+        type: 'team',
+        avatarPublicId: 'test-public-id',
+      };
+
+      const createResponse = await request(app.getHttpServer())
+        .post(createApiPath('groups'))
+        .set('Authorization', `Bearer ${token}`)
+        .send(createGroupData);
+
+      expect(createResponse.statusCode).toBe(201);
+      const groupWithAvatar = createResponse.body.group;
+      expect(groupWithAvatar.avatarUploadId).toBeTruthy();
+
+      // Now remove the avatar
+      const updateData = {
+        removeAvatar: true,
+      };
+
+      const response = await request(app.getHttpServer())
+        .patch(createApiPath(`groups/slug/${groupWithAvatar.slug}`))
+        .set('Authorization', `Bearer ${token}`)
+        .send(updateData);
+
+      expect(response.statusCode).toBe(200);
+      expect(response.body).toMatchObject({
+        id: groupWithAvatar.id,
+        name: groupWithAvatar.name,
+        slug: groupWithAvatar.slug,
+        avatarUploadId: null,
+      });
+    });
+
+    it('should update other fields while removing avatar', async () => {
+      const { token } = await createFakeUserWithToken({
+        accountType: AccountType.team,
+        setupComplete: true,
+      });
+
+      // First, create a group with an avatar
+      const createGroupData = {
+        name: 'Group with Avatar',
+        description: 'A group with an avatar',
+        type: 'team',
+        avatarPublicId: 'test-public-id',
+      };
+
+      const createResponse = await request(app.getHttpServer())
+        .post(createApiPath('groups'))
+        .set('Authorization', `Bearer ${token}`)
+        .send(createGroupData);
+
+      expect(createResponse.statusCode).toBe(201);
+      const groupWithAvatar = createResponse.body.group;
+
+      // Update multiple fields including removing avatar
+      const updateData = {
+        name: 'Updated Group Name',
+        description: 'Updated description',
+        removeAvatar: true,
+      };
+
+      const response = await request(app.getHttpServer())
+        .patch(createApiPath(`groups/slug/${groupWithAvatar.slug}`))
+        .set('Authorization', `Bearer ${token}`)
+        .send(updateData);
+
+      expect(response.statusCode).toBe(200);
+      expect(response.body).toMatchObject({
+        id: groupWithAvatar.id,
+        name: 'Updated Group Name',
+        description: 'Updated description',
+        slug: groupWithAvatar.slug,
+        avatarUploadId: null,
+      });
+    });
   });
 
   describe('PATCH /api/v1/groups/:groupId/members/:memberId', () => {

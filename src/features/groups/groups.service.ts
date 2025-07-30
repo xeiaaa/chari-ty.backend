@@ -21,7 +21,9 @@ import { UpdateGroupDto } from './dtos/update-group.dto';
 import { CreateInviteDto } from './dtos/create-invite.dto';
 import { CreateGroupDto } from './dtos/create-group.dto';
 import { DashboardDto } from './dtos/dashboard.dto';
-import { CreateGroupUploadDto } from './dtos/create-group-upload.dto';
+import { AddGroupUploadsDto } from './dtos/add-group-uploads.dto';
+import { ReorderGroupUploadsDto } from './dtos/reorder-group-uploads.dto';
+import { UpdateGroupUploadDto } from './dtos/update-group-upload.dto';
 
 /**
  * GroupsService handles all group-related database operations
@@ -303,8 +305,6 @@ export class GroupsService {
       throw new NotFoundException('Group not found');
     }
 
-    console.log('group', group);
-
     // Check if user is a member of the group
     if (group.members.length === 0) {
       throw new ForbiddenException('You do not have access to this group');
@@ -318,10 +318,20 @@ export class GroupsService {
       );
     }
 
+    // Process the update data
+    const processedUpdateData: any = { ...updateData };
+
+    // Handle avatar removal if removeAvatar is true
+    if (processedUpdateData.removeAvatar) {
+      processedUpdateData.avatarUploadId = null; // Explicitly set to null to remove the avatar
+    }
+
+    delete processedUpdateData.removeAvatar;
+
     // Update the group
     return this.prisma.group.update({
       where: { slug },
-      data: updateData,
+      data: processedUpdateData,
     });
   }
 
@@ -993,10 +1003,10 @@ export class GroupsService {
    * Add uploads to a group
    * Creates Upload records and GroupUpload entries
    */
-  async createGroupUpload(
+  async addGroupUploads(
     user: UserEntity,
     groupId: string,
-    data: CreateGroupUploadDto,
+    data: AddGroupUploadsDto,
   ) {
     // Verify group exists and user has permission
     const group = await this.prisma.group.findUnique({
@@ -1023,34 +1033,33 @@ export class GroupsService {
       );
     }
 
-    // Handle uploads - check if they already exist or create new ones
-    const uploads: any[] = [];
-    for (const item of data.items) {
-      // Check if upload already exists
-      let upload = await this.prisma.upload.findUnique({
-        where: { cloudinaryAssetId: item.asset.cloudinaryAssetId },
-      });
-
-      if (!upload) {
-        // Create new upload if it doesn't exist
-        upload = await this.uploadsService.createUpload(item.asset, user.id);
-      }
-
-      uploads.push(upload);
-    }
-
     // Create group upload items in transaction
     return await this.prisma.$transaction(async (tx) => {
-      // First, delete existing group uploads for this group
-      await tx.groupUpload.deleteMany({
-        where: { groupId },
-      });
-
       const groupUploadItems: any[] = [];
 
       for (let i = 0; i < data.items.length; i++) {
         const item = data.items[i];
-        const upload = uploads[i];
+
+        // Get Cloudinary resource by publicId
+        const cloudinaryResource =
+          await this.uploadsService.getResourceByPublicId(item.publicId);
+        console.log({ cloudinaryResource });
+        // Convert Cloudinary resource to CloudinaryAssetDto format
+        const asset = {
+          cloudinaryAssetId: cloudinaryResource.asset_id,
+          publicId: cloudinaryResource.public_id,
+          url: cloudinaryResource.secure_url,
+          eagerUrl: cloudinaryResource.derived?.[0]?.secure_url,
+          format: cloudinaryResource.format,
+          resourceType: cloudinaryResource.resource_type,
+          size: cloudinaryResource.bytes,
+          pages: cloudinaryResource.derived?.[0]?.bytes || undefined,
+          originalFilename: cloudinaryResource.display_name,
+          uploadedAt: cloudinaryResource.created_at,
+        };
+
+        // Create upload record
+        const upload = await this.uploadsService.createUpload(asset, user.id);
 
         // Create group upload item
         const groupUploadItem = await tx.groupUpload.create({
@@ -1070,6 +1079,191 @@ export class GroupsService {
       }
 
       return groupUploadItems;
+    });
+  }
+
+  /**
+   * Update a group upload caption
+   */
+  async updateGroupUpload(
+    user: UserEntity,
+    groupId: string,
+    uploadItemId: string,
+    data: UpdateGroupUploadDto,
+  ) {
+    // Verify group exists and user has permission
+    const group = await this.prisma.group.findUnique({
+      where: { id: groupId },
+    });
+
+    if (!group) {
+      throw new NotFoundException('Group not found');
+    }
+
+    // Check member role
+    const membership = await this.prisma.groupMember.findUnique({
+      where: {
+        unique_user_group: {
+          userId: user.id,
+          groupId: groupId,
+        },
+      },
+    });
+
+    if (!membership || membership.role === 'viewer') {
+      throw new ForbiddenException(
+        'You do not have permission to update uploads for this group',
+      );
+    }
+
+    // Verify upload item exists and belongs to this group
+    const uploadItem = await this.prisma.groupUpload.findFirst({
+      where: {
+        id: uploadItemId,
+        groupId,
+      },
+      include: {
+        upload: true,
+      },
+    });
+
+    if (!uploadItem) {
+      throw new NotFoundException('Upload item not found');
+    }
+
+    // Update the upload item
+    return await this.prisma.groupUpload.update({
+      where: { id: uploadItemId },
+      data: {
+        caption: data.caption,
+      },
+      include: {
+        upload: true,
+      },
+    });
+  }
+
+  /**
+   * Delete a group upload
+   */
+  async deleteGroupUpload(
+    user: UserEntity,
+    groupId: string,
+    uploadItemId: string,
+  ) {
+    // Verify group exists and user has permission
+    const group = await this.prisma.group.findUnique({
+      where: { id: groupId },
+    });
+
+    if (!group) {
+      throw new NotFoundException('Group not found');
+    }
+
+    // Check member role
+    const membership = await this.prisma.groupMember.findUnique({
+      where: {
+        unique_user_group: {
+          userId: user.id,
+          groupId: groupId,
+        },
+      },
+    });
+
+    if (!membership || membership.role === 'viewer') {
+      throw new ForbiddenException(
+        'You do not have permission to delete uploads for this group',
+      );
+    }
+
+    // Verify upload item exists and belongs to this group
+    const uploadItem = await this.prisma.groupUpload.findFirst({
+      where: {
+        id: uploadItemId,
+        groupId,
+      },
+      include: {
+        upload: true,
+      },
+    });
+
+    if (!uploadItem) {
+      throw new NotFoundException('Upload item not found');
+    }
+
+    // Delete the Cloudinary resource
+    await this.uploadsService.deleteCloudinaryResource(
+      uploadItem.upload.publicId,
+    );
+
+    // Delete the upload item (this will also delete the upload due to cascade)
+    await this.prisma.groupUpload.delete({
+      where: { id: uploadItemId },
+    });
+  }
+
+  /**
+   * Reorder group uploads
+   */
+  async reorderGroupUploads(
+    user: UserEntity,
+    groupId: string,
+    data: ReorderGroupUploadsDto,
+  ) {
+    // Verify group exists and user has permission
+    const group = await this.prisma.group.findUnique({
+      where: { id: groupId },
+    });
+
+    if (!group) {
+      throw new NotFoundException('Group not found');
+    }
+
+    // Check member role
+    const membership = await this.prisma.groupMember.findUnique({
+      where: {
+        unique_user_group: {
+          userId: user.id,
+          groupId: groupId,
+        },
+      },
+    });
+
+    if (!membership || membership.role === 'viewer') {
+      throw new ForbiddenException(
+        'You do not have permission to reorder uploads for this group',
+      );
+    }
+
+    // Verify all upload items exist and belong to this group
+    const uploadItemIds = data.orderMap.map((item) => item.groupUploadId);
+    const existingItems = await this.prisma.groupUpload.findMany({
+      where: {
+        id: { in: uploadItemIds },
+        groupId,
+      },
+    });
+
+    if (existingItems.length !== uploadItemIds.length) {
+      throw new NotFoundException('One or more upload items not found');
+    }
+
+    // Update the order of all items in a transaction
+    return await this.prisma.$transaction(async (tx) => {
+      const updatedItems: any[] = [];
+
+      for (const item of data.orderMap) {
+        const updatedItem = await tx.groupUpload.update({
+          where: { id: item.groupUploadId },
+          data: { order: item.order },
+          include: {
+            upload: true,
+          },
+        });
+        updatedItems.push(updatedItem);
+      }
+
+      return updatedItems;
     });
   }
 }

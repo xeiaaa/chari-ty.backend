@@ -8,6 +8,7 @@ import {
   Param,
   Query,
   UseGuards,
+  HttpCode,
 } from '@nestjs/common';
 import { User as UserEntity } from '../../../generated/prisma';
 import { GroupsService } from './groups.service';
@@ -18,7 +19,9 @@ import { CreateGroupDto } from './dtos/create-group.dto';
 import { UpdateMemberRoleDto } from './dtos/update-member-role.dto';
 import { DashboardDto } from './dtos/dashboard.dto';
 import { ListGroupDonationsDto } from '../donations/dtos/list-group-donations.dto';
-import { CreateGroupUploadDto } from './dtos/create-group-upload.dto';
+import { AddGroupUploadsDto } from './dtos/add-group-uploads.dto';
+import { ReorderGroupUploadsDto } from './dtos/reorder-group-uploads.dto';
+import { UpdateGroupUploadDto } from './dtos/update-group-upload.dto';
 import { AuthGuard } from '../auth/auth.guard';
 import { AuthUser } from '../../common/decorators';
 
@@ -142,11 +145,57 @@ export class GroupsController {
    * POST /api/v1/groups/:groupId/uploads
    */
   @Post(':groupId/uploads')
-  async createGroupUpload(
+  async addGroupUploads(
     @Param('groupId') groupId: string,
-    @Body() data: CreateGroupUploadDto,
+    @Body() data: AddGroupUploadsDto,
     @AuthUser() user: UserEntity,
   ) {
-    return this.groupsService.createGroupUpload(user, groupId, data);
+    return this.groupsService.addGroupUploads(user, groupId, data);
+  }
+
+  /**
+   * Reorder group uploads
+   * PATCH /api/v1/groups/:groupId/uploads/reorder
+   */
+  @Patch(':groupId/uploads/reorder')
+  async reorderGroupUploads(
+    @Param('groupId') groupId: string,
+    @Body() data: ReorderGroupUploadsDto,
+    @AuthUser() user: UserEntity,
+  ) {
+    return this.groupsService.reorderGroupUploads(user, groupId, data);
+  }
+
+  /**
+   * Update a group upload caption
+   * PATCH /api/v1/groups/:groupId/uploads/:uploadItemId
+   */
+  @Patch(':groupId/uploads/:uploadItemId')
+  async updateGroupUpload(
+    @Param('groupId') groupId: string,
+    @Param('uploadItemId') uploadItemId: string,
+    @Body() data: UpdateGroupUploadDto,
+    @AuthUser() user: UserEntity,
+  ) {
+    return this.groupsService.updateGroupUpload(
+      user,
+      groupId,
+      uploadItemId,
+      data,
+    );
+  }
+
+  /**
+   * Delete a group upload
+   * DELETE /api/v1/groups/:groupId/uploads/:uploadItemId
+   */
+  @Delete(':groupId/uploads/:uploadItemId')
+  @HttpCode(204)
+  async deleteGroupUpload(
+    @Param('groupId') groupId: string,
+    @Param('uploadItemId') uploadItemId: string,
+    @AuthUser() user: UserEntity,
+  ) {
+    await this.groupsService.deleteGroupUpload(user, groupId, uploadItemId);
   }
 }
