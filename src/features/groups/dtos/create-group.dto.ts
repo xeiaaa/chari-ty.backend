@@ -34,11 +34,6 @@ export class CreateGroupDto {
   avatarPublicId?: string;
 
   @IsOptional()
-  @ValidateIf((o) => o.avatarUrl !== '')
-  @IsUrl()
-  avatarUrl?: string;
-
-  @IsOptional()
   @ValidateIf((o) => o.website !== '')
   @IsUrl()
   website?: string;

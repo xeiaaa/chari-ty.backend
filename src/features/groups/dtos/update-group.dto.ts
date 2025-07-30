@@ -31,9 +31,8 @@ export class UpdateGroupDto {
   type?: GroupType;
 
   @IsOptional()
-  @ValidateIf((o) => o.avatarUrl !== '')
-  @IsUrl()
-  avatarUrl?: string;
+  @IsString()
+  avatarPublicId?: string;
 
   @IsOptional()
   @ValidateIf((o) => o.website !== '')

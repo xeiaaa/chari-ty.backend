@@ -266,6 +266,9 @@ export class FundraisersService {
         orderBy: { [sortBy]: sortOrder },
         skip: (page - 1) * limit,
         take: limit,
+        include: {
+          cover: true,
+        },
       }),
       this.prisma.fundraiser.count({ where }),
     ]);
@@ -387,6 +390,9 @@ export class FundraisersService {
   ) {
     const fundraiser = await this.prisma.fundraiser.findUnique({
       where: { id: fundraiserId },
+      include: {
+        cover: true,
+      },
     });
 
     if (!fundraiser) {
@@ -435,27 +441,35 @@ export class FundraisersService {
     // Handle cover upload if coverPublicId is provided
     let coverId: string | undefined;
     if (data.coverPublicId) {
-      // Get Cloudinary resource by publicId
-      const cloudinaryResource =
-        await this.uploadsService.getResourceByPublicId(data.coverPublicId);
+      // Check if the coverPublicId is the same as the current cover
+      // This optimization prevents unnecessary Cloudinary API calls and upload record creation
+      if (fundraiser.cover?.publicId === data.coverPublicId) {
+        // Cover hasn't changed, keep the existing coverId
+        coverId = fundraiser.coverId || undefined;
+      } else {
+        // Cover has changed, process the new upload
+        // Get Cloudinary resource by publicId
+        const cloudinaryResource =
+          await this.uploadsService.getResourceByPublicId(data.coverPublicId);
 
-      // Convert Cloudinary resource to CloudinaryAssetDto format
-      const asset = {
-        cloudinaryAssetId: cloudinaryResource.asset_id,
-        publicId: cloudinaryResource.public_id,
-        url: cloudinaryResource.secure_url,
-        eagerUrl: cloudinaryResource.derived?.[0]?.secure_url,
-        format: cloudinaryResource.format,
-        resourceType: cloudinaryResource.resource_type,
-        size: cloudinaryResource.bytes,
-        pages: cloudinaryResource.derived?.[0]?.bytes || undefined,
-        originalFilename: cloudinaryResource.display_name,
-        uploadedAt: cloudinaryResource.created_at,
-      };
+        // Convert Cloudinary resource to CloudinaryAssetDto format
+        const asset = {
+          cloudinaryAssetId: cloudinaryResource.asset_id,
+          publicId: cloudinaryResource.public_id,
+          url: cloudinaryResource.secure_url,
+          eagerUrl: cloudinaryResource.derived?.[0]?.secure_url,
+          format: cloudinaryResource.format,
+          resourceType: cloudinaryResource.resource_type,
+          size: cloudinaryResource.bytes,
+          pages: cloudinaryResource.derived?.[0]?.bytes || undefined,
+          originalFilename: cloudinaryResource.display_name,
+          uploadedAt: cloudinaryResource.created_at,
+        };
 
-      // Create upload record
-      const upload = await this.uploadsService.createUpload(asset, user.id);
-      coverId = upload.id;
+        // Create upload record
+        const upload = await this.uploadsService.createUpload(asset, user.id);
+        coverId = upload.id;
+      }
     }
 
     // Handle cover removal if removeCover is true

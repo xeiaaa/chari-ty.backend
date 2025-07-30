@@ -318,6 +318,7 @@ export class GroupsService {
             status: GroupMemberStatus.active,
           },
         },
+        avatar: true,
       },
     });
 
@@ -338,15 +339,59 @@ export class GroupsService {
       );
     }
 
+    // Handle avatar upload if avatarPublicId is provided
+    let avatarUploadId: string | undefined;
+    if (updateData.avatarPublicId) {
+      // Check if the avatarPublicId is the same as the current avatar
+      // This optimization prevents unnecessary Cloudinary API calls and upload record creation
+      if (group.avatar?.publicId === updateData.avatarPublicId) {
+        // Avatar hasn't changed, keep the existing avatarUploadId
+        avatarUploadId = group.avatarUploadId || undefined;
+      } else {
+        // Avatar has changed, process the new upload
+        // Get Cloudinary resource by publicId
+        const cloudinaryResource =
+          await this.uploadsService.getResourceByPublicId(
+            updateData.avatarPublicId,
+          );
+
+        // Convert Cloudinary resource to CloudinaryAssetDto format
+        const asset = {
+          cloudinaryAssetId: cloudinaryResource.asset_id,
+          publicId: cloudinaryResource.public_id,
+          url: cloudinaryResource.secure_url,
+          eagerUrl: cloudinaryResource.derived?.[0]?.secure_url,
+          format: cloudinaryResource.format,
+          resourceType: cloudinaryResource.resource_type,
+          size: cloudinaryResource.bytes,
+          pages: cloudinaryResource.derived?.[0]?.bytes || undefined,
+          originalFilename: cloudinaryResource.display_name,
+          uploadedAt: cloudinaryResource.created_at,
+        };
+
+        // Create upload record
+        const upload = await this.uploadsService.createUpload(asset, user.id);
+        avatarUploadId = upload.id;
+      }
+    }
+
+    // Handle avatar removal if removeAvatar is true
+    if (updateData.removeAvatar) {
+      avatarUploadId = undefined;
+    }
+
     // Process the update data
     const processedUpdateData: any = { ...updateData };
 
-    // Handle avatar removal if removeAvatar is true
-    if (processedUpdateData.removeAvatar) {
+    // Handle avatarUploadId in update data
+    if (updateData.removeAvatar) {
       processedUpdateData.avatarUploadId = null; // Explicitly set to null to remove the avatar
+    } else if (avatarUploadId) {
+      processedUpdateData.avatarUploadId = avatarUploadId; // Set new avatar upload ID
     }
 
     delete processedUpdateData.removeAvatar;
+    delete processedUpdateData.avatarPublicId;
 
     // Update the group
     return this.prisma.group.update({
