@@ -10,14 +10,6 @@ import {
   Delete,
   HttpCode,
 } from '@nestjs/common';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiParam,
-  ApiBody,
-  ApiBearerAuth,
-} from '@nestjs/swagger';
 import { FundraisersService } from './fundraisers.service';
 import { CreateFundraiserDto } from './dtos/create-fundraiser.dto';
 import { ListFundraisersDto } from './dtos/list-fundraisers.dto';
@@ -36,8 +28,6 @@ import { AddGalleryItemsDto } from './dtos/add-gallery-items.dto';
 import { UpdateGalleryItemDto } from './dtos/update-gallery-item.dto';
 import { ReorderGalleryItemsDto } from './dtos/reorder-gallery-items.dto';
 
-@ApiTags('fundraisers')
-@ApiBearerAuth()
 @Controller('fundraisers')
 @UseGuards(AuthGuard)
 export class FundraisersController {
@@ -52,27 +42,6 @@ export class FundraisersController {
    * POST /api/v1/fundraisers
    */
   @Post()
-  @ApiOperation({ summary: 'Create a new fundraiser' })
-  @ApiBody({ type: CreateFundraiserDto })
-  @ApiResponse({
-    status: 201,
-    description: 'Fundraiser created successfully',
-    schema: {
-      type: 'object',
-      properties: {
-        id: { type: 'string' },
-        title: { type: 'string' },
-        slug: { type: 'string' },
-        description: { type: 'string' },
-        goal: { type: 'number' },
-        status: { type: 'string' },
-        createdAt: { type: 'string', format: 'date-time' },
-        updatedAt: { type: 'string', format: 'date-time' },
-      },
-    },
-  })
-  @ApiResponse({ status: 400, description: 'Bad request' })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
   async create(
     @Body() data: CreateFundraiserDto,
     @AuthUser() user: UserEntity,
@@ -85,42 +54,6 @@ export class FundraisersController {
    * GET /api/v1/fundraisers
    */
   @Get()
-  @ApiOperation({ summary: 'List fundraisers with filters and pagination' })
-  @ApiResponse({
-    status: 200,
-    description: 'Fundraisers retrieved successfully',
-    schema: {
-      type: 'object',
-      properties: {
-        data: {
-          type: 'array',
-          items: {
-            type: 'object',
-            properties: {
-              id: { type: 'string' },
-              title: { type: 'string' },
-              slug: { type: 'string' },
-              description: { type: 'string' },
-              goal: { type: 'number' },
-              status: { type: 'string' },
-              createdAt: { type: 'string', format: 'date-time' },
-              updatedAt: { type: 'string', format: 'date-time' },
-            },
-          },
-        },
-        pagination: {
-          type: 'object',
-          properties: {
-            page: { type: 'number' },
-            limit: { type: 'number' },
-            total: { type: 'number' },
-            totalPages: { type: 'number' },
-          },
-        },
-      },
-    },
-  })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
   async list(@Query() query: ListFundraisersDto, @AuthUser() user: UserEntity) {
     return this.fundraisersService.list(user, query);
   }
@@ -130,27 +63,6 @@ export class FundraisersController {
    * GET /api/v1/fundraisers/:fundraiserId
    */
   @Get(':fundraiserId')
-  @ApiOperation({ summary: 'Get a single fundraiser by ID' })
-  @ApiParam({ name: 'fundraiserId', description: 'Fundraiser ID' })
-  @ApiResponse({
-    status: 200,
-    description: 'Fundraiser retrieved successfully',
-    schema: {
-      type: 'object',
-      properties: {
-        id: { type: 'string' },
-        title: { type: 'string' },
-        slug: { type: 'string' },
-        description: { type: 'string' },
-        goal: { type: 'number' },
-        status: { type: 'string' },
-        createdAt: { type: 'string', format: 'date-time' },
-        updatedAt: { type: 'string', format: 'date-time' },
-      },
-    },
-  })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 404, description: 'Fundraiser not found' })
   async findOne(
     @Param('fundraiserId') fundraiserId: string,
     @AuthUser() user: UserEntity,
@@ -163,27 +75,6 @@ export class FundraisersController {
    * GET /api/v1/fundraisers/slug/:slug
    */
   @Get('slug/:slug')
-  @ApiOperation({ summary: 'Get a single fundraiser by slug' })
-  @ApiParam({ name: 'slug', description: 'Fundraiser slug' })
-  @ApiResponse({
-    status: 200,
-    description: 'Fundraiser retrieved successfully',
-    schema: {
-      type: 'object',
-      properties: {
-        id: { type: 'string' },
-        title: { type: 'string' },
-        slug: { type: 'string' },
-        description: { type: 'string' },
-        goal: { type: 'number' },
-        status: { type: 'string' },
-        createdAt: { type: 'string', format: 'date-time' },
-        updatedAt: { type: 'string', format: 'date-time' },
-      },
-    },
-  })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 404, description: 'Fundraiser not found' })
   async findBySlug(@Param('slug') slug: string, @AuthUser() user: UserEntity) {
     return await this.fundraisersService.findBySlug(user, slug);
   }
@@ -193,29 +84,6 @@ export class FundraisersController {
    * PATCH /api/v1/fundraisers/:fundraiserId
    */
   @Patch(':fundraiserId')
-  @ApiOperation({ summary: 'Update a fundraiser' })
-  @ApiParam({ name: 'fundraiserId', description: 'Fundraiser ID' })
-  @ApiBody({ type: UpdateFundraiserDto })
-  @ApiResponse({
-    status: 200,
-    description: 'Fundraiser updated successfully',
-    schema: {
-      type: 'object',
-      properties: {
-        id: { type: 'string' },
-        title: { type: 'string' },
-        slug: { type: 'string' },
-        description: { type: 'string' },
-        goal: { type: 'number' },
-        status: { type: 'string' },
-        createdAt: { type: 'string', format: 'date-time' },
-        updatedAt: { type: 'string', format: 'date-time' },
-      },
-    },
-  })
-  @ApiResponse({ status: 400, description: 'Bad request' })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 404, description: 'Fundraiser not found' })
   async update(
     @Param('fundraiserId') fundraiserId: string,
     @Body() data: UpdateFundraiserDto,
@@ -230,11 +98,6 @@ export class FundraisersController {
    */
   @Delete(':fundraiserId')
   @HttpCode(204)
-  @ApiOperation({ summary: 'Delete a fundraiser' })
-  @ApiParam({ name: 'fundraiserId', description: 'Fundraiser ID' })
-  @ApiResponse({ status: 204, description: 'Fundraiser deleted successfully' })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 404, description: 'Fundraiser not found' })
   async delete(
     @Param('fundraiserId') fundraiserId: string,
     @AuthUser() user: UserEntity,
