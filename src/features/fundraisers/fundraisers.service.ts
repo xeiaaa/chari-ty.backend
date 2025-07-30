@@ -345,6 +345,7 @@ export class FundraisersService {
             order: 'asc',
           },
         },
+        cover: true,
       },
     });
 

@@ -10,6 +10,14 @@ import {
   UseGuards,
   HttpCode,
 } from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+  ApiBody,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { User as UserEntity } from '../../../generated/prisma';
 import { GroupsService } from './groups.service';
 import { DonationsService } from '../donations/donations.service';
@@ -28,6 +36,8 @@ import { AuthUser } from '../../common/decorators';
 /**
  * GroupsController handles HTTP requests for group management
  */
+@ApiTags('groups')
+@ApiBearerAuth()
 @Controller('groups')
 @UseGuards(AuthGuard)
 export class GroupsController {
@@ -41,6 +51,26 @@ export class GroupsController {
    * POST /api/v1/groups
    */
   @Post()
+  @ApiOperation({ summary: 'Create a new group' })
+  @ApiBody({ type: CreateGroupDto })
+  @ApiResponse({
+    status: 201,
+    description: 'Group created successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string' },
+        name: { type: 'string' },
+        slug: { type: 'string' },
+        type: { type: 'string' },
+        description: { type: 'string', nullable: true },
+        createdAt: { type: 'string', format: 'date-time' },
+        updatedAt: { type: 'string', format: 'date-time' },
+      },
+    },
+  })
+  @ApiResponse({ status: 400, description: 'Bad request' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
   async createGroup(
     @Body() createGroupDto: CreateGroupDto,
     @AuthUser() user: UserEntity,
@@ -53,6 +83,26 @@ export class GroupsController {
    * GET /api/v1/groups/slug/:slug
    */
   @Get('slug/:slug')
+  @ApiOperation({ summary: 'Get authenticated group by slug' })
+  @ApiParam({ name: 'slug', description: 'Group slug' })
+  @ApiResponse({
+    status: 200,
+    description: 'Group retrieved successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string' },
+        name: { type: 'string' },
+        slug: { type: 'string' },
+        type: { type: 'string' },
+        description: { type: 'string', nullable: true },
+        createdAt: { type: 'string', format: 'date-time' },
+        updatedAt: { type: 'string', format: 'date-time' },
+      },
+    },
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 404, description: 'Group not found' })
   async findBySlug(@Param('slug') slug: string, @AuthUser() user: UserEntity) {
     return this.groupsService.findAuthenticatedBySlug(user, slug);
   }
@@ -62,6 +112,28 @@ export class GroupsController {
    * PATCH /api/v1/groups/slug/:slug
    */
   @Patch('slug/:slug')
+  @ApiOperation({ summary: 'Update group by slug' })
+  @ApiParam({ name: 'slug', description: 'Group slug' })
+  @ApiBody({ type: UpdateGroupDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Group updated successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string' },
+        name: { type: 'string' },
+        slug: { type: 'string' },
+        type: { type: 'string' },
+        description: { type: 'string', nullable: true },
+        createdAt: { type: 'string', format: 'date-time' },
+        updatedAt: { type: 'string', format: 'date-time' },
+      },
+    },
+  })
+  @ApiResponse({ status: 400, description: 'Bad request' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 404, description: 'Group not found' })
   async updateBySlug(
     @Param('slug') slug: string,
     @Body() updateGroupDto: UpdateGroupDto,
@@ -75,6 +147,23 @@ export class GroupsController {
    * POST /api/v1/groups/:groupId/invites
    */
   @Post(':groupId/invites')
+  @ApiOperation({ summary: 'Invite a user to a group' })
+  @ApiParam({ name: 'groupId', description: 'Group ID' })
+  @ApiBody({ type: CreateInviteDto })
+  @ApiResponse({
+    status: 201,
+    description: 'User invited successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        message: { type: 'string' },
+        groupMember: { type: 'object' },
+      },
+    },
+  })
+  @ApiResponse({ status: 400, description: 'Bad request' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 404, description: 'Group or user not found' })
   async inviteUser(
     @Param('groupId') groupId: string,
     @Body() createInviteDto: CreateInviteDto,
@@ -88,6 +177,24 @@ export class GroupsController {
    * PATCH /api/v1/groups/:groupId/members/:memberId
    */
   @Patch(':groupId/members/:memberId')
+  @ApiOperation({ summary: 'Update a group member role' })
+  @ApiParam({ name: 'groupId', description: 'Group ID' })
+  @ApiParam({ name: 'memberId', description: 'Member ID' })
+  @ApiBody({ type: UpdateMemberRoleDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Member role updated successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        message: { type: 'string' },
+        groupMember: { type: 'object' },
+      },
+    },
+  })
+  @ApiResponse({ status: 400, description: 'Bad request' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 404, description: 'Group or member not found' })
   async updateMemberRole(
     @Param('groupId') groupId: string,
     @Param('memberId') memberId: string,
@@ -107,6 +214,21 @@ export class GroupsController {
    * DELETE /api/v1/groups/:groupId/members/:memberId
    */
   @Delete(':groupId/members/:memberId')
+  @ApiOperation({ summary: 'Remove a member from a group' })
+  @ApiParam({ name: 'groupId', description: 'Group ID' })
+  @ApiParam({ name: 'memberId', description: 'Member ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Member removed successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        message: { type: 'string' },
+      },
+    },
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 404, description: 'Group or member not found' })
   async removeMember(
     @Param('groupId') groupId: string,
     @Param('memberId') memberId: string,

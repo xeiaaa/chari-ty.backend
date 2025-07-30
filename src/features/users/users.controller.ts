@@ -12,6 +12,14 @@ import {
   NotFoundException,
   ForbiddenException,
 } from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiQuery,
+  ApiParam,
+  ApiBody,
+} from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { UsersService } from './users.service';
 import { UpdateUserDto } from './dtos/update-user.dto';
@@ -21,6 +29,7 @@ import { Public } from '../../common/decorators';
 /**
  * UsersController handles HTTP requests for user management
  */
+@ApiTags('users')
 @Controller('users')
 export class UsersController {
   constructor(
@@ -32,6 +41,28 @@ export class UsersController {
    * Get all users
    */
   @Get()
+  @ApiOperation({ summary: 'Get all users' })
+  @ApiResponse({
+    status: 200,
+    description: 'All users retrieved successfully',
+    schema: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+          clerkId: { type: 'string' },
+          name: { type: 'string' },
+          email: { type: 'string' },
+          username: { type: 'string', nullable: true },
+          avatarUrl: { type: 'string', nullable: true },
+          accountType: { type: 'string' },
+          createdAt: { type: 'string', format: 'date-time' },
+          updatedAt: { type: 'string', format: 'date-time' },
+        },
+      },
+    },
+  })
   async getAllUsers(): Promise<User[]> {
     return this.usersService.getAllUsers();
   }
@@ -41,6 +72,39 @@ export class UsersController {
    * Used for invitation purposes
    */
   @Get('search')
+  @ApiOperation({ summary: 'Search for users by name, email, or username' })
+  @ApiQuery({ name: 'q', description: 'Search query', required: true })
+  @ApiQuery({
+    name: 'limit',
+    description: 'Maximum number of results (1-50)',
+    required: false,
+  })
+  @ApiQuery({
+    name: 'groupId',
+    description: 'Group ID to exclude members from results',
+    required: false,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Users found successfully',
+    schema: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+          name: { type: 'string' },
+          username: { type: 'string' },
+          email: { type: 'string' },
+          avatarUrl: { type: 'string', nullable: true },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request - invalid query parameters',
+  })
   async searchUsers(
     @Query('q') q: string,
     @Query('limit') limit?: string,
@@ -74,6 +138,27 @@ export class UsersController {
    * Get user by ID
    */
   @Get(':id')
+  @ApiOperation({ summary: 'Get user by ID' })
+  @ApiParam({ name: 'id', description: 'User ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'User found successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string' },
+        clerkId: { type: 'string' },
+        name: { type: 'string' },
+        email: { type: 'string' },
+        username: { type: 'string', nullable: true },
+        avatarUrl: { type: 'string', nullable: true },
+        accountType: { type: 'string' },
+        createdAt: { type: 'string', format: 'date-time' },
+        updatedAt: { type: 'string', format: 'date-time' },
+      },
+    },
+  })
+  @ApiResponse({ status: 404, description: 'User not found' })
   async getUserById(@Param('id') id: string): Promise<User | null> {
     return this.usersService.findUserById(id);
   }
@@ -84,6 +169,27 @@ export class UsersController {
    */
   @Public()
   @Get('clerk/token')
+  @ApiOperation({
+    summary: 'Generate Clerk development token (DEVELOPMENT ONLY)',
+  })
+  @ApiQuery({ name: 'email', description: 'User email', required: true })
+  @ApiResponse({
+    status: 200,
+    description: 'Token generated successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        token: { type: 'string' },
+        clerkId: { type: 'string' },
+        email: { type: 'string' },
+        note: { type: 'string' },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - only available in development',
+  })
   async generateClerkDevToken(@Query('email') email: string): Promise<{
     token: string;
     clerkId: string;
@@ -157,6 +263,27 @@ export class UsersController {
    * Get user by Clerk ID
    */
   @Get('clerk/:clerkId')
+  @ApiOperation({ summary: 'Get user by Clerk ID' })
+  @ApiParam({ name: 'clerkId', description: 'Clerk user ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'User found successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string' },
+        clerkId: { type: 'string' },
+        name: { type: 'string' },
+        email: { type: 'string' },
+        username: { type: 'string', nullable: true },
+        avatarUrl: { type: 'string', nullable: true },
+        accountType: { type: 'string' },
+        createdAt: { type: 'string', format: 'date-time' },
+        updatedAt: { type: 'string', format: 'date-time' },
+      },
+    },
+  })
+  @ApiResponse({ status: 404, description: 'User not found' })
   async getUserByClerkId(
     @Param('clerkId') clerkId: string,
   ): Promise<User | null> {
@@ -167,6 +294,29 @@ export class UsersController {
    * Update user by ID
    */
   @Put(':id')
+  @ApiOperation({ summary: 'Update user by ID' })
+  @ApiParam({ name: 'id', description: 'User ID' })
+  @ApiBody({ type: UpdateUserDto })
+  @ApiResponse({
+    status: 200,
+    description: 'User updated successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string' },
+        clerkId: { type: 'string' },
+        name: { type: 'string' },
+        email: { type: 'string' },
+        username: { type: 'string', nullable: true },
+        avatarUrl: { type: 'string', nullable: true },
+        accountType: { type: 'string' },
+        createdAt: { type: 'string', format: 'date-time' },
+        updatedAt: { type: 'string', format: 'date-time' },
+      },
+    },
+  })
+  @ApiResponse({ status: 400, description: 'Bad request' })
+  @ApiResponse({ status: 404, description: 'User not found' })
   async updateUser(
     @Param('id') id: string,
     @Body() updateUserDto: UpdateUserDto,
@@ -179,6 +329,10 @@ export class UsersController {
    */
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Delete user by ID' })
+  @ApiParam({ name: 'id', description: 'User ID' })
+  @ApiResponse({ status: 204, description: 'User deleted successfully' })
+  @ApiResponse({ status: 404, description: 'User not found' })
   async deleteUser(@Param('id') id: string): Promise<void> {
     await this.usersService.deleteUser(id);
   }
@@ -188,6 +342,18 @@ export class UsersController {
    */
   @Public()
   @Get('admin/test')
+  @ApiOperation({ summary: 'Admin test endpoint for smoke testing' })
+  @ApiResponse({
+    status: 200,
+    description: 'Users module is working correctly',
+    schema: {
+      type: 'object',
+      properties: {
+        message: { type: 'string' },
+        timestamp: { type: 'string' },
+      },
+    },
+  })
   adminTest(): { message: string; timestamp: string } {
     return {
       message: 'Users module is working correctly',
