@@ -589,6 +589,7 @@ export class FundraisersService {
               upload: true,
             },
           },
+          cover: true,
         },
       }),
       this.prisma.fundraiser.count({ where }),
@@ -633,6 +634,7 @@ export class FundraisersService {
             upload: true,
           },
         },
+        cover: true,
       },
     });
 
