@@ -44,6 +44,13 @@ export class GroupsService {
   async findBySlug(slug: string): Promise<Group | null> {
     return this.prisma.group.findUnique({
       where: { slug },
+      include: {
+        groupUploads: {
+          include: {
+            upload: true,
+          },
+        },
+      },
     });
   }
 
@@ -54,6 +61,13 @@ export class GroupsService {
   async findPublicBySlug(slug: string) {
     const group = await this.prisma.group.findUnique({
       where: { slug },
+      include: {
+        groupUploads: {
+          include: {
+            upload: true,
+          },
+        },
+      },
     });
 
     if (!group) {
@@ -68,6 +82,7 @@ export class GroupsService {
       description: group.description,
       type: group.type,
       website: group.website,
+      groupUploads: group.groupUploads,
       verified: group.verified,
       createdAt: group.createdAt,
     };
@@ -267,6 +282,11 @@ export class GroupsService {
           },
           orderBy: {
             joinedAt: 'asc',
+          },
+        },
+        groupUploads: {
+          include: {
+            upload: true,
           },
         },
       },

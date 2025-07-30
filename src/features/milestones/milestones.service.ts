@@ -56,6 +56,13 @@ export class MilestonesService {
     return await this.prisma.milestone.findMany({
       where: { fundraiserId },
       orderBy: { stepNumber: 'asc' },
+      include: {
+        milestoneUploads: {
+          include: {
+            upload: true,
+          },
+        },
+      },
     });
   }
 

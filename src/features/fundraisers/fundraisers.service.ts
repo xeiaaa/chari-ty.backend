@@ -583,6 +583,11 @@ export class FundraisersService {
               },
             },
           },
+          fundraiserGallery: {
+            include: {
+              upload: true,
+            },
+          },
         },
       }),
       this.prisma.fundraiser.count({ where }),
@@ -620,6 +625,11 @@ export class FundraisersService {
             name: true,
             description: true,
             slug: true,
+          },
+        },
+        fundraiserGallery: {
+          include: {
+            upload: true,
           },
         },
       },
