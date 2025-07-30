@@ -5,15 +5,22 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
+import { UploadsService } from '../uploads/uploads.service';
 import { CreateMilestoneDto } from './dtos/create-milestone.dto';
 import { UpdateMilestoneDto } from './dtos/update-milestone.dto';
 import { CompleteMilestoneDto } from './dtos/complete-milestone.dto';
+import { AddMilestoneUploadsDto } from './dtos/add-milestone-uploads.dto';
+import { ReorderMilestoneUploadsDto } from './dtos/reorder-milestone-uploads.dto';
+import { UpdateMilestoneUploadDto } from './dtos/update-milestone-upload.dto';
 import { User as UserEntity } from '../../../generated/prisma';
 import { Decimal } from '@prisma/client/runtime/library';
 
 @Injectable()
 export class MilestonesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly uploadsService: UploadsService,
+  ) {}
 
   /**
    * List milestones for a fundraiser
@@ -370,6 +377,277 @@ export class MilestonesService {
         completionDetails: data.completionDetails,
         proofUrls: data.proofUrls || [],
       },
+    });
+  }
+
+  /**
+   * Add uploads to a milestone
+   * Creates Upload records and MilestoneUpload entries
+   */
+  async addMilestoneUploads(
+    user: UserEntity,
+    milestoneId: string,
+    data: AddMilestoneUploadsDto,
+  ) {
+    // Verify milestone exists and user has permission
+    const milestone = await this.prisma.milestone.findUnique({
+      where: { id: milestoneId },
+      include: { fundraiser: true },
+    });
+
+    if (!milestone) {
+      throw new NotFoundException('Milestone not found');
+    }
+
+    // Check group membership and role
+    const membership = await this.prisma.groupMember.findUnique({
+      where: {
+        unique_user_group: {
+          userId: user.id,
+          groupId: milestone.fundraiser.groupId,
+        },
+      },
+    });
+
+    if (!membership || membership.role === 'viewer') {
+      throw new ForbiddenException(
+        'You do not have permission to add uploads to this milestone',
+      );
+    }
+
+    // Create milestone upload items in transaction
+    return await this.prisma.$transaction(async (tx) => {
+      const milestoneUploadItems: any[] = [];
+
+      for (let i = 0; i < data.items.length; i++) {
+        const item = data.items[i];
+
+        // Get Cloudinary resource by publicId
+        const cloudinaryResource =
+          await this.uploadsService.getResourceByPublicId(item.publicId);
+
+        // Convert Cloudinary resource to CloudinaryAssetDto format
+        const asset = {
+          cloudinaryAssetId: cloudinaryResource.asset_id,
+          publicId: cloudinaryResource.public_id,
+          url: cloudinaryResource.secure_url,
+          eagerUrl: cloudinaryResource.derived?.[0]?.secure_url,
+          format: cloudinaryResource.format,
+          resourceType: cloudinaryResource.resource_type,
+          size: cloudinaryResource.bytes,
+          pages: cloudinaryResource.derived?.[0]?.bytes || undefined,
+          originalFilename: cloudinaryResource.display_name,
+          uploadedAt: cloudinaryResource.created_at,
+        };
+
+        // Create upload record
+        const upload = await this.uploadsService.createUpload(asset, user.id);
+
+        // Create milestone upload item
+        const milestoneUploadItem = await tx.milestoneUpload.create({
+          data: {
+            milestoneId,
+            uploadId: upload.id,
+            caption: item.caption,
+            order: i, // Use array index as order
+          },
+          include: {
+            upload: true,
+          },
+        });
+
+        milestoneUploadItems.push(milestoneUploadItem);
+      }
+
+      return milestoneUploadItems;
+    });
+  }
+
+  /**
+   * Update a milestone upload caption
+   */
+  async updateMilestoneUpload(
+    user: UserEntity,
+    milestoneId: string,
+    uploadItemId: string,
+    data: UpdateMilestoneUploadDto,
+  ) {
+    // Verify milestone exists and user has permission
+    const milestone = await this.prisma.milestone.findUnique({
+      where: { id: milestoneId },
+      include: { fundraiser: true },
+    });
+
+    if (!milestone) {
+      throw new NotFoundException('Milestone not found');
+    }
+
+    // Check group membership and role
+    const membership = await this.prisma.groupMember.findUnique({
+      where: {
+        unique_user_group: {
+          userId: user.id,
+          groupId: milestone.fundraiser.groupId,
+        },
+      },
+    });
+
+    if (!membership || membership.role === 'viewer') {
+      throw new ForbiddenException(
+        'You do not have permission to update uploads for this milestone',
+      );
+    }
+
+    // Verify upload item exists and belongs to this milestone
+    const uploadItem = await this.prisma.milestoneUpload.findFirst({
+      where: {
+        id: uploadItemId,
+        milestoneId,
+      },
+      include: {
+        upload: true,
+      },
+    });
+
+    if (!uploadItem) {
+      throw new NotFoundException('Upload item not found');
+    }
+
+    // Update the upload item
+    return await this.prisma.milestoneUpload.update({
+      where: { id: uploadItemId },
+      data: {
+        caption: data.caption,
+      },
+      include: {
+        upload: true,
+      },
+    });
+  }
+
+  /**
+   * Delete a milestone upload
+   */
+  async deleteMilestoneUpload(
+    user: UserEntity,
+    milestoneId: string,
+    uploadItemId: string,
+  ) {
+    // Verify milestone exists and user has permission
+    const milestone = await this.prisma.milestone.findUnique({
+      where: { id: milestoneId },
+      include: { fundraiser: true },
+    });
+
+    if (!milestone) {
+      throw new NotFoundException('Milestone not found');
+    }
+
+    // Check group membership and role
+    const membership = await this.prisma.groupMember.findUnique({
+      where: {
+        unique_user_group: {
+          userId: user.id,
+          groupId: milestone.fundraiser.groupId,
+        },
+      },
+    });
+
+    if (!membership || membership.role === 'viewer') {
+      throw new ForbiddenException(
+        'You do not have permission to delete uploads for this milestone',
+      );
+    }
+
+    // Verify upload item exists and belongs to this milestone
+    const uploadItem = await this.prisma.milestoneUpload.findFirst({
+      where: {
+        id: uploadItemId,
+        milestoneId,
+      },
+      include: {
+        upload: true,
+      },
+    });
+
+    if (!uploadItem) {
+      throw new NotFoundException('Upload item not found');
+    }
+
+    // Delete the Cloudinary resource
+    await this.uploadsService.deleteCloudinaryResource(
+      uploadItem.upload.publicId,
+    );
+
+    // Delete the upload item (this will also delete the upload due to cascade)
+    await this.prisma.milestoneUpload.delete({
+      where: { id: uploadItemId },
+    });
+  }
+
+  /**
+   * Reorder milestone uploads
+   */
+  async reorderMilestoneUploads(
+    user: UserEntity,
+    milestoneId: string,
+    data: ReorderMilestoneUploadsDto,
+  ) {
+    // Verify milestone exists and user has permission
+    const milestone = await this.prisma.milestone.findUnique({
+      where: { id: milestoneId },
+      include: { fundraiser: true },
+    });
+
+    if (!milestone) {
+      throw new NotFoundException('Milestone not found');
+    }
+
+    // Check group membership and role
+    const membership = await this.prisma.groupMember.findUnique({
+      where: {
+        unique_user_group: {
+          userId: user.id,
+          groupId: milestone.fundraiser.groupId,
+        },
+      },
+    });
+
+    if (!membership || membership.role === 'viewer') {
+      throw new ForbiddenException(
+        'You do not have permission to reorder uploads for this milestone',
+      );
+    }
+
+    // Verify all upload items exist and belong to this milestone
+    const uploadItemIds = data.orderMap.map((item) => item.milestoneUploadId);
+    const existingItems = await this.prisma.milestoneUpload.findMany({
+      where: {
+        id: { in: uploadItemIds },
+        milestoneId,
+      },
+    });
+
+    if (existingItems.length !== uploadItemIds.length) {
+      throw new NotFoundException('One or more upload items not found');
+    }
+
+    // Update the order of all items in a transaction
+    return await this.prisma.$transaction(async (tx) => {
+      const updatedItems: any[] = [];
+
+      for (const item of data.orderMap) {
+        const updatedItem = await tx.milestoneUpload.update({
+          where: { id: item.milestoneUploadId },
+          data: { order: item.order },
+          include: {
+            upload: true,
+          },
+        });
+        updatedItems.push(updatedItem);
+      }
+
+      return updatedItems;
     });
   }
 }

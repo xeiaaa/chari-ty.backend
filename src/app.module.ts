@@ -12,6 +12,7 @@ import { DonationsModule } from './features/donations/donations.module';
 import { UploadsModule } from './features/uploads/uploads.module';
 import { GroupsModule } from './features/groups/groups.module';
 import { PaymentsModule } from './features/payments/payments.module';
+import { MilestonesModule } from './features/milestones/milestones.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { PaymentsModule } from './features/payments/payments.module';
     UploadsModule,
     GroupsModule,
     PaymentsModule,
+    MilestonesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
