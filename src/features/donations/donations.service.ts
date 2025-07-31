@@ -1,9 +1,4 @@
-import {
-  Injectable,
-  BadRequestException,
-  NotFoundException,
-  ForbiddenException,
-} from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { CreateCheckoutSessionDto } from './dtos/create-checkout-session.dto';
@@ -14,6 +9,7 @@ import {
   DonationStatus,
   Prisma,
   Fundraiser,
+  Group,
 } from '../../../generated/prisma';
 
 @Injectable()
@@ -257,32 +253,7 @@ export class DonationsService {
   /**
    * List donations for a group with pagination, sorting, and filtering
    */
-  async listByGroup(
-    user: User,
-    groupSlug: string,
-    query: ListGroupDonationsDto,
-  ) {
-    // Verify group exists and user has access
-    const group = await this.prisma.group.findUnique({
-      where: { slug: groupSlug },
-      include: {
-        members: {
-          where: {
-            userId: user.id,
-            status: 'active',
-          },
-        },
-      },
-    });
-
-    if (!group) {
-      throw new NotFoundException('Group not found');
-    }
-
-    if (group.members.length === 0) {
-      throw new ForbiddenException('You do not have access to this group');
-    }
-
+  async listByGroup(group: Group, query: ListGroupDonationsDto) {
     // Build where clause for donations
     const where: Prisma.DonationWhereInput = {
       fundraiser: {

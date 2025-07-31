@@ -18,6 +18,7 @@ import {
   GroupMemberRole,
   GroupUpload,
   Upload,
+  GroupMember,
 } from '../../../generated/prisma';
 import { UpdateGroupDto } from './dtos/update-group.dto';
 import { CreateInviteDto } from './dtos/create-invite.dto';
@@ -247,32 +248,7 @@ export class GroupsService {
    * Get authenticated group by slug
    * Returns group data including stripeId for authenticated users who are members
    */
-  async findAuthenticatedBySlug(
-    user: UserEntity,
-    slug: string,
-  ): Promise<Group> {
-    // This group is to check if the user is a member of the group
-    const group = await this.prisma.group.findUnique({
-      where: { slug },
-      include: {
-        members: {
-          where: {
-            userId: user.id,
-            status: GroupMemberStatus.active,
-          },
-        },
-      },
-    });
-
-    if (!group) {
-      throw new NotFoundException('Group not found');
-    }
-
-    // Check if user is a member of the group
-    if (group.members.length === 0) {
-      throw new ForbiddenException('You do not have access to this group');
-    }
-
+  async findAuthenticatedBySlug(slug: string, group: Group): Promise<Group> {
     const groupData = await this.prisma.group.findUnique({
       where: { slug },
       include: {
@@ -310,38 +286,9 @@ export class GroupsService {
   async updateBySlug(
     user: UserEntity,
     slug: string,
+    group: Group & { avatar: Upload },
     updateData: UpdateGroupDto,
   ): Promise<Group> {
-    const group = await this.prisma.group.findUnique({
-      where: { slug },
-      include: {
-        members: {
-          where: {
-            userId: user.id,
-            status: GroupMemberStatus.active,
-          },
-        },
-        avatar: true,
-      },
-    });
-
-    if (!group) {
-      throw new NotFoundException('Group not found');
-    }
-
-    // Check if user is a member of the group
-    if (group.members.length === 0) {
-      throw new ForbiddenException('You do not have access to this group');
-    }
-
-    // Check if user has permission to update (owner or admin)
-    const member = group.members[0];
-    if (member.role !== 'owner' && member.role !== 'admin') {
-      throw new ForbiddenException(
-        'You do not have permission to update this group',
-      );
-    }
-
     // Handle avatar upload if avatarPublicId is provided
     let avatarUploadId: string | undefined;
     if (updateData.avatarPublicId) {
@@ -403,7 +350,7 @@ export class GroupsService {
    */
   async inviteUser(
     user: UserEntity,
-    groupId: string,
+    group: Group,
     inviteData: CreateInviteDto,
   ): Promise<{
     id: string;
@@ -429,36 +376,6 @@ export class GroupsService {
       throw new BadRequestException('Cannot invite users with owner role');
     }
 
-    // Find the group and check if user has permission to invite
-    const group = await this.prisma.group.findUnique({
-      where: { id: groupId },
-      include: {
-        members: {
-          where: {
-            userId: user.id,
-            status: GroupMemberStatus.active,
-          },
-        },
-      },
-    });
-
-    if (!group) {
-      throw new NotFoundException('Group not found');
-    }
-
-    // Check if user is a member of the group
-    if (group.members.length === 0) {
-      throw new ForbiddenException('You do not have access to this group');
-    }
-
-    // Check if user has permission to invite (owner or admin)
-    const member = group.members[0];
-    if (member.role !== 'owner' && member.role !== 'admin') {
-      throw new ForbiddenException(
-        'You do not have permission to invite users to this group',
-      );
-    }
-
     // Check if the user is already a member or invited
     let existingMember;
 
@@ -466,7 +383,7 @@ export class GroupsService {
       // Check by userId
       existingMember = await this.prisma.groupMember.findFirst({
         where: {
-          groupId,
+          groupId: group.id,
           userId: inviteData.userId,
           status: {
             in: [GroupMemberStatus.active, GroupMemberStatus.invited],
@@ -477,7 +394,7 @@ export class GroupsService {
       // Check by email
       existingMember = await this.prisma.groupMember.findFirst({
         where: {
-          groupId,
+          groupId: group.id,
           invitedEmail: inviteData.email,
           status: {
             in: [GroupMemberStatus.active, GroupMemberStatus.invited],
@@ -516,7 +433,7 @@ export class GroupsService {
     // Create the invitation record
     const invitation = await this.prisma.groupMember.create({
       data: {
-        groupId,
+        groupId: group.id,
         userId: inviteData.userId || null,
         invitedEmail: inviteData.email || null,
         role: inviteData.role,
@@ -545,8 +462,9 @@ export class GroupsService {
   async updateMemberRole(
     user: UserEntity,
     groupId: string,
-    memberId: string,
+    memberToUpdateId: string,
     newRole: Exclude<GroupMemberRole, 'owner'>,
+    currentUserMembership: GroupMember,
   ): Promise<{
     id: string;
     userId: string;
@@ -555,43 +473,9 @@ export class GroupsService {
     status: GroupMemberStatus;
     updatedAt: Date;
   }> {
-    // Find the group and check if user has permission
-    const group = await this.prisma.group.findUnique({
-      where: { id: groupId },
-      include: {
-        members: {
-          where: {
-            userId: user.id,
-            status: GroupMemberStatus.active,
-          },
-        },
-      },
-    });
-
-    if (!group) {
-      throw new NotFoundException('Group not found');
-    }
-
-    // Check if user is a member of the group
-    if (group.members.length === 0) {
-      throw new ForbiddenException('You do not have access to this group');
-    }
-
-    const currentUserMember = group.members[0];
-
-    // Check if user has permission to update roles
-    if (
-      currentUserMember.role === 'editor' ||
-      currentUserMember.role === 'viewer'
-    ) {
-      throw new ForbiddenException(
-        'You do not have permission to update member roles',
-      );
-    }
-
     // Find the member to be updated
     const memberToUpdate = await this.prisma.groupMember.findUnique({
-      where: { id: memberId },
+      where: { id: memberToUpdateId },
       include: {
         user: true,
       },
@@ -617,12 +501,12 @@ export class GroupsService {
     }
 
     // Role-based permission checks
-    if (currentUserMember.role === 'owner') {
+    if (currentUserMembership.role === 'owner') {
       // Owner can change any role except owner
       if (memberToUpdate.role === 'owner') {
         throw new ForbiddenException('Cannot change owner role');
       }
-    } else if (currentUserMember.role === 'admin') {
+    } else if (currentUserMembership.role === 'admin') {
       // Admin can only change editor/viewer roles
       if (memberToUpdate.role === 'owner' || memberToUpdate.role === 'admin') {
         throw new ForbiddenException(
@@ -633,7 +517,7 @@ export class GroupsService {
 
     // Update the member's role
     const updatedMember = await this.prisma.groupMember.update({
-      where: { id: memberId },
+      where: { id: memberToUpdateId },
       data: { role: newRole },
     });
 
@@ -654,42 +538,9 @@ export class GroupsService {
   async removeMember(
     user: UserEntity,
     groupId: string,
-    memberId: string,
+    memberId: string, // memberToRemoveId
+    currentUserMembership: GroupMember,
   ): Promise<{ message: string }> {
-    // Find the group and check if user has permission
-    const group = await this.prisma.group.findUnique({
-      where: { id: groupId },
-      include: {
-        members: {
-          where: {
-            userId: user.id,
-            status: GroupMemberStatus.active,
-          },
-        },
-      },
-    });
-
-    if (!group) {
-      throw new NotFoundException('Group not found');
-    }
-
-    // Check if user is a member of the group
-    if (group.members.length === 0) {
-      throw new ForbiddenException('You do not have access to this group');
-    }
-
-    const currentUserMember = group.members[0];
-
-    // Check if user has permission to remove members
-    if (
-      currentUserMember.role === 'editor' ||
-      currentUserMember.role === 'viewer'
-    ) {
-      throw new ForbiddenException(
-        'You do not have permission to remove members',
-      );
-    }
-
     // Find the member to be removed
     const memberToRemove = await this.prisma.groupMember.findUnique({
       where: { id: memberId },
@@ -718,12 +569,12 @@ export class GroupsService {
     }
 
     // Role-based permission checks
-    if (currentUserMember.role === 'owner') {
+    if (currentUserMembership.role === 'owner') {
       // Owner can remove any member except themselves
       if (memberToRemove.role === 'owner') {
         throw new ForbiddenException('Cannot remove the group owner');
       }
-    } else if (currentUserMember.role === 'admin') {
+    } else if (currentUserMembership.role === 'admin') {
       // Admin can only remove editor/viewer members
       if (memberToRemove.role === 'owner' || memberToRemove.role === 'admin') {
         throw new ForbiddenException(
@@ -746,10 +597,7 @@ export class GroupsService {
    * Get dashboard data for a group
    * Returns comprehensive statistics and activity data
    */
-  async getDashboard(user: UserEntity, slug: string): Promise<DashboardDto> {
-    // First verify the group exists and user has access
-    const group = await this.findAuthenticatedBySlug(user, slug);
-
+  async getDashboard(group: Group): Promise<DashboardDto> {
     // Get fundraising overview data
     const fundraisers = await this.prisma.fundraiser.findMany({
       where: {

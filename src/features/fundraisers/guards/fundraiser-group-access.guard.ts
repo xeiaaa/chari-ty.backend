@@ -12,25 +12,25 @@ import { PrismaService } from '../../../core/prisma/prisma.service';
 import {
   GROUP_ROLES_KEY,
   GroupRolesMeta,
-} from '../decorators/group-roles.decorator';
+} from '../../groups/decorators/group-roles.decorator';
 import { Request } from 'express';
 import { Group, GroupMember, User } from 'generated/prisma';
 
 @Injectable()
-export class GroupAccessGuard implements CanActivate {
+export class FundraiserGroupAccessGuard implements CanActivate {
   constructor(
     private prisma: PrismaService,
     private reflector: Reflector,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const req: Request & {
+    const req: Request<any, any, { groupId: string }> & {
       authUser: User;
       group: Group;
       currentUserMembership: GroupMember;
     } = context.switchToHttp().getRequest();
     const user = req.authUser;
-    const groupId = req.params.groupId;
+    const groupId = req.body.groupId;
 
     if (!groupId) {
       throw new BadRequestException('Missing groupId in request body');

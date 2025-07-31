@@ -17,7 +17,7 @@ import { Request } from 'express';
 import { Group, GroupMember, User } from 'generated/prisma';
 
 @Injectable()
-export class GroupAccessGuard implements CanActivate {
+export class GroupSlugAccessGuard implements CanActivate {
   constructor(
     private prisma: PrismaService,
     private reflector: Reflector,
@@ -30,10 +30,10 @@ export class GroupAccessGuard implements CanActivate {
       currentUserMembership: GroupMember;
     } = context.switchToHttp().getRequest();
     const user = req.authUser;
-    const groupId = req.params.groupId;
+    const slug = req.params.slug;
 
-    if (!groupId) {
-      throw new BadRequestException('Missing groupId in request body');
+    if (!slug) {
+      throw new BadRequestException('Missing slug in request body');
     }
 
     if (!user) {
@@ -42,7 +42,7 @@ export class GroupAccessGuard implements CanActivate {
 
     // Check group exists
     const group = await this.prisma.group.findUnique({
-      where: { id: groupId },
+      where: { slug },
       include: {
         avatar: true,
       },
@@ -52,12 +52,12 @@ export class GroupAccessGuard implements CanActivate {
       throw new NotFoundException('Group not found');
     }
 
-    // Check currentUserMembership
+    // Check membership
     const currentUserMembership = await this.prisma.groupMember.findUnique({
       where: {
         unique_user_group: {
           userId: user.id,
-          groupId,
+          groupId: group.id,
         },
       },
     });

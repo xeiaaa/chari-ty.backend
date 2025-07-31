@@ -33,12 +33,12 @@ import { UpdateGalleryItemDto } from './dtos/update-gallery-item.dto';
 import { ReorderGalleryItemsDto } from './dtos/reorder-gallery-items.dto';
 import { FundraiserAccessGuard } from './guards/fundraiser-access.guard';
 import { FundraiserRoles } from './decorators/fundraiser-roles.decorator';
-import { GroupAccessGuard } from '../groups/guards/group-access.guard';
 import { GroupRoles } from '../groups/decorators/group-roles.decorator';
 import { FundraiserSlugAccessGuard } from './guards/fundraiser-slug-access.guard';
 import { FundraiserParam } from './decorators/fundraiser.decorator';
 import { MilestoneParam } from '../milestones/decorators/milestone.decorator';
 import { FundraiserMilestoneAccessGuard } from './guards/fundraiser-milestone-access.guard';
+import { FundraiserGroupAccessGuard } from './guards/fundraiser-group-access.guard';
 
 @Controller('fundraisers')
 @UseGuards(AuthGuard)
@@ -53,7 +53,7 @@ export class FundraisersController {
    * Create a new fundraiser
    * POST /api/v1/fundraisers
    */
-  @UseGuards(GroupAccessGuard)
+  @UseGuards(FundraiserGroupAccessGuard)
   @GroupRoles(['admin', 'owner', 'editor'])
   @UseGuards(AuthGuard)
   @Post()
