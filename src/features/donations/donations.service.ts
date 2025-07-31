@@ -9,7 +9,12 @@ import { PrismaService } from '../../core/prisma/prisma.service';
 import { CreateCheckoutSessionDto } from './dtos/create-checkout-session.dto';
 import { ListGroupDonationsDto } from './dtos/list-group-donations.dto';
 import Stripe from 'stripe';
-import { User, DonationStatus, Prisma } from '../../../generated/prisma';
+import {
+  User,
+  DonationStatus,
+  Prisma,
+  Fundraiser,
+} from '../../../generated/prisma';
 
 @Injectable()
 export class DonationsService {
@@ -121,19 +126,10 @@ export class DonationsService {
   /**
    * List donations for a specific fundraiser
    */
-  async listByFundraiser(fundraiserId: string, status?: DonationStatus) {
-    // Verify fundraiser exists and user has access
-    const fundraiser = await this.prisma.fundraiser.findUnique({
-      where: { id: fundraiserId },
-    });
-
-    if (!fundraiser) {
-      throw new NotFoundException('Fundraiser not found');
-    }
-
+  async listByFundraiser(fundraiser: Fundraiser, status?: DonationStatus) {
     // Build where clause
     const where: Prisma.DonationWhereInput = {
-      fundraiserId,
+      fundraiserId: fundraiser.id,
     };
 
     if (status) {

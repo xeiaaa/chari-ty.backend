@@ -13,6 +13,8 @@ import { AddMilestoneUploadsDto } from './dtos/add-milestone-uploads.dto';
 import { ReorderMilestoneUploadsDto } from './dtos/reorder-milestone-uploads.dto';
 import { UpdateMilestoneUploadDto } from './dtos/update-milestone-upload.dto';
 import {
+  Fundraiser,
+  Milestone,
   MilestoneUpload,
   Upload,
   User as UserEntity,
@@ -58,19 +60,10 @@ export class MilestonesService {
    * Create a new milestone for a fundraiser
    * Checks permissions based on group membership
    */
-  async create(fundraiserId: string, data: CreateMilestoneDto) {
-    // First, verify the fundraiser exists and user has permission
-    const fundraiser = await this.prisma.fundraiser.findUnique({
-      where: { id: fundraiserId },
-    });
-
-    if (!fundraiser) {
-      throw new NotFoundException('Fundraiser not found');
-    }
-
+  async create(fundraiser: Fundraiser, data: CreateMilestoneDto) {
     // Get all existing milestones to calculate total
     const existingMilestones = await this.prisma.milestone.findMany({
-      where: { fundraiserId },
+      where: { fundraiserId: fundraiser.id },
     });
 
     const existingTotal = existingMilestones.reduce(
@@ -83,7 +76,7 @@ export class MilestonesService {
 
     // Get the current highest step number
     const lastMilestone = await this.prisma.milestone.findFirst({
-      where: { fundraiserId },
+      where: { fundraiserId: fundraiser.id },
       orderBy: { stepNumber: 'desc' },
     });
 
@@ -94,7 +87,7 @@ export class MilestonesService {
       // Create the milestone
       const milestone = await tx.milestone.create({
         data: {
-          fundraiserId,
+          fundraiserId: fundraiser.id,
           stepNumber: nextStepNumber,
           amount: newMilestoneAmount,
           title: data.title,
@@ -106,7 +99,7 @@ export class MilestonesService {
       // Update fundraiser goal amount if total milestone amount exceeds current goal
       if (totalMilestoneAmount.gt(fundraiser.goalAmount)) {
         await tx.fundraiser.update({
-          where: { id: fundraiserId },
+          where: { id: fundraiser.id },
           data: { goalAmount: totalMilestoneAmount },
         });
       }
@@ -121,25 +114,9 @@ export class MilestonesService {
    */
   async update(
     fundraiserId: string,
-    milestoneId: string,
+    milestone: Milestone & { fundraiser: Fundraiser },
     data: UpdateMilestoneDto,
   ) {
-    // First, verify the fundraiser and milestone exist
-    const milestone = await this.prisma.milestone.findUnique({
-      where: { id: milestoneId },
-      include: { fundraiser: true },
-    });
-
-    if (!milestone) {
-      throw new NotFoundException('Milestone not found');
-    }
-
-    if (milestone.fundraiserId !== fundraiserId) {
-      throw new BadRequestException(
-        'Milestone does not belong to this fundraiser',
-      );
-    }
-
     if (milestone.achieved) {
       throw new BadRequestException('Cannot update an achieved milestone');
     }
@@ -154,7 +131,7 @@ export class MilestonesService {
 
       // Calculate total excluding the current milestone being updated
       const otherMilestonesTotal = allMilestones
-        .filter((m) => m.id !== milestoneId)
+        .filter((m) => m.id !== milestone.id)
         .reduce((sum, m) => sum.add(m.amount), new Decimal(0));
 
       // Add the new milestone amount
@@ -166,7 +143,7 @@ export class MilestonesService {
     return await this.prisma.$transaction(async (tx) => {
       // Update the milestone
       const updatedMilestone = await tx.milestone.update({
-        where: { id: milestoneId },
+        where: { id: milestone.id },
         data: {
           ...(data.amount && { amount: new Decimal(data.amount.toString()) }),
           ...(data.title && { title: data.title }),
@@ -193,30 +170,14 @@ export class MilestonesService {
    * Delete a milestone
    * Only allows deletion if milestone hasn't been achieved yet
    */
-  async delete(fundraiserId: string, milestoneId: string) {
-    // First, verify the fundraiser and milestone exist
-    const milestone = await this.prisma.milestone.findUnique({
-      where: { id: milestoneId },
-      include: { fundraiser: true },
-    });
-
-    if (!milestone) {
-      throw new NotFoundException('Milestone not found');
-    }
-
-    if (milestone.fundraiserId !== fundraiserId) {
-      throw new BadRequestException(
-        'Milestone does not belong to this fundraiser',
-      );
-    }
-
+  async delete(milestone: Milestone) {
     if (milestone.achieved) {
       throw new BadRequestException('Cannot delete an achieved milestone');
     }
 
     // Delete the milestone
     await this.prisma.milestone.delete({
-      where: { id: milestoneId },
+      where: { id: milestone.id },
     });
   }
 
@@ -268,27 +229,7 @@ export class MilestonesService {
    * Add completion details and proof to a milestone
    * Allows adding details to achieved milestones
    */
-  async complete(
-    fundraiserId: string,
-    milestoneId: string,
-    data: CompleteMilestoneDto,
-  ) {
-    // First, verify the fundraiser and milestone exist
-    const milestone = await this.prisma.milestone.findUnique({
-      where: { id: milestoneId },
-      include: { fundraiser: true },
-    });
-
-    if (!milestone) {
-      throw new NotFoundException('Milestone not found');
-    }
-
-    if (milestone.fundraiserId !== fundraiserId) {
-      throw new BadRequestException(
-        'Milestone does not belong to this fundraiser',
-      );
-    }
-
+  async complete(milestone: Milestone, data: CompleteMilestoneDto) {
     if (!milestone.achieved) {
       throw new BadRequestException(
         'Cannot add details to a non-achieved milestone',
@@ -297,7 +238,7 @@ export class MilestonesService {
 
     // Update the milestone with completion details
     return await this.prisma.milestone.update({
-      where: { id: milestoneId },
+      where: { id: milestone.id },
       data: {
         completionDetails: data.completionDetails,
         proofUrls: data.proofUrls || [],

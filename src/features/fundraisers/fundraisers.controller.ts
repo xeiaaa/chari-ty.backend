@@ -17,7 +17,11 @@ import { UpdateFundraiserDto } from './dtos/update-fundraiser.dto';
 import { PublishFundraiserDto } from './dtos/publish-fundraiser.dto';
 import { AuthGuard } from '../auth/auth.guard';
 import { AuthUser } from '../../common/decorators';
-import { User as UserEntity } from '../../../generated/prisma';
+import {
+  Fundraiser,
+  Milestone,
+  User as UserEntity,
+} from '../../../generated/prisma';
 import { MilestonesService } from '../milestones/milestones.service';
 import { CreateMilestoneDto } from '../milestones/dtos/create-milestone.dto';
 import { UpdateMilestoneDto } from '../milestones/dtos/update-milestone.dto';
@@ -32,6 +36,9 @@ import { FundraiserRoles } from './decorators/fundraiser-roles.decorator';
 import { GroupAccessGuard } from '../groups/guards/group-access.guard';
 import { GroupRoles } from '../groups/decorators/group-roles.decorator';
 import { FundraiserSlugAccessGuard } from './guards/fundraiser-slug-access.guard';
+import { FundraiserParam } from './decorators/fundraiser.decorator';
+import { MilestoneParam } from '../milestones/decorators/milestone.decorator';
+import { FundraiserMilestoneAccessGuard } from './guards/fundraiser-milestone-access.guard';
 
 @Controller('fundraisers')
 @UseGuards(AuthGuard)
@@ -135,10 +142,10 @@ export class FundraisersController {
   @FundraiserRoles(['admin', 'owner', 'editor'])
   @Post(':fundraiserId/milestones')
   async createMilestone(
-    @Param('fundraiserId') fundraiserId: string,
     @Body() data: CreateMilestoneDto,
+    @FundraiserParam() fundraiser: Fundraiser,
   ) {
-    return this.milestonesService.create(fundraiserId, data);
+    return this.milestonesService.create(fundraiser, data);
   }
 
   /**
@@ -155,45 +162,41 @@ export class FundraisersController {
    * Update a milestone
    * PATCH /api/v1/fundraisers/:fundraiserId/milestones/:milestoneId
    */
-  @UseGuards(FundraiserAccessGuard)
+  @UseGuards(FundraiserAccessGuard, FundraiserMilestoneAccessGuard)
   @FundraiserRoles(['admin', 'owner', 'editor'])
   @Patch(':fundraiserId/milestones/:milestoneId')
   async updateMilestone(
     @Param('fundraiserId') fundraiserId: string,
-    @Param('milestoneId') milestoneId: string,
+    @MilestoneParam() milestone: Milestone & { fundraiser: Fundraiser },
     @Body() data: UpdateMilestoneDto,
   ) {
-    return this.milestonesService.update(fundraiserId, milestoneId, data);
+    return this.milestonesService.update(fundraiserId, milestone, data);
   }
 
   /**
    * Delete a milestone
    * DELETE /api/v1/fundraisers/:fundraiserId/milestones/:milestoneId
    */
-  @UseGuards(FundraiserAccessGuard)
+  @UseGuards(FundraiserAccessGuard, FundraiserMilestoneAccessGuard)
   @FundraiserRoles(['admin', 'owner', 'editor'])
   @Delete(':fundraiserId/milestones/:milestoneId')
   @HttpCode(204)
-  async deleteMilestone(
-    @Param('fundraiserId') fundraiserId: string,
-    @Param('milestoneId') milestoneId: string,
-  ) {
-    await this.milestonesService.delete(fundraiserId, milestoneId);
+  async deleteMilestone(@MilestoneParam() milestone: Milestone) {
+    await this.milestonesService.delete(milestone);
   }
 
   /**
    * Complete a milestone with details and proof
    * PATCH /api/v1/fundraisers/:fundraiserId/milestones/:milestoneId/complete
    */
-  @UseGuards(FundraiserAccessGuard)
+  @UseGuards(FundraiserAccessGuard, FundraiserMilestoneAccessGuard)
   @FundraiserRoles(['admin', 'owner', 'editor'])
   @Patch(':fundraiserId/milestones/:milestoneId/complete')
   async completeMilestone(
-    @Param('fundraiserId') fundraiserId: string,
-    @Param('milestoneId') milestoneId: string,
+    @MilestoneParam() milestone: Milestone,
     @Body() data: CompleteMilestoneDto,
   ) {
-    return this.milestonesService.complete(fundraiserId, milestoneId, data);
+    return this.milestonesService.complete(milestone, data);
   }
 
   /**
@@ -203,10 +206,10 @@ export class FundraisersController {
   @UseGuards(FundraiserAccessGuard)
   @Get(':fundraiserId/donations')
   async listDonations(
-    @Param('fundraiserId') fundraiserId: string,
+    @FundraiserParam() fundraiser: Fundraiser,
     @Query() query: ListDonationsDto,
   ) {
-    return this.donationsService.listByFundraiser(fundraiserId, query.status);
+    return this.donationsService.listByFundraiser(fundraiser, query.status);
   }
 
   /**

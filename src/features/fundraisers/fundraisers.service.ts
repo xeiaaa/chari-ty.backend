@@ -634,16 +634,6 @@ export class FundraisersService {
     fundraiserId: string,
     data: AddGalleryItemsDto,
   ) {
-    // Verify fundraiser exists and user has permission
-    const fundraiser = await this.prisma.fundraiser.findUnique({
-      where: { id: fundraiserId },
-      include: { group: true },
-    });
-
-    if (!fundraiser) {
-      throw new NotFoundException('Fundraiser not found');
-    }
-
     // Create gallery items in transaction
     return await this.prisma.$transaction(async (tx) => {
       const galleryItems: (FundraiserGallery & {
@@ -702,16 +692,6 @@ export class FundraisersService {
     galleryItemId: string,
     data: UpdateGalleryItemDto,
   ) {
-    // Verify fundraiser exists and user has permission
-    const fundraiser = await this.prisma.fundraiser.findUnique({
-      where: { id: fundraiserId },
-      include: { group: true },
-    });
-
-    if (!fundraiser) {
-      throw new NotFoundException('Fundraiser not found');
-    }
-
     // Verify gallery item exists and belongs to this fundraiser
     const galleryItem = await this.prisma.fundraiserGallery.findFirst({
       where: {
@@ -743,16 +723,6 @@ export class FundraisersService {
    * Delete a gallery item
    */
   async deleteGalleryItem(fundraiserId: string, galleryItemId: string) {
-    // Verify fundraiser exists and user has permission
-    const fundraiser = await this.prisma.fundraiser.findUnique({
-      where: { id: fundraiserId },
-      include: { group: true },
-    });
-
-    if (!fundraiser) {
-      throw new NotFoundException('Fundraiser not found');
-    }
-
     // Verify gallery item exists and belongs to this fundraiser
     const galleryItem = await this.prisma.fundraiserGallery.findFirst({
       where: {
@@ -786,16 +756,6 @@ export class FundraisersService {
     fundraiserId: string,
     data: ReorderGalleryItemsDto,
   ) {
-    // Verify fundraiser exists and user has permission
-    const fundraiser = await this.prisma.fundraiser.findUnique({
-      where: { id: fundraiserId },
-      include: { group: true },
-    });
-
-    if (!fundraiser) {
-      throw new NotFoundException('Fundraiser not found');
-    }
-
     // Verify all gallery items exist and belong to this fundraiser
     const galleryItemIds = data.orderMap.map(
       (item) => item.fundraiserGalleryId,
