@@ -285,15 +285,15 @@ describe('Links Module', () => {
 
   describe('GET /api/v1/fundraisers/:id/links', () => {
     it('should return all links for a fundraiser', async () => {
-      const { token, group } = await createFakeUserWithToken({
+      const { user, token, group } = await createFakeUserWithToken({
         accountType: AccountType.individual,
         setupComplete: true,
       });
 
       const { fundraiser } = await createFakeFundraiser(group!);
-      await createFakeLink(fundraiser, { alias: 'facebook' });
-      await createFakeLink(fundraiser, { alias: 'twitter' });
-      await createFakeLink(fundraiser, { alias: 'instagram' });
+      await createFakeLink(user, fundraiser, { alias: 'facebook' });
+      await createFakeLink(user, fundraiser, { alias: 'twitter' });
+      await createFakeLink(user, fundraiser, { alias: 'instagram' });
 
       const response = await request(app.getHttpServer())
         .get(createApiPath(`fundraisers/${fundraiser.id}/links`))
@@ -304,15 +304,15 @@ describe('Links Module', () => {
     });
 
     it('should return all links for a fundraiser (as group owner)', async () => {
-      const { token, group } = await createFakeUserWithToken({
+      const { user, token, group } = await createFakeUserWithToken({
         accountType: AccountType.team,
         setupComplete: true,
       });
 
       const { fundraiser } = await createFakeFundraiser(group!);
-      await createFakeLink(fundraiser, { alias: 'facebook' });
-      await createFakeLink(fundraiser, { alias: 'twitter' });
-      await createFakeLink(fundraiser, { alias: 'instagram' });
+      await createFakeLink(user, fundraiser, { alias: 'facebook' });
+      await createFakeLink(user, fundraiser, { alias: 'twitter' });
+      await createFakeLink(user, fundraiser, { alias: 'instagram' });
 
       const response = await request(app.getHttpServer())
         .get(createApiPath(`fundraisers/${fundraiser.id}/links`))
@@ -323,22 +323,22 @@ describe('Links Module', () => {
     });
 
     it('should return all links for a fundraiser (as group admin)', async () => {
-      const { group } = await createFakeUserWithToken({
+      const { user, group } = await createFakeUserWithToken({
         accountType: AccountType.team,
         setupComplete: true,
       });
 
       const { fundraiser } = await createFakeFundraiser(group!);
-      await createFakeLink(fundraiser, { alias: 'facebook' });
-      await createFakeLink(fundraiser, { alias: 'twitter' });
-      await createFakeLink(fundraiser, { alias: 'instagram' });
+      await createFakeLink(user, fundraiser, { alias: 'facebook' });
+      await createFakeLink(user, fundraiser, { alias: 'twitter' });
+      await createFakeLink(user, fundraiser, { alias: 'instagram' });
 
       // Create a group member with admin role
-      const { token, user } = await createFakeUserWithToken({
+      const { token, user: adminUser } = await createFakeUserWithToken({
         accountType: AccountType.individual,
         setupComplete: true,
       });
-      await addUserToGroup(user, group!, GroupMemberRole.admin);
+      await addUserToGroup(adminUser, group!, GroupMemberRole.admin);
 
       const response = await request(app.getHttpServer())
         .get(createApiPath(`fundraisers/${fundraiser.id}/links`))
@@ -348,15 +348,15 @@ describe('Links Module', () => {
     });
 
     it('should return all links for a fundraiser (as group editor)', async () => {
-      const { group } = await createFakeUserWithToken({
+      const { user: owner, group } = await createFakeUserWithToken({
         accountType: AccountType.team,
         setupComplete: true,
       });
 
       const { fundraiser } = await createFakeFundraiser(group!);
-      await createFakeLink(fundraiser, { alias: 'facebook' });
-      await createFakeLink(fundraiser, { alias: 'twitter' });
-      await createFakeLink(fundraiser, { alias: 'instagram' });
+      await createFakeLink(owner, fundraiser, { alias: 'facebook' });
+      await createFakeLink(owner, fundraiser, { alias: 'twitter' });
+      await createFakeLink(owner, fundraiser, { alias: 'instagram' });
 
       // Create a group member with editor role
       const { token, user } = await createFakeUserWithToken({
@@ -373,15 +373,15 @@ describe('Links Module', () => {
     });
 
     it('should return all links for a fundraiser (as group viewer)', async () => {
-      const { group } = await createFakeUserWithToken({
+      const { user: owner, group } = await createFakeUserWithToken({
         accountType: AccountType.team,
         setupComplete: true,
       });
 
       const { fundraiser } = await createFakeFundraiser(group!);
-      await createFakeLink(fundraiser, { alias: 'facebook' });
-      await createFakeLink(fundraiser, { alias: 'twitter' });
-      await createFakeLink(fundraiser, { alias: 'instagram' });
+      await createFakeLink(owner, fundraiser, { alias: 'facebook' });
+      await createFakeLink(owner, fundraiser, { alias: 'twitter' });
+      await createFakeLink(owner, fundraiser, { alias: 'instagram' });
 
       // Create a group member with viewer role
       const { token, user } = await createFakeUserWithToken({
@@ -398,21 +398,25 @@ describe('Links Module', () => {
     });
 
     it('should return filtered links when search query is provided', async () => {
-      const { token, group } = await createFakeUserWithToken({
+      const {
+        user: owner,
+        token,
+        group,
+      } = await createFakeUserWithToken({
         accountType: AccountType.individual,
         setupComplete: true,
       });
 
       const { fundraiser } = await createFakeFundraiser(group!);
-      await createFakeLink(fundraiser, {
+      await createFakeLink(owner, fundraiser, {
         alias: 'facebook',
         note: 'Social media campaign',
       });
-      await createFakeLink(fundraiser, {
+      await createFakeLink(owner, fundraiser, {
         alias: 'twitter',
         note: 'Twitter promotion',
       });
-      await createFakeLink(fundraiser, {
+      await createFakeLink(owner, fundraiser, {
         alias: 'newsletter',
         note: 'Email campaign',
       });
@@ -429,13 +433,13 @@ describe('Links Module', () => {
     });
 
     it('should return 403 when the user tries to list links for a fundraiser they do not own', async () => {
-      const { group } = await createFakeUserWithToken({
+      const { user, group } = await createFakeUserWithToken({
         accountType: AccountType.individual,
         setupComplete: true,
       });
 
       const { fundraiser } = await createFakeFundraiser(group!);
-      await createFakeLink(fundraiser, { alias: 'facebook' });
+      await createFakeLink(user, fundraiser, { alias: 'facebook' });
 
       // Create a different user
       const { token } = await createFakeUserWithToken({
@@ -450,13 +454,13 @@ describe('Links Module', () => {
     });
 
     it('should return 403 when the user tries to list links for a group fundraiser they are not a member of', async () => {
-      const { group } = await createFakeUserWithToken({
+      const { user: owner, group } = await createFakeUserWithToken({
         accountType: AccountType.team,
         setupComplete: true,
       });
 
       const { fundraiser } = await createFakeFundraiser(group!);
-      await createFakeLink(fundraiser, { alias: 'facebook' });
+      await createFakeLink(owner, fundraiser, { alias: 'facebook' });
 
       // Create a different user
       const { token } = await createFakeUserWithToken({
@@ -473,13 +477,19 @@ describe('Links Module', () => {
 
   describe('GET /api/v1/fundraisers/:id/links/:linkId', () => {
     it('should return a specific link', async () => {
-      const { token, group } = await createFakeUserWithToken({
+      const {
+        user: owner,
+        token,
+        group,
+      } = await createFakeUserWithToken({
         accountType: AccountType.individual,
         setupComplete: true,
       });
 
       const { fundraiser } = await createFakeFundraiser(group!);
-      const { link } = await createFakeLink(fundraiser, { alias: 'facebook' });
+      const { link } = await createFakeLink(owner, fundraiser, {
+        alias: 'facebook',
+      });
 
       const response = await request(app.getHttpServer())
         .get(createApiPath(`fundraisers/${fundraiser.id}/links/${link.id}`))
@@ -512,13 +522,15 @@ describe('Links Module', () => {
     });
 
     it('should return 403 when user does not have access to fundraiser', async () => {
-      const { group } = await createFakeUserWithToken({
+      const { user: owner, group } = await createFakeUserWithToken({
         accountType: AccountType.individual,
         setupComplete: true,
       });
 
       const { fundraiser } = await createFakeFundraiser(group!);
-      const { link } = await createFakeLink(fundraiser, { alias: 'facebook' });
+      const { link } = await createFakeLink(owner, fundraiser, {
+        alias: 'facebook',
+      });
 
       // Create a different user
       const { token } = await createFakeUserWithToken({
@@ -535,13 +547,17 @@ describe('Links Module', () => {
 
   describe('PATCH /api/v1/fundraisers/:id/links/:linkId', () => {
     it('should update link for a fundraiser (as individual)', async () => {
-      const { token, group } = await createFakeUserWithToken({
+      const {
+        user: owner,
+        token,
+        group,
+      } = await createFakeUserWithToken({
         accountType: AccountType.individual,
         setupComplete: true,
       });
 
       const { fundraiser } = await createFakeFundraiser(group!);
-      const { link } = await createFakeLink(fundraiser);
+      const { link } = await createFakeLink(owner, fundraiser);
       const updateData = {
         alias: 'updated-alias',
         note: 'Updated note',
@@ -563,13 +579,17 @@ describe('Links Module', () => {
     });
 
     it('should update link for a fundraiser (as group owner)', async () => {
-      const { token, group } = await createFakeUserWithToken({
+      const {
+        user: owner,
+        token,
+        group,
+      } = await createFakeUserWithToken({
         accountType: AccountType.team,
         setupComplete: true,
       });
 
       const { fundraiser } = await createFakeFundraiser(group!);
-      const { link } = await createFakeLink(fundraiser);
+      const { link } = await createFakeLink(owner, fundraiser);
       const updateData = {
         alias: 'updated-alias',
         note: 'Updated note',
@@ -597,13 +617,14 @@ describe('Links Module', () => {
       });
 
       const { fundraiser } = await createFakeFundraiser(group!);
-      const { link } = await createFakeLink(fundraiser);
 
       // Create a group member with admin role
       const { token, user } = await createFakeUserWithToken({
         accountType: AccountType.individual,
         setupComplete: true,
       });
+
+      const { link } = await createFakeLink(user, fundraiser);
       await addUserToGroup(user, group!, GroupMemberRole.admin);
 
       const updateData = {
@@ -615,6 +636,8 @@ describe('Links Module', () => {
         .patch(createApiPath(`fundraisers/${fundraiser.id}/links/${link.id}`))
         .set('Authorization', `Bearer ${token}`)
         .send(updateData);
+
+      console.log(response.body);
 
       expect(response.statusCode).toBe(200);
       expect(response.body).toMatchObject({
@@ -633,13 +656,15 @@ describe('Links Module', () => {
       });
 
       const { fundraiser } = await createFakeFundraiser(group!);
-      const { link } = await createFakeLink(fundraiser);
 
       // Create a group member with editor role
       const { token, user } = await createFakeUserWithToken({
         accountType: AccountType.individual,
         setupComplete: true,
       });
+
+      const { link } = await createFakeLink(user, fundraiser);
+
       await addUserToGroup(user, group!, GroupMemberRole.editor);
 
       const updateData = {
@@ -663,13 +688,13 @@ describe('Links Module', () => {
     });
 
     it('should return 403 when updating link for a fundraiser (as group viewer)', async () => {
-      const { group } = await createFakeUserWithToken({
+      const { user: owner, group } = await createFakeUserWithToken({
         accountType: AccountType.team,
         setupComplete: true,
       });
 
       const { fundraiser } = await createFakeFundraiser(group!);
-      const { link } = await createFakeLink(fundraiser);
+      const { link } = await createFakeLink(owner, fundraiser);
 
       // Create a group member with viewer role
       const { token, user } = await createFakeUserWithToken({
@@ -691,13 +716,13 @@ describe('Links Module', () => {
     });
 
     it('should return 403 when the user tries to update a link for a fundraiser they do not own', async () => {
-      const { group } = await createFakeUserWithToken({
+      const { user: owner, group } = await createFakeUserWithToken({
         accountType: AccountType.individual,
         setupComplete: true,
       });
 
       const { fundraiser } = await createFakeFundraiser(group!);
-      const { link } = await createFakeLink(fundraiser);
+      const { link } = await createFakeLink(owner, fundraiser);
 
       // Create a different user
       const { token } = await createFakeUserWithToken({
@@ -718,13 +743,13 @@ describe('Links Module', () => {
     });
 
     it('should return 403 when the user tries to update a link for a group fundraiser they are not a member of', async () => {
-      const { group } = await createFakeUserWithToken({
+      const { user: owner, group } = await createFakeUserWithToken({
         accountType: AccountType.team,
         setupComplete: true,
       });
 
       const { fundraiser } = await createFakeFundraiser(group!);
-      const { link } = await createFakeLink(fundraiser);
+      const { link } = await createFakeLink(owner, fundraiser);
 
       // Create a different user
       const { token } = await createFakeUserWithToken({
@@ -746,13 +771,17 @@ describe('Links Module', () => {
     });
 
     it('should return 400 when updating a link with invalid data', async () => {
-      const { token, group } = await createFakeUserWithToken({
+      const {
+        user: owner,
+        token,
+        group,
+      } = await createFakeUserWithToken({
         accountType: AccountType.individual,
         setupComplete: true,
       });
 
       const { fundraiser } = await createFakeFundraiser(group!);
-      const { link } = await createFakeLink(fundraiser);
+      const { link } = await createFakeLink(owner, fundraiser);
 
       // Test empty alias
       await request(app.getHttpServer())
@@ -777,16 +806,20 @@ describe('Links Module', () => {
     });
 
     it('should return 409 when updating a link with duplicate alias', async () => {
-      const { token, group } = await createFakeUserWithToken({
+      const {
+        user: owner,
+        token,
+        group,
+      } = await createFakeUserWithToken({
         accountType: AccountType.individual,
         setupComplete: true,
       });
 
       const { fundraiser } = await createFakeFundraiser(group!);
-      await createFakeLink(fundraiser, {
+      await createFakeLink(owner, fundraiser, {
         alias: 'existing-alias',
       });
-      const { link: link2 } = await createFakeLink(fundraiser, {
+      const { link: link2 } = await createFakeLink(owner, fundraiser, {
         alias: 'different-alias',
       });
 
@@ -818,13 +851,17 @@ describe('Links Module', () => {
 
   describe('DELETE /api/v1/fundraisers/:id/links/:linkId', () => {
     it('should delete link from fundraiser (as individual)', async () => {
-      const { token, group } = await createFakeUserWithToken({
+      const {
+        user: owner,
+        token,
+        group,
+      } = await createFakeUserWithToken({
         accountType: AccountType.individual,
         setupComplete: true,
       });
 
       const { fundraiser } = await createFakeFundraiser(group!);
-      const { link } = await createFakeLink(fundraiser);
+      const { link } = await createFakeLink(owner, fundraiser);
 
       await request(app.getHttpServer())
         .delete(createApiPath(`fundraisers/${fundraiser.id}/links/${link.id}`))
@@ -840,13 +877,17 @@ describe('Links Module', () => {
     });
 
     it('should delete link from fundraiser (as group owner)', async () => {
-      const { token, group } = await createFakeUserWithToken({
+      const {
+        user: owner,
+        token,
+        group,
+      } = await createFakeUserWithToken({
         accountType: AccountType.team,
         setupComplete: true,
       });
 
       const { fundraiser } = await createFakeFundraiser(group!);
-      const { link } = await createFakeLink(fundraiser);
+      const { link } = await createFakeLink(owner, fundraiser);
 
       await request(app.getHttpServer())
         .delete(createApiPath(`fundraisers/${fundraiser.id}/links/${link.id}`))
@@ -868,13 +909,13 @@ describe('Links Module', () => {
       });
 
       const { fundraiser } = await createFakeFundraiser(group!);
-      const { link } = await createFakeLink(fundraiser);
-
       // Create a group member with admin role
       const { token, user } = await createFakeUserWithToken({
         accountType: AccountType.individual,
         setupComplete: true,
       });
+      const { link } = await createFakeLink(user, fundraiser);
+
       await addUserToGroup(user, group!, GroupMemberRole.admin);
 
       await request(app.getHttpServer())
@@ -897,13 +938,13 @@ describe('Links Module', () => {
       });
 
       const { fundraiser } = await createFakeFundraiser(group!);
-      const { link } = await createFakeLink(fundraiser);
 
       // Create a group member with editor role
       const { token, user } = await createFakeUserWithToken({
         accountType: AccountType.individual,
         setupComplete: true,
       });
+      const { link } = await createFakeLink(user, fundraiser);
       await addUserToGroup(user, group!, GroupMemberRole.editor);
 
       await request(app.getHttpServer())
@@ -920,13 +961,13 @@ describe('Links Module', () => {
     });
 
     it('should return 403 when deleting link from fundraiser (as group viewer)', async () => {
-      const { group } = await createFakeUserWithToken({
+      const { user: owner, group } = await createFakeUserWithToken({
         accountType: AccountType.team,
         setupComplete: true,
       });
 
       const { fundraiser } = await createFakeFundraiser(group!);
-      const { link } = await createFakeLink(fundraiser);
+      const { link } = await createFakeLink(owner, fundraiser);
 
       // Create a group member with viewer role
       const { token, user } = await createFakeUserWithToken({
@@ -949,13 +990,13 @@ describe('Links Module', () => {
     });
 
     it('should return 403 when the user tries to delete a link from a fundraiser they do not own', async () => {
-      const { group } = await createFakeUserWithToken({
+      const { user: owner, group } = await createFakeUserWithToken({
         accountType: AccountType.individual,
         setupComplete: true,
       });
 
       const { fundraiser } = await createFakeFundraiser(group!);
-      const { link } = await createFakeLink(fundraiser);
+      const { link } = await createFakeLink(owner, fundraiser);
 
       // Create a different user
       const { token } = await createFakeUserWithToken({
@@ -970,13 +1011,13 @@ describe('Links Module', () => {
     });
 
     it('should return 403 when the user tries to delete a link from a group fundraiser they are not a member of', async () => {
-      const { group } = await createFakeUserWithToken({
+      const { user: owner, group } = await createFakeUserWithToken({
         accountType: AccountType.team,
         setupComplete: true,
       });
 
       const { fundraiser } = await createFakeFundraiser(group!);
-      const { link } = await createFakeLink(fundraiser);
+      const { link } = await createFakeLink(owner, fundraiser);
 
       // Create a different user
       const { token } = await createFakeUserWithToken({
@@ -1004,6 +1045,98 @@ describe('Links Module', () => {
         )
         .set('Authorization', `Bearer ${token}`)
         .expect(404);
+    });
+
+    it('should return 403 when user tries to update a link they did not create', async () => {
+      const { user: owner, group } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
+
+      const { fundraiser } = await createFakeFundraiser(group!);
+      const { link } = await createFakeLink(owner, fundraiser);
+
+      // Create a different user who is a member of the group
+      const { token, user } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
+      await addUserToGroup(user, group!, GroupMemberRole.editor);
+
+      const updateData = {
+        alias: 'updated-alias',
+        note: 'Updated note',
+      };
+
+      await request(app.getHttpServer())
+        .patch(createApiPath(`fundraisers/${fundraiser.id}/links/${link.id}`))
+        .set('Authorization', `Bearer ${token}`)
+        .send(updateData)
+        .expect(403);
+    });
+
+    it('should return 403 when user tries to delete a link they did not create', async () => {
+      const { user: owner, group } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
+
+      const { fundraiser } = await createFakeFundraiser(group!);
+      const { link } = await createFakeLink(owner, fundraiser);
+
+      // Create a different user who is a member of the group
+      const { token, user } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
+      await addUserToGroup(user, group!, GroupMemberRole.editor);
+
+      await request(app.getHttpServer())
+        .delete(createApiPath(`fundraisers/${fundraiser.id}/links/${link.id}`))
+        .set('Authorization', `Bearer ${token}`)
+        .expect(403);
+    });
+
+    it('should allow user to update a link they created', async () => {
+      const { token, user, group } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
+
+      const { fundraiser } = await createFakeFundraiser(group!);
+      const { link } = await createFakeLink(user, fundraiser);
+
+      const updateData = {
+        alias: 'updated-alias',
+        note: 'Updated note',
+      };
+
+      const response = await request(app.getHttpServer())
+        .patch(createApiPath(`fundraisers/${fundraiser.id}/links/${link.id}`))
+        .set('Authorization', `Bearer ${token}`)
+        .send(updateData);
+
+      expect(response.statusCode).toBe(200);
+      expect(response.body).toMatchObject({
+        id: link.id,
+        alias: updateData.alias,
+        note: updateData.note,
+      });
+    });
+
+    it('should allow user to delete a link they created', async () => {
+      const { token, user, group } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
+
+      const { fundraiser } = await createFakeFundraiser(group!);
+      const { link } = await createFakeLink(user, fundraiser);
+
+      await request(app.getHttpServer())
+        .delete(createApiPath(`fundraisers/${fundraiser.id}/links/${link.id}`))
+        .set('Authorization', `Bearer ${token}`)
+        .expect(204);
     });
   });
 });

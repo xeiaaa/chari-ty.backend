@@ -3,11 +3,13 @@ import {
   Fundraiser,
   FundraiserLink,
   PrismaClient,
+  User,
 } from '../../generated/prisma';
 
 const prisma = new PrismaClient();
 
 export const createFakeLink = async (
+  user: User,
   fundraiser: Fundraiser,
   override: Partial<FundraiserLink> = {},
 ): Promise<{ link: FundraiserLink }> => {
@@ -18,6 +20,7 @@ export const createFakeLink = async (
       alias: faker.internet.domainWord(),
       note: faker.lorem.sentence(),
       createdAt: faker.date.past(),
+      userId: user.id,
       ...override,
     },
   });

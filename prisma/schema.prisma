@@ -60,6 +60,7 @@ model User {
   donations        Donation[]
   groups           Group[]
   uploads          Upload[]
+  fundraiserLinks  FundraiserLink[]
 
   @@map("users")
 }
@@ -193,6 +194,7 @@ model Milestone {
 model FundraiserLink {
   id           String   @id @default(cuid())
   fundraiserId String
+  userId       String // FK to User who created this link
   alias        String // Required tracking code (e.g. 'facebook-john', 'email-spring')
   note         String? // Optional context (e.g. 'Shared in Facebook community group', 'Spring newsletter')
   createdAt    DateTime @default(now())
@@ -200,6 +202,7 @@ model FundraiserLink {
 
   // Relations
   fundraiser Fundraiser @relation(fields: [fundraiserId], references: [id], onDelete: Cascade)
+  creator    User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   donations  Donation[]
 
   // Ensure alias is unique per fundraiser

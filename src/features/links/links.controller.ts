@@ -17,7 +17,10 @@ import { UpdateLinkDto } from './dtos/update-link.dto';
 import { ListLinksDto } from './dtos/list-links.dto';
 import { FundraiserAccessGuard } from '../fundraisers/guards/fundraiser-access.guard';
 import { FundraiserRoles } from '../fundraisers/decorators/fundraiser-roles.decorator';
+import { LinkOwnerGuard } from './guards/link-owner.guard';
 import { AuthGuard } from '../auth/auth.guard';
+import { AuthUser } from '../../common/decorators';
+import { User } from '../../../generated/prisma';
 
 @Controller('fundraisers/:fundraiserId/links')
 @UseGuards(AuthGuard)
@@ -61,15 +64,16 @@ export class LinksController {
   async createLink(
     @Param('fundraiserId') fundraiserId: string,
     @Body() createLinkDto: CreateLinkDto,
+    @AuthUser() user: User,
   ) {
-    return this.linksService.createLink(fundraiserId, createLinkDto);
+    return this.linksService.createLink(fundraiserId, createLinkDto, user);
   }
 
   /**
    * Update an existing link
    * PATCH /fundraisers/:fundraiserId/links/:linkId
    */
-  @UseGuards(FundraiserAccessGuard)
+  @UseGuards(FundraiserAccessGuard, LinkOwnerGuard)
   @FundraiserRoles(['admin', 'owner', 'editor'])
   @Patch(':linkId')
   async updateLink(
@@ -84,7 +88,7 @@ export class LinksController {
    * Delete a link
    * DELETE /fundraisers/:fundraiserId/links/:linkId
    */
-  @UseGuards(FundraiserAccessGuard)
+  @UseGuards(FundraiserAccessGuard, LinkOwnerGuard)
   @FundraiserRoles(['admin', 'owner', 'editor'])
   @Delete(':linkId')
   @HttpCode(HttpStatus.NO_CONTENT)

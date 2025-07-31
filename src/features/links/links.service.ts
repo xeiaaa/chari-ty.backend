@@ -8,7 +8,7 @@ import { PrismaService } from '../../core/prisma/prisma.service';
 import { CreateLinkDto } from './dtos/create-link.dto';
 import { UpdateLinkDto } from './dtos/update-link.dto';
 import { ListLinksDto } from './dtos/list-links.dto';
-import { Prisma } from '../../../generated/prisma';
+import { Prisma, User } from '../../../generated/prisma';
 
 @Injectable()
 export class LinksService {
@@ -70,13 +70,18 @@ export class LinksService {
   /**
    * Create a new link
    */
-  async createLink(fundraiserId: string, createLinkDto: CreateLinkDto) {
+  async createLink(
+    fundraiserId: string,
+    createLinkDto: CreateLinkDto,
+    user: User,
+  ) {
     try {
       return await this.prisma.fundraiserLink.create({
         data: {
           fundraiserId,
           alias: createLinkDto.alias,
           note: createLinkDto.note,
+          userId: user.id,
         },
         select: {
           id: true,
