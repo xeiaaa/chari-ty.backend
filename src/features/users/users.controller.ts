@@ -148,7 +148,7 @@ export class UsersController {
       };
     } catch (error) {
       throw new BadRequestException(
-        `Failed to generate development token: ${error.message}`,
+        `Failed to generate development token: ${error instanceof Error ? error.message : 'Unknown error'}`,
       );
     }
   }

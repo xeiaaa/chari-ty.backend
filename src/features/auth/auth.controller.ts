@@ -92,15 +92,17 @@ export class AuthController {
         group: result.group,
         groupMember: result.groupMember,
       };
-    } catch (error) {
-      if (error.message === 'User not found in database') {
-        throw new NotFoundException(error.message);
-      }
-      if (error.message === 'User has already completed onboarding') {
-        throw new ConflictException(error.message);
-      }
-      if (error.message === 'Invalid account type') {
-        throw new BadRequestException(error.message);
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        if (error.message === 'User not found in database') {
+          throw new NotFoundException(error.message);
+        }
+        if (error.message === 'User has already completed onboarding') {
+          throw new ConflictException(error.message);
+        }
+        if (error.message === 'Invalid account type') {
+          throw new BadRequestException(error.message);
+        }
       }
 
       // Log unexpected errors and throw generic error

@@ -14,9 +14,13 @@ async function bootstrap() {
   //   'http://localhost:3001',
   // );
   app.enableCors({
-    origin: (_origin, callback) => {
-      callback(null, true);
+    origin: (
+      _origin: string | undefined,
+      callback: (err: Error | null, allow?: boolean) => void,
+    ) => {
+      callback(null, true); // Allow all origins
     },
+
     credentials: true,
     methods: ['GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'PATCH'],
     allowedHeaders: ['Content-Type', 'Authorization', 'x-user-id'],
@@ -41,4 +45,5 @@ async function bootstrap() {
     `Application is running on: http://localhost:${port}/${apiPrefix}`,
   );
 }
-bootstrap();
+
+void bootstrap();

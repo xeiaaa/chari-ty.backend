@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { verifyToken } from '@clerk/express';
-import { createClerkClient } from '@clerk/backend';
+import { ClerkClient, createClerkClient, Invitation } from '@clerk/backend';
 
 /**
  * Interface for Clerk token payload
@@ -16,6 +16,11 @@ export interface ClerkTokenPayload {
   [key: string]: any; // Allow additional properties
 }
 
+export interface ClerkTokenHeader {
+  alg: string;
+  typ: string;
+}
+
 /**
  * ClerkService handles Clerk authentication operations
  */
@@ -23,7 +28,7 @@ export interface ClerkTokenPayload {
 export class ClerkService {
   private readonly clerkSecretKey: string;
   private readonly nodeEnv: string;
-  private readonly clerkClient;
+  private readonly clerkClient: ClerkClient;
 
   constructor(private configService: ConfigService) {
     this.clerkSecretKey = this.configService.get<string>(
@@ -56,8 +61,12 @@ export class ClerkService {
       });
 
       return payload as ClerkTokenPayload;
-    } catch (error) {
-      throw new Error(`Token verification failed: ${error.message}`);
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        throw new Error(`Token verification failed: ${error.message}`);
+      }
+
+      throw new Error('Token verification failed: Unknown error');
     }
   }
 
@@ -69,8 +78,12 @@ export class ClerkService {
       const parts = token.split('.');
       if (parts.length !== 3) return false;
 
-      const header = JSON.parse(Buffer.from(parts[0], 'base64url').toString());
-      const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString());
+      const header = JSON.parse(
+        Buffer.from(parts[0], 'base64url').toString(),
+      ) as ClerkTokenHeader;
+      const payload = JSON.parse(
+        Buffer.from(parts[1], 'base64url').toString(),
+      ) as ClerkTokenPayload;
 
       // Check for development token markers
       return header.alg === 'dev' || payload.iss === 'clerk-dev';
@@ -98,9 +111,27 @@ export class ClerkService {
         throw new Error('Invalid token format');
       }
 
-      const header = JSON.parse(Buffer.from(parts[0], 'base64url').toString());
-      const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString());
+      const header = JSON.parse(
+        Buffer.from(parts[0], 'base64url').toString(),
+      ) as ClerkTokenHeader;
+      const payload = JSON.parse(
+        Buffer.from(parts[1], 'base64url').toString(),
+      ) as ClerkTokenPayload;
       const signature = parts[2];
+
+      /*
+          {
+      header: { alg: 'dev', typ: 'JWT' },
+      payload: {
+        sub: '8e23bf04-f5b9-46ba-a310-3aee399bee7c',
+        email: 'user1@example.com',
+        iat: 1753929205,
+        exp: 1753932805,
+        iss: 'clerk-dev'
+      },
+      signature: 'ZGV2LXNpZ25hdHVyZS04ZTIzYmYwNC1mNWI5LTQ2YmEtYTMxMC0zYWVlMzk5YmVlN2MtMTc1MzkyOTIwNTE2OA'
+    }
+      */
 
       // Validate header
       if (header.alg !== 'dev' || header.typ !== 'JWT') {
@@ -130,10 +161,14 @@ export class ClerkService {
         ...payload,
         userId: payload.sub, // Map sub to userId for compatibility
       };
-    } catch (error) {
-      throw new Error(
-        `Development token verification failed: ${error.message}`,
-      );
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        throw new Error(
+          `Development token verification failed: ${error.message}`,
+        );
+      }
+
+      throw new Error('Development token verification failed: Unknown error');
     }
   }
 
@@ -156,10 +191,10 @@ export class ClerkService {
     groupName: string;
     role: string;
     redirectUrl?: string;
-  }): Promise<any> {
+  }): Promise<Invitation> {
     return await this.clerkClient.invitations.createInvitation({
-      email_address: email,
-      public_metadata: {
+      emailAddress: email,
+      publicMetadata: {
         invitedByEmail,
         invitedByName,
         groupId,

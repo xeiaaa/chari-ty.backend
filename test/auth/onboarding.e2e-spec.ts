@@ -12,6 +12,7 @@ import {
   createTeamOnboardingData,
 } from '../factories/users.factory';
 import { TeamMemberRole } from '../../src/features/auth/dtos/onboarding.dto';
+import { Invitation } from '@clerk/backend';
 
 describe('Auth Module - Onboarding', () => {
   let app: INestApplication<App>;
@@ -22,9 +23,23 @@ describe('Auth Module - Onboarding', () => {
     clerkService = app.get(ClerkService);
 
     // Mock inviteUser method (so it doesn't actually send an email)
-    jest
-      .spyOn(clerkService, 'inviteUser')
-      .mockImplementation(() => Promise.resolve({ id: faker.string.uuid() }));
+    jest.spyOn(clerkService, 'inviteUser').mockImplementation(() =>
+      Promise.resolve({
+        id: faker.string.uuid(),
+        emailAddress: 'test@example.com',
+        publicMetadata: {
+          invitedByEmail: 'inviter@example.com',
+          invitedByName: 'Inviter',
+          groupId: 'group123',
+          groupName: 'Test Group',
+          role: 'member',
+        },
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        object: 'invitation',
+        status: 'pending',
+      } as unknown as Invitation),
+    );
   });
 
   afterAll(async () => {

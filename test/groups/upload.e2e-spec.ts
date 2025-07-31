@@ -97,8 +97,6 @@ describe('Groups Module - Uploads', () => {
         .set('Authorization', `Bearer ${token}`)
         .send(uploadData);
 
-      console.log(response.body);
-
       expect(response.statusCode).toBe(201);
       expect(response.body).toHaveLength(2);
       expect(response.body[0]).toMatchObject({
@@ -440,7 +438,6 @@ describe('Groups Module - Uploads', () => {
         .send(uploadData);
 
       const uploadItems = addResponse.body;
-      console.log({ uploadItems });
 
       // Reorder the uploads (reverse the order)
       const reorderData = {
@@ -464,8 +461,6 @@ describe('Groups Module - Uploads', () => {
         .patch(createApiPath(`groups/${group!.id}/uploads/reorder`))
         .set('Authorization', `Bearer ${token}`)
         .send(reorderData);
-
-      console.log(response.body);
 
       expect(response.statusCode).toBe(200);
       expect(response.body).toHaveLength(3);

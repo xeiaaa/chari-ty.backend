@@ -9,7 +9,7 @@ import { PrismaService } from '../../core/prisma/prisma.service';
 import { CreateCheckoutSessionDto } from './dtos/create-checkout-session.dto';
 import { ListGroupDonationsDto } from './dtos/list-group-donations.dto';
 import Stripe from 'stripe';
-import { User, DonationStatus } from '../../../generated/prisma';
+import { User, DonationStatus, Prisma } from '../../../generated/prisma';
 
 @Injectable()
 export class DonationsService {
@@ -71,7 +71,7 @@ export class DonationsService {
       },
     });
 
-    const frontendUrl = this.configService.get('FRONTEND_URL');
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL');
     if (!frontendUrl) {
       throw new Error('FRONTEND_URL is not configured');
     }
@@ -121,35 +121,18 @@ export class DonationsService {
   /**
    * List donations for a specific fundraiser
    */
-  async listByFundraiser(
-    user: User,
-    fundraiserId: string,
-    status?: DonationStatus,
-  ) {
+  async listByFundraiser(fundraiserId: string, status?: DonationStatus) {
     // Verify fundraiser exists and user has access
     const fundraiser = await this.prisma.fundraiser.findUnique({
       where: { id: fundraiserId },
     });
 
     if (!fundraiser) {
-      throw new BadRequestException('Fundraiser not found');
-    }
-
-    // Check if user has access to this fundraiser's group
-    const groupMember = await this.prisma.groupMember.findFirst({
-      where: {
-        groupId: fundraiser.groupId,
-        userId: user.id,
-        status: 'active',
-      },
-    });
-
-    if (!groupMember) {
-      throw new BadRequestException('Access denied');
+      throw new NotFoundException('Fundraiser not found');
     }
 
     // Build where clause
-    const where: any = {
+    const where: Prisma.DonationWhereInput = {
       fundraiserId,
     };
 
@@ -220,7 +203,7 @@ export class DonationsService {
     }
 
     // Build where clause - only show completed donations for public view
-    const where: any = {
+    const where: Prisma.DonationWhereInput = {
       fundraiserId: fundraiser.id,
       status: DonationStatus.completed,
     };
@@ -305,7 +288,7 @@ export class DonationsService {
     }
 
     // Build where clause for donations
-    const where: any = {
+    const where: Prisma.DonationWhereInput = {
       fundraiser: {
         groupId: group.id,
       },
@@ -344,7 +327,7 @@ export class DonationsService {
     const skip = (page - 1) * limit;
 
     // Build order by clause
-    const orderBy: any = {};
+    const orderBy: Prisma.DonationOrderByWithRelationInput = {};
     orderBy[query.sortBy || 'createdAt'] = query.sortOrder || 'desc';
 
     // Get donations with pagination

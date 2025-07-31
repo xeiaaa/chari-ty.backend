@@ -485,7 +485,6 @@ describe('Milestones Module - Uploads', () => {
         .send(uploadData);
 
       const uploadItems = addResponse.body;
-      console.log({ uploadItems });
 
       // Reorder the uploads (reverse the order)
       const reorderData = {

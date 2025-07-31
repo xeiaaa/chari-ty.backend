@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { FundraisersService } from '../fundraisers/fundraisers.service';
-import { User, AccountType } from '../../../generated/prisma';
+import { User, AccountType, Prisma } from '../../../generated/prisma';
 
 /**
  * UsersService handles all user-related database operations
@@ -105,27 +105,6 @@ export class UsersService {
   }
 
   /**
-   * Get public fundraisers for a user by username
-   * Returns paginated list of public fundraisers for the user
-   */
-  async getUserFundraisers(username: string, query: any) {
-    // First verify the user exists
-    const user = await this.prisma.user.findUnique({
-      where: { username },
-    });
-
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-
-    // Use the fundraisers service to get public fundraisers filtered by user
-    return await this.fundraisersService.listPublic({
-      ...query,
-      userId: user.id,
-    });
-  }
-
-  /**
    * Search for users by partial name, exact email, or exact username
    * Optionally exclude users already in a specific group
    */
@@ -145,7 +124,7 @@ export class UsersService {
     const { q, limit = 10, groupId } = params;
 
     // Build the where clause for the search
-    const whereClause: any = {
+    const whereClause: Prisma.UserWhereInput = {
       OR: [
         // Search by partial name (firstName or lastName)
         {

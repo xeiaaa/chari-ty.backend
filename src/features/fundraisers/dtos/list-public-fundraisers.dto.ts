@@ -32,13 +32,13 @@ export class ListPublicFundraisersDto {
   @IsIn(['asc', 'desc'])
   sortOrder?: 'asc' | 'desc';
 
-  @Transform(({ value }) => parseInt(value))
+  @Transform(({ value }: { value: string }) => parseInt(value))
   @IsNumber()
   @IsOptional()
   @Min(1)
   limit?: number;
 
-  @Transform(({ value }) => parseInt(value))
+  @Transform(({ value }: { value: string }) => parseInt(value))
   @IsNumber()
   @IsOptional()
   @Min(1)

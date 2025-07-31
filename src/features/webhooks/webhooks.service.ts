@@ -9,6 +9,7 @@ import {
   ClerkUserData,
   MappedUserData,
 } from './dtos/clerk-webhook.dto';
+import Stripe from 'stripe';
 
 /**
  * Service to handle Clerk webhook events
@@ -45,7 +46,7 @@ export class WebhooksService {
     } catch (error) {
       this.logger.error(
         `Error processing webhook event ${event.type}:`,
-        error.stack,
+        error instanceof Error ? error.stack : undefined,
       );
       throw error;
     }
@@ -81,7 +82,7 @@ export class WebhooksService {
       // Find the GroupMember row by groupId and invitedEmail
       const groupMember = await this.prisma.groupMember.findFirst({
         where: {
-          groupId: publicMeta.groupId,
+          groupId: publicMeta.groupId as string,
           invitedEmail: mappedData.email,
           userId: null,
         },
@@ -158,25 +159,24 @@ export class WebhooksService {
   /**
    * Process a Stripe webhook event
    */
-  async processStripeWebhook(event: any): Promise<void> {
+  async processStripeWebhook(event: Stripe.Event): Promise<void> {
     this.logger.log(`Processing Stripe webhook: ${event.type}`);
     console.log(event.data);
 
     try {
       switch (event.type) {
         case 'checkout.session.completed':
+        case 'payment_intent.succeeded': {
           await this.handleCheckoutSessionCompleted(event.data.object);
           break;
-        case 'payment_intent.succeeded':
-          await this.handleCheckoutSessionCompleted(event.data.object);
-          break;
+        }
         default:
           this.logger.warn(`Unhandled webhook event type: ${event.type}`);
       }
     } catch (error) {
       this.logger.error(
         `Error processing Stripe webhook event ${event.type}:`,
-        error.stack,
+        error instanceof Error ? error.stack : undefined,
       );
       throw error;
     }
@@ -185,7 +185,9 @@ export class WebhooksService {
   /**
    * Handle checkout.session.completed event
    */
-  private async handleCheckoutSessionCompleted(session: any): Promise<void> {
+  private async handleCheckoutSessionCompleted(
+    session: Stripe.Checkout.Session | Stripe.PaymentIntent,
+  ): Promise<void> {
     this.logger.log(`Processing checkout session completed: ${session.id}`);
 
     const metadata = session.metadata;
@@ -302,7 +304,9 @@ export class WebhooksService {
 
     // Check public_metadata for account type
     if (userData.public_metadata?.accountType) {
-      const metadataAccountType = userData.public_metadata.accountType
+      const metadataAccountType = (
+        userData.public_metadata.accountType as string
+      )
         .toString()
         .toLowerCase();
       if (
@@ -319,9 +323,10 @@ export class WebhooksService {
       firstName: userData.first_name || '',
       lastName: userData.last_name || '',
       avatarUrl: userData.image_url || undefined,
-      bio: userData.public_metadata?.bio || undefined,
+      bio: (userData.public_metadata?.bio as string) || undefined,
       accountType,
-      setupComplete: userData.public_metadata?.setupComplete || false,
+      setupComplete:
+        (userData.public_metadata?.setupComplete as boolean) || false,
     };
   }
 

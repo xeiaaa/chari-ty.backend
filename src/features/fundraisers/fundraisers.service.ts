@@ -10,6 +10,9 @@ import {
   User as UserEntity,
   FundraiserStatus,
   Prisma,
+  Fundraiser,
+  Upload,
+  FundraiserGallery,
 } from '../../../generated/prisma';
 import { Decimal } from '@prisma/client/runtime/library';
 import { ListFundraisersDto } from './dtos/list-fundraisers.dto';
@@ -53,33 +56,6 @@ export class FundraisersService {
     }
 
     return await this.prisma.$transaction(async (tx) => {
-      // Verify group exists
-      const group = await tx.group.findUnique({
-        where: { id: data.groupId },
-      });
-
-      if (!group) {
-        throw new BadRequestException('Group not found');
-      }
-
-      const membership = await tx.groupMember.findUnique({
-        where: {
-          unique_user_group: {
-            userId: user.id,
-            groupId: data.groupId,
-          },
-        },
-      });
-
-      if (
-        !membership ||
-        !['owner', 'admin', 'editor'].includes(membership.role)
-      ) {
-        throw new ForbiddenException(
-          'You do not have permission to create fundraisers for this group',
-        );
-      }
-
       // Handle cover upload if coverPublicId is provided
       let coverId: string | undefined;
       if (data.coverPublicId) {
@@ -106,13 +82,21 @@ export class FundraisersService {
         coverId = upload.id;
       }
 
-      const createData: any = {
+      const createData: Prisma.FundraiserCreateInput = {
         ...fundraiserData,
-        groupId: data.groupId,
+        group: {
+          connect: {
+            id: data.groupId,
+          },
+        },
       };
 
       if (coverId) {
-        createData.coverId = coverId;
+        createData.cover = {
+          connect: {
+            id: coverId,
+          },
+        };
       }
 
       return await tx.fundraiser.create({
@@ -176,7 +160,17 @@ export class FundraisersService {
   /**
    * Enhance fundraisers with progress information
    */
-  private async enhanceFundraisersWithProgress(fundraisers: any[]) {
+  private async enhanceFundraisersWithProgress(
+    fundraisers: (Fundraiser & { goalAmount: Decimal })[],
+  ): Promise<
+    (Fundraiser & {
+      progress: {
+        totalRaised: Decimal;
+        donationCount: number;
+        progressPercentage: number;
+      };
+    })[]
+  > {
     return await Promise.all(
       fundraisers.map(async (fundraiser) => {
         const progress = await this.calculateFundraiserProgress(fundraiser.id);
@@ -292,7 +286,7 @@ export class FundraisersService {
    * Checks if the user has permission to view the fundraiser
    * Includes progress information
    */
-  async findOne(user: UserEntity, fundraiserId: string) {
+  async findOne(fundraiserId: string) {
     const fundraiser = await this.prisma.fundraiser.findUnique({
       where: { id: fundraiserId },
       include: {
@@ -301,32 +295,12 @@ export class FundraisersService {
             upload: true,
           },
         },
+        cover: true,
       },
     });
-
-    if (!fundraiser) {
-      throw new NotFoundException('Fundraiser not found');
-    }
-
-    // Check if user has permission to view this fundraiser
-    const membership = await this.prisma.groupMember.findUnique({
-      where: {
-        unique_user_group: {
-          userId: user.id,
-          groupId: fundraiser.groupId,
-        },
-      },
-    });
-
-    if (!membership) {
-      throw new ForbiddenException(
-        'You do not have permission to view this fundraiser',
-      );
-    }
-
     // Enhance with progress information
     const [enhancedFundraiser] = await this.enhanceFundraisersWithProgress([
-      fundraiser,
+      fundraiser!,
     ]);
     return enhancedFundraiser;
   }
@@ -336,7 +310,7 @@ export class FundraisersService {
    * Checks if the user has permission to view the fundraiser
    * Includes progress information
    */
-  async findBySlug(user: UserEntity, slug: string) {
+  async findBySlug(slug: string) {
     const fundraiser = await this.prisma.fundraiser.findUnique({
       where: { slug },
       include: {
@@ -352,29 +326,9 @@ export class FundraisersService {
       },
     });
 
-    if (!fundraiser) {
-      throw new NotFoundException('Fundraiser not found');
-    }
-
-    // Check if user has permission to view this fundraiser
-    const membership = await this.prisma.groupMember.findUnique({
-      where: {
-        unique_user_group: {
-          userId: user.id,
-          groupId: fundraiser.groupId,
-        },
-      },
-    });
-
-    if (!membership) {
-      throw new ForbiddenException(
-        'You do not have permission to view this fundraiser',
-      );
-    }
-
     // Enhance with progress information
     const [enhancedFundraiser] = await this.enhanceFundraisersWithProgress([
-      fundraiser,
+      fundraiser!,
     ]);
     return enhancedFundraiser;
   }
@@ -390,29 +344,12 @@ export class FundraisersService {
   ) {
     const fundraiser = await this.prisma.fundraiser.findUnique({
       where: { id: fundraiserId },
-      include: {
-        cover: true,
-      },
+      include: { cover: true },
     });
 
     if (!fundraiser) {
-      throw new NotFoundException('Fundraiser not found');
-    }
-
-    // Check member role
-    const membership = await this.prisma.groupMember.findUnique({
-      where: {
-        unique_user_group: {
-          userId: user.id,
-          groupId: fundraiser.groupId,
-        },
-      },
-    });
-
-    if (!membership || membership.role === 'viewer') {
-      throw new ForbiddenException(
-        'You do not have permission to update this fundraiser',
-      );
+      // Should never happen if the guard runs
+      throw new Error('Unreachable: fundraiser must exist due to guard');
     }
 
     // If goalAmount is being updated, check against total milestone amount
@@ -477,29 +414,22 @@ export class FundraisersService {
       coverId = undefined;
     }
 
-    // Process the update data
-    const updateData: any = {
-      ...data,
-      goalAmount: data.goalAmount
-        ? new Decimal(data.goalAmount.toString())
-        : undefined,
-      endDate: data.endDate ? new Date(data.endDate) : undefined,
-    };
-
-    // Handle coverId in update data
-    if (data.removeCover) {
-      updateData.coverId = null; // Explicitly set to null to remove the cover
-    } else if (coverId) {
-      updateData.coverId = coverId; // Set new cover ID
-    }
-
-    delete updateData.removeCover;
-    delete updateData.coverPublicId;
-
     // Update the fundraiser
     return await this.prisma.fundraiser.update({
       where: { id: fundraiserId },
-      data: updateData,
+      data: {
+        title: data.title,
+        summary: data.summary,
+        description: data.description,
+        category: data.category,
+        goalAmount: data.goalAmount
+          ? new Decimal(data.goalAmount.toString())
+          : undefined,
+        endDate: data.endDate ? new Date(data.endDate) : undefined,
+        coverId: data.removeCover ? null : coverId,
+        currency: data.currency,
+        isPublic: data.isPublic,
+      },
     });
   }
 
@@ -507,31 +437,7 @@ export class FundraisersService {
    * Delete a fundraiser
    * Only admins and owners can delete fundraisers
    */
-  async delete(user: UserEntity, fundraiserId: string) {
-    const fundraiser = await this.prisma.fundraiser.findUnique({
-      where: { id: fundraiserId },
-    });
-
-    if (!fundraiser) {
-      throw new NotFoundException('Fundraiser not found');
-    }
-
-    // Check member role
-    const membership = await this.prisma.groupMember.findUnique({
-      where: {
-        unique_user_group: {
-          userId: user.id,
-          groupId: fundraiser.groupId,
-        },
-      },
-    });
-
-    if (!membership || !['owner', 'admin'].includes(membership.role)) {
-      throw new ForbiddenException(
-        'You do not have permission to delete this fundraiser',
-      );
-    }
-
+  async delete(fundraiserId: string) {
     // Delete the fundraiser
     await this.prisma.fundraiser.delete({
       where: { id: fundraiserId },
@@ -675,7 +581,7 @@ export class FundraisersService {
    * Publish or unpublish a fundraiser
    * Updates status to 'published' or 'draft' based on the published parameter
    */
-  async publish(user: UserEntity, fundraiserId: string, published: boolean) {
+  async publish(fundraiserId: string, published: boolean) {
     const fundraiser = await this.prisma.fundraiser.findUnique({
       where: { id: fundraiserId },
       include: { group: true },
@@ -683,22 +589,6 @@ export class FundraisersService {
 
     if (!fundraiser) {
       throw new NotFoundException('Fundraiser not found');
-    }
-
-    // Check member role
-    const membership = await this.prisma.groupMember.findUnique({
-      where: {
-        unique_user_group: {
-          userId: user.id,
-          groupId: fundraiser.groupId,
-        },
-      },
-    });
-
-    if (!membership || membership.role === 'viewer') {
-      throw new ForbiddenException(
-        'You do not have permission to publish this fundraiser',
-      );
     }
 
     // If trying to publish, check if group has Stripe connected
@@ -754,25 +644,11 @@ export class FundraisersService {
       throw new NotFoundException('Fundraiser not found');
     }
 
-    // Check member role
-    const membership = await this.prisma.groupMember.findUnique({
-      where: {
-        unique_user_group: {
-          userId: user.id,
-          groupId: fundraiser.groupId,
-        },
-      },
-    });
-
-    if (!membership || membership.role === 'viewer') {
-      throw new ForbiddenException(
-        'You do not have permission to add gallery items to this fundraiser',
-      );
-    }
-
     // Create gallery items in transaction
     return await this.prisma.$transaction(async (tx) => {
-      const galleryItems: any[] = [];
+      const galleryItems: (FundraiserGallery & {
+        upload: Upload;
+      })[] = [];
 
       for (let i = 0; i < data.items.length; i++) {
         const item = data.items[i];
@@ -822,7 +698,6 @@ export class FundraisersService {
    * Update a gallery item caption
    */
   async updateGalleryItem(
-    user: UserEntity,
     fundraiserId: string,
     galleryItemId: string,
     data: UpdateGalleryItemDto,
@@ -835,22 +710,6 @@ export class FundraisersService {
 
     if (!fundraiser) {
       throw new NotFoundException('Fundraiser not found');
-    }
-
-    // Check member role
-    const membership = await this.prisma.groupMember.findUnique({
-      where: {
-        unique_user_group: {
-          userId: user.id,
-          groupId: fundraiser.groupId,
-        },
-      },
-    });
-
-    if (!membership || membership.role === 'viewer') {
-      throw new ForbiddenException(
-        'You do not have permission to update gallery items for this fundraiser',
-      );
     }
 
     // Verify gallery item exists and belongs to this fundraiser
@@ -883,11 +742,7 @@ export class FundraisersService {
   /**
    * Delete a gallery item
    */
-  async deleteGalleryItem(
-    user: UserEntity,
-    fundraiserId: string,
-    galleryItemId: string,
-  ) {
+  async deleteGalleryItem(fundraiserId: string, galleryItemId: string) {
     // Verify fundraiser exists and user has permission
     const fundraiser = await this.prisma.fundraiser.findUnique({
       where: { id: fundraiserId },
@@ -896,22 +751,6 @@ export class FundraisersService {
 
     if (!fundraiser) {
       throw new NotFoundException('Fundraiser not found');
-    }
-
-    // Check member role
-    const membership = await this.prisma.groupMember.findUnique({
-      where: {
-        unique_user_group: {
-          userId: user.id,
-          groupId: fundraiser.groupId,
-        },
-      },
-    });
-
-    if (!membership || membership.role === 'viewer') {
-      throw new ForbiddenException(
-        'You do not have permission to delete gallery items for this fundraiser',
-      );
     }
 
     // Verify gallery item exists and belongs to this fundraiser
@@ -944,7 +783,6 @@ export class FundraisersService {
    * Reorder gallery items
    */
   async reorderGalleryItems(
-    user: UserEntity,
     fundraiserId: string,
     data: ReorderGalleryItemsDto,
   ) {
@@ -956,22 +794,6 @@ export class FundraisersService {
 
     if (!fundraiser) {
       throw new NotFoundException('Fundraiser not found');
-    }
-
-    // Check member role
-    const membership = await this.prisma.groupMember.findUnique({
-      where: {
-        unique_user_group: {
-          userId: user.id,
-          groupId: fundraiser.groupId,
-        },
-      },
-    });
-
-    if (!membership || membership.role === 'viewer') {
-      throw new ForbiddenException(
-        'You do not have permission to reorder gallery items for this fundraiser',
-      );
     }
 
     // Verify all gallery items exist and belong to this fundraiser
@@ -991,7 +813,7 @@ export class FundraisersService {
 
     // Update the order of all items in a transaction
     return await this.prisma.$transaction(async (tx) => {
-      const updatedItems: any[] = [];
+      const updatedItems: FundraiserGallery[] = [];
 
       for (const item of data.orderMap) {
         const updatedItem = await tx.fundraiserGallery.update({

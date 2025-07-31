@@ -16,7 +16,9 @@ import { Transform } from 'class-transformer';
  */
 export class CreateGroupDto {
   @IsString()
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @Transform(({ value }): string =>
+    typeof value === 'string' ? value.trim() : String(value),
+  )
   @MinLength(2, { message: 'Name must be at least 2 characters' })
   @MaxLength(100, { message: 'Name must be at most 100 characters' })
   name: string;
@@ -34,16 +36,18 @@ export class CreateGroupDto {
   avatarPublicId?: string;
 
   @IsOptional()
-  @ValidateIf((o) => o.website !== '')
+  @ValidateIf((o: CreateGroupDto) => !!o.website?.trim())
   @IsUrl()
   website?: string;
 
   @IsOptional()
   @IsString()
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @Transform(({ value }): string =>
+    typeof value === 'string' ? value.trim() : String(value),
+  )
   @MinLength(9, { message: 'EIN must be at least 9 characters' })
   @MaxLength(10, { message: 'EIN must be at most 10 characters' })
-  @ValidateIf((o) => o.type === 'nonprofit')
+  @ValidateIf((o: CreateGroupDto) => o.type === 'nonprofit')
   ein?: string;
 
   @IsOptional()

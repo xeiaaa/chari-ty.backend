@@ -199,7 +199,7 @@ export class OnboardingService {
           // Check if user is already registered in Clerk
           const existingUsers = await this.clerkService
             .getClerkClient()
-            .users.getUserList({ emailAddress: [member.email] });
+            .users.getUserList({ emailAddress: [member.email ?? ''] });
 
           if (existingUsers.data.length > 0) {
             // Registered: log the invite link

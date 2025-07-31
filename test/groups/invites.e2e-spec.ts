@@ -9,6 +9,7 @@ import {
 } from '../factories/users.factory';
 import { ClerkService } from '../../src/features/auth/clerk.service';
 import { faker } from '@faker-js/faker';
+import { Invitation } from '@clerk/backend';
 
 describe('Groups Module - Invites', () => {
   let app: INestApplication;
@@ -21,9 +22,23 @@ describe('Groups Module - Invites', () => {
     clerkService = app.get(ClerkService);
 
     // Mock inviteUser method (so it doesn't actually send an email)
-    jest
-      .spyOn(clerkService, 'inviteUser')
-      .mockImplementation(() => Promise.resolve({ id: faker.string.uuid() }));
+    jest.spyOn(clerkService, 'inviteUser').mockImplementation(() =>
+      Promise.resolve({
+        id: faker.string.uuid(),
+        emailAddress: 'test@example.com',
+        publicMetadata: {
+          invitedByEmail: 'inviter@example.com',
+          invitedByName: 'Inviter',
+          groupId: 'group123',
+          groupName: 'Test Group',
+          role: 'member',
+        },
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        object: 'invitation',
+        status: 'pending',
+      } as unknown as Invitation),
+    );
   });
 
   beforeEach(async () => {

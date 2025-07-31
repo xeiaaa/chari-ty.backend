@@ -71,7 +71,7 @@ export class PaymentsService {
     }
 
     // Create account link for onboarding
-    const frontendUrl = this.configService.get('FRONTEND_URL');
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL');
     if (!frontendUrl) {
       throw new Error('FRONTEND_URL environment variable is required');
     }

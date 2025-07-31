@@ -5,6 +5,6 @@ import { DonationStatus } from '../../../../generated/prisma';
 export class ListDonationsDto {
   @IsOptional()
   @IsEnum(DonationStatus)
-  @Transform(({ value }) => value?.toLowerCase())
+  @Transform(({ value }: { value: string }) => value?.toLowerCase())
   status?: DonationStatus;
 }

@@ -16,14 +16,17 @@ import {
   User as UserEntity,
   GroupMemberStatus,
   GroupMemberRole,
+  GroupUpload,
+  Upload,
 } from '../../../generated/prisma';
 import { UpdateGroupDto } from './dtos/update-group.dto';
 import { CreateInviteDto } from './dtos/create-invite.dto';
 import { CreateGroupDto } from './dtos/create-group.dto';
-import { DashboardDto } from './dtos/dashboard.dto';
+import { DashboardDto, RecentActivityDto } from './dtos/dashboard.dto';
 import { AddGroupUploadsDto } from './dtos/add-group-uploads.dto';
 import { ReorderGroupUploadsDto } from './dtos/reorder-group-uploads.dto';
 import { UpdateGroupUploadDto } from './dtos/update-group-upload.dto';
+import { ListPublicFundraisersDto } from '../fundraisers/dtos/list-public-fundraisers.dto';
 
 /**
  * GroupsService handles all group-related database operations
@@ -92,7 +95,7 @@ export class GroupsService {
    * Get public fundraisers for a group by slug
    * Returns paginated list of public fundraisers for the group
    */
-  async getGroupFundraisers(slug: string, query: any) {
+  async getGroupFundraisers(slug: string, query: ListPublicFundraisersDto) {
     // First verify the group exists
     const group = await this.prisma.group.findUnique({
       where: { slug },
@@ -380,23 +383,17 @@ export class GroupsService {
       avatarUploadId = undefined;
     }
 
-    // Process the update data
-    const processedUpdateData: any = { ...updateData };
+    const { removeAvatar } = updateData;
 
-    // Handle avatarUploadId in update data
-    if (updateData.removeAvatar) {
-      processedUpdateData.avatarUploadId = null; // Explicitly set to null to remove the avatar
-    } else if (avatarUploadId) {
-      processedUpdateData.avatarUploadId = avatarUploadId; // Set new avatar upload ID
-    }
-
-    delete processedUpdateData.removeAvatar;
-    delete processedUpdateData.avatarPublicId;
+    delete updateData.removeAvatar;
 
     // Update the group
     return this.prisma.group.update({
       where: { slug },
-      data: processedUpdateData,
+      data: {
+        ...updateData,
+        avatarUploadId: removeAvatar ? null : avatarUploadId,
+      },
     });
   }
 
@@ -511,7 +508,7 @@ export class GroupsService {
         invitationId = invitation.id;
       } catch (error) {
         throw new BadRequestException(
-          `Failed to send invitation email: ${error.message}`,
+          `Failed to send invitation email: ${error instanceof Error ? error.message : 'Unknown error'}`,
         );
       }
     }
@@ -845,7 +842,7 @@ export class GroupsService {
    * Get recent activity for a group
    */
   private async getRecentActivity(groupId: string) {
-    const activities: any[] = [];
+    const activities: RecentActivityDto[] = [];
 
     // Get recent fundraisers created
     const recentFundraisers = await this.prisma.fundraiser.findMany({
@@ -942,6 +939,7 @@ export class GroupsService {
     }
 
     // Sort all activities by date and take the most recent 10
+    console.log({ activities });
     return activities
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
       .slice(0, 10);
@@ -1100,7 +1098,7 @@ export class GroupsService {
 
     // Create group upload items in transaction
     return await this.prisma.$transaction(async (tx) => {
-      const groupUploadItems: any[] = [];
+      const groupUploadItems: GroupUpload[] = [];
 
       for (let i = 0; i < data.items.length; i++) {
         const item = data.items[i];
@@ -1108,7 +1106,7 @@ export class GroupsService {
         // Get Cloudinary resource by publicId
         const cloudinaryResource =
           await this.uploadsService.getResourceByPublicId(item.publicId);
-        console.log({ cloudinaryResource });
+
         // Convert Cloudinary resource to CloudinaryAssetDto format
         const asset = {
           cloudinaryAssetId: cloudinaryResource.asset_id,
@@ -1315,7 +1313,7 @@ export class GroupsService {
 
     // Update the order of all items in a transaction
     return await this.prisma.$transaction(async (tx) => {
-      const updatedItems: any[] = [];
+      const updatedItems: (GroupUpload & { upload: Upload })[] = [];
 
       for (const item of data.orderMap) {
         const updatedItem = await tx.groupUpload.update({

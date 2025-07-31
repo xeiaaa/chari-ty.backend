@@ -27,6 +27,11 @@ import { ListDonationsDto } from '../donations/dtos/list-donations.dto';
 import { AddGalleryItemsDto } from './dtos/add-gallery-items.dto';
 import { UpdateGalleryItemDto } from './dtos/update-gallery-item.dto';
 import { ReorderGalleryItemsDto } from './dtos/reorder-gallery-items.dto';
+import { FundraiserAccessGuard } from './guards/fundraiser-access.guard';
+import { FundraiserRoles } from './decorators/fundraiser-roles.decorator';
+import { GroupAccessGuard } from '../groups/guards/group-access.guard';
+import { GroupRoles } from '../groups/decorators/group-roles.decorator';
+import { FundraiserSlugAccessGuard } from './guards/fundraiser-slug-access.guard';
 
 @Controller('fundraisers')
 @UseGuards(AuthGuard)
@@ -41,6 +46,9 @@ export class FundraisersController {
    * Create a new fundraiser
    * POST /api/v1/fundraisers
    */
+  @UseGuards(GroupAccessGuard)
+  @GroupRoles(['admin', 'owner', 'editor'])
+  @UseGuards(AuthGuard)
   @Post()
   async create(
     @Body() data: CreateFundraiserDto,
@@ -62,27 +70,28 @@ export class FundraisersController {
    * Get a single fundraiser by ID
    * GET /api/v1/fundraisers/:fundraiserId
    */
+  @UseGuards(FundraiserAccessGuard)
   @Get(':fundraiserId')
-  async findOne(
-    @Param('fundraiserId') fundraiserId: string,
-    @AuthUser() user: UserEntity,
-  ) {
-    return this.fundraisersService.findOne(user, fundraiserId);
+  async findOne(@Param('fundraiserId') fundraiserId: string) {
+    return this.fundraisersService.findOne(fundraiserId);
   }
 
   /**
    * Get a single fundraiser by slug
    * GET /api/v1/fundraisers/slug/:slug
    */
+  @UseGuards(FundraiserSlugAccessGuard)
   @Get('slug/:slug')
-  async findBySlug(@Param('slug') slug: string, @AuthUser() user: UserEntity) {
-    return await this.fundraisersService.findBySlug(user, slug);
+  async findBySlug(@Param('slug') slug: string) {
+    return await this.fundraisersService.findBySlug(slug);
   }
 
   /**
    * Update a fundraiser
    * PATCH /api/v1/fundraisers/:fundraiserId
    */
+  @UseGuards(FundraiserAccessGuard)
+  @FundraiserRoles(['admin', 'owner', 'editor'])
   @Patch(':fundraiserId')
   async update(
     @Param('fundraiserId') fundraiserId: string,
@@ -96,121 +105,116 @@ export class FundraisersController {
    * Delete a fundraiser
    * DELETE /api/v1/fundraisers/:fundraiserId
    */
+  @UseGuards(FundraiserAccessGuard)
+  @FundraiserRoles(['admin', 'owner'])
   @Delete(':fundraiserId')
   @HttpCode(204)
-  async delete(
-    @Param('fundraiserId') fundraiserId: string,
-    @AuthUser() user: UserEntity,
-  ) {
-    await this.fundraisersService.delete(user, fundraiserId);
+  async delete(@Param('fundraiserId') fundraiserId: string) {
+    await this.fundraisersService.delete(fundraiserId);
   }
 
   /**
    * Publish or unpublish a fundraiser
    * PATCH /api/v1/fundraisers/:fundraiserId/publish
    */
+  @UseGuards(FundraiserAccessGuard)
+  @FundraiserRoles(['admin', 'owner', 'editor'])
   @Patch(':fundraiserId/publish')
   async publish(
     @Param('fundraiserId') fundraiserId: string,
     @Body() data: PublishFundraiserDto,
-    @AuthUser() user: UserEntity,
   ) {
-    return this.fundraisersService.publish(user, fundraiserId, data.published);
+    return this.fundraisersService.publish(fundraiserId, data.published);
   }
 
   /**
    * Create a milestone for a fundraiser
    * POST /api/v1/fundraisers/:fundraiserId/milestones
    */
+  @UseGuards(FundraiserAccessGuard)
+  @FundraiserRoles(['admin', 'owner', 'editor'])
   @Post(':fundraiserId/milestones')
   async createMilestone(
     @Param('fundraiserId') fundraiserId: string,
     @Body() data: CreateMilestoneDto,
-    @AuthUser() user: UserEntity,
   ) {
-    return this.milestonesService.create(user, fundraiserId, data);
+    return this.milestonesService.create(fundraiserId, data);
   }
 
   /**
    * List milestones for a fundraiser
    * GET /api/v1/fundraisers/:fundraiserId/milestones
    */
+  @UseGuards(FundraiserAccessGuard)
   @Get(':fundraiserId/milestones')
-  async listMilestones(
-    @Param('fundraiserId') fundraiserId: string,
-    @AuthUser() user: UserEntity,
-  ) {
-    return this.milestonesService.list(user, fundraiserId);
+  async listMilestones(@Param('fundraiserId') fundraiserId: string) {
+    return this.milestonesService.list(fundraiserId);
   }
 
   /**
    * Update a milestone
    * PATCH /api/v1/fundraisers/:fundraiserId/milestones/:milestoneId
    */
+  @UseGuards(FundraiserAccessGuard)
+  @FundraiserRoles(['admin', 'owner', 'editor'])
   @Patch(':fundraiserId/milestones/:milestoneId')
   async updateMilestone(
     @Param('fundraiserId') fundraiserId: string,
     @Param('milestoneId') milestoneId: string,
     @Body() data: UpdateMilestoneDto,
-    @AuthUser() user: UserEntity,
   ) {
-    return this.milestonesService.update(user, fundraiserId, milestoneId, data);
+    return this.milestonesService.update(fundraiserId, milestoneId, data);
   }
 
   /**
    * Delete a milestone
    * DELETE /api/v1/fundraisers/:fundraiserId/milestones/:milestoneId
    */
+  @UseGuards(FundraiserAccessGuard)
+  @FundraiserRoles(['admin', 'owner', 'editor'])
   @Delete(':fundraiserId/milestones/:milestoneId')
   @HttpCode(204)
   async deleteMilestone(
     @Param('fundraiserId') fundraiserId: string,
     @Param('milestoneId') milestoneId: string,
-    @AuthUser() user: UserEntity,
   ) {
-    await this.milestonesService.delete(user, fundraiserId, milestoneId);
+    await this.milestonesService.delete(fundraiserId, milestoneId);
   }
 
   /**
    * Complete a milestone with details and proof
    * PATCH /api/v1/fundraisers/:fundraiserId/milestones/:milestoneId/complete
    */
+  @UseGuards(FundraiserAccessGuard)
+  @FundraiserRoles(['admin', 'owner', 'editor'])
   @Patch(':fundraiserId/milestones/:milestoneId/complete')
   async completeMilestone(
     @Param('fundraiserId') fundraiserId: string,
     @Param('milestoneId') milestoneId: string,
     @Body() data: CompleteMilestoneDto,
-    @AuthUser() user: UserEntity,
   ) {
-    return this.milestonesService.complete(
-      user,
-      fundraiserId,
-      milestoneId,
-      data,
-    );
+    return this.milestonesService.complete(fundraiserId, milestoneId, data);
   }
 
   /**
    * List donations for a fundraiser
    * GET /api/v1/fundraisers/:fundraiserId/donations
    */
+  @UseGuards(FundraiserAccessGuard)
   @Get(':fundraiserId/donations')
   async listDonations(
     @Param('fundraiserId') fundraiserId: string,
     @Query() query: ListDonationsDto,
-    @AuthUser() user: UserEntity,
   ) {
-    return this.donationsService.listByFundraiser(
-      user,
-      fundraiserId,
-      query.status,
-    );
+    return this.donationsService.listByFundraiser(fundraiserId, query.status);
   }
 
   /**
    * Add gallery items to a fundraiser
    * POST /api/v1/fundraisers/:fundraiserId/gallery
    */
+  @UseGuards(FundraiserAccessGuard)
+  @FundraiserRoles(['admin', 'owner', 'editor'])
   @Post(':fundraiserId/gallery')
   async addGalleryItems(
     @Param('fundraiserId') fundraiserId: string,
@@ -224,33 +228,29 @@ export class FundraisersController {
    * Reorder gallery items
    * PATCH /api/v1/fundraisers/:fundraiserId/gallery/reorder
    */
+  @UseGuards(FundraiserAccessGuard)
+  @FundraiserRoles(['admin', 'owner', 'editor'])
   @Patch(':fundraiserId/gallery/reorder')
   async reorderGalleryItems(
     @Param('fundraiserId') fundraiserId: string,
     @Body() data: ReorderGalleryItemsDto,
-    @AuthUser() user: UserEntity,
   ) {
-    console.log('reorderGalleryItems', data);
-    return this.fundraisersService.reorderGalleryItems(
-      user,
-      fundraiserId,
-      data,
-    );
+    return this.fundraisersService.reorderGalleryItems(fundraiserId, data);
   }
 
   /**
    * Update a gallery item caption
    * PATCH /api/v1/fundraisers/:fundraiserId/gallery/:galleryItemId
    */
+  @UseGuards(FundraiserAccessGuard)
+  @FundraiserRoles(['admin', 'owner', 'editor'])
   @Patch(':fundraiserId/gallery/:galleryItemId')
   async updateGalleryItem(
     @Param('fundraiserId') fundraiserId: string,
     @Param('galleryItemId') galleryItemId: string,
     @Body() data: UpdateGalleryItemDto,
-    @AuthUser() user: UserEntity,
   ) {
     return this.fundraisersService.updateGalleryItem(
-      user,
       fundraiserId,
       galleryItemId,
       data,
@@ -261,15 +261,15 @@ export class FundraisersController {
    * Delete a gallery item
    * DELETE /api/v1/fundraisers/:fundraiserId/gallery/:galleryItemId
    */
+  @UseGuards(FundraiserAccessGuard)
+  @FundraiserRoles(['admin', 'owner', 'editor'])
   @Delete(':fundraiserId/gallery/:galleryItemId')
   @HttpCode(204)
   async deleteGalleryItem(
     @Param('fundraiserId') fundraiserId: string,
     @Param('galleryItemId') galleryItemId: string,
-    @AuthUser() user: UserEntity,
   ) {
     await this.fundraisersService.deleteGalleryItem(
-      user,
       fundraiserId,
       galleryItemId,
     );

@@ -63,7 +63,7 @@ export class ListGroupDonationsDto {
 
   @IsOptional()
   @IsEnum(DonationStatus)
-  @Transform(({ value }) => value?.toLowerCase())
+  @Transform(({ value }: { value: string }) => value?.toLowerCase())
   status?: DonationStatus;
 
   @IsOptional()

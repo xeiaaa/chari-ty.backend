@@ -8,6 +8,7 @@ import { PrismaService } from '../../core/prisma/prisma.service';
 import { CreateLinkDto } from './dtos/create-link.dto';
 import { UpdateLinkDto } from './dtos/update-link.dto';
 import { ListLinksDto } from './dtos/list-links.dto';
+import { Prisma } from '../../../generated/prisma';
 
 @Injectable()
 export class LinksService {
@@ -20,7 +21,7 @@ export class LinksService {
     // Check if fundraiser exists and user has permission
     await this.validateFundraiserAccess(fundraiserId, userId);
 
-    const whereClause: any = {
+    const whereClause: Prisma.FundraiserLinkWhereInput = {
       fundraiserId,
     };
 
@@ -99,7 +100,10 @@ export class LinksService {
         },
       });
     } catch (error) {
-      if (error.code === 'P2002') {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
         throw new ConflictException(
           'A link with this alias already exists for this fundraiser',
         );
@@ -145,7 +149,10 @@ export class LinksService {
         },
       });
     } catch (error) {
-      if (error.code === 'P2002') {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
         throw new ConflictException(
           'A link with this alias already exists for this fundraiser',
         );

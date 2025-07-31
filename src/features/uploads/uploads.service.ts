@@ -142,7 +142,7 @@ export class UploadsService {
    * Get a Cloudinary resource by its public ID
    */
   async getResourceByPublicId(publicId: string): Promise<CloudinaryResource> {
-    return await cloudinary.api.resource(publicId);
+    return (await cloudinary.api.resource(publicId)) as CloudinaryResource;
   }
 
   /**
@@ -151,6 +151,6 @@ export class UploadsService {
   async deleteCloudinaryResource(
     publicId: string,
   ): Promise<{ result: string }> {
-    return await cloudinary.uploader.destroy(publicId);
+    return (await cloudinary.uploader.destroy(publicId)) as { result: string };
   }
 }

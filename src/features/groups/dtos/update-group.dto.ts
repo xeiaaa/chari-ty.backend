@@ -18,7 +18,9 @@ import { Transform } from 'class-transformer';
 export class UpdateGroupDto {
   @IsOptional()
   @IsString()
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.trim() : String(value),
+  )
   @MinLength(1, { message: 'Name is required' })
   name?: string;
 
@@ -35,13 +37,15 @@ export class UpdateGroupDto {
   avatarPublicId?: string;
 
   @IsOptional()
-  @ValidateIf((o) => o.website !== '')
+  @ValidateIf((o: UpdateGroupDto) => !!o.website?.trim())
   @IsUrl()
   website?: string;
 
   @IsOptional()
   @IsString()
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.trim() : String(value),
+  )
   @MinLength(9, { message: 'EIN must be at least 9 characters' })
   @MaxLength(10, { message: 'EIN must be at most 10 characters' })
   ein?: string;
