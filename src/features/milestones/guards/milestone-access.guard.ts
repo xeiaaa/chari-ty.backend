@@ -26,7 +26,6 @@ export class MilestoneAccessGuard implements CanActivate {
       milestone: Milestone;
     } = context.switchToHttp().getRequest();
     const user = req.authUser;
-    const fundraiser = req.fundraiser;
     const milestoneId = req.params.milestoneId;
 
     if (!milestoneId) {
@@ -36,6 +35,7 @@ export class MilestoneAccessGuard implements CanActivate {
     if (!user) {
       throw new ForbiddenException('Unauthorized access');
     }
+
     // First, verify the fundraiser and milestone exist
     const milestone = await this.prisma.milestone.findUnique({
       where: { id: milestoneId },
@@ -46,9 +46,19 @@ export class MilestoneAccessGuard implements CanActivate {
       throw new NotFoundException('Milestone not found');
     }
 
-    if (milestone.fundraiserId !== fundraiser.id) {
-      throw new BadRequestException(
-        'Milestone does not belong to this fundraiser',
+    // Check group membership and role
+    const membership = await this.prisma.groupMember.findUnique({
+      where: {
+        unique_user_group: {
+          userId: user.id,
+          groupId: milestone.fundraiser.groupId,
+        },
+      },
+    });
+
+    if (!membership || membership.role === 'viewer') {
+      throw new ForbiddenException(
+        'You do not have permission to access this milestone',
       );
     }
 

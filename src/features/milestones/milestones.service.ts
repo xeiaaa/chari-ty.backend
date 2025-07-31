@@ -1,7 +1,6 @@
 import {
   Injectable,
   NotFoundException,
-  ForbiddenException,
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
@@ -255,32 +254,6 @@ export class MilestonesService {
     milestoneId: string,
     data: AddMilestoneUploadsDto,
   ) {
-    // Verify milestone exists and user has permission
-    const milestone = await this.prisma.milestone.findUnique({
-      where: { id: milestoneId },
-      include: { fundraiser: true },
-    });
-
-    if (!milestone) {
-      throw new NotFoundException('Milestone not found');
-    }
-
-    // Check group membership and role
-    const membership = await this.prisma.groupMember.findUnique({
-      where: {
-        unique_user_group: {
-          userId: user.id,
-          groupId: milestone.fundraiser.groupId,
-        },
-      },
-    });
-
-    if (!membership || membership.role === 'viewer') {
-      throw new ForbiddenException(
-        'You do not have permission to add uploads to this milestone',
-      );
-    }
-
     // Create milestone upload items in transaction
     return await this.prisma.$transaction(async (tx) => {
       const milestoneUploadItems: (MilestoneUpload & { upload: Upload })[] = [];
@@ -333,37 +306,10 @@ export class MilestonesService {
    * Update a milestone upload caption
    */
   async updateMilestoneUpload(
-    user: UserEntity,
     milestoneId: string,
     uploadItemId: string,
     data: UpdateMilestoneUploadDto,
   ) {
-    // Verify milestone exists and user has permission
-    const milestone = await this.prisma.milestone.findUnique({
-      where: { id: milestoneId },
-      include: { fundraiser: true },
-    });
-
-    if (!milestone) {
-      throw new NotFoundException('Milestone not found');
-    }
-
-    // Check group membership and role
-    const membership = await this.prisma.groupMember.findUnique({
-      where: {
-        unique_user_group: {
-          userId: user.id,
-          groupId: milestone.fundraiser.groupId,
-        },
-      },
-    });
-
-    if (!membership || membership.role === 'viewer') {
-      throw new ForbiddenException(
-        'You do not have permission to update uploads for this milestone',
-      );
-    }
-
     // Verify upload item exists and belongs to this milestone
     const uploadItem = await this.prisma.milestoneUpload.findFirst({
       where: {
@@ -394,37 +340,7 @@ export class MilestonesService {
   /**
    * Delete a milestone upload
    */
-  async deleteMilestoneUpload(
-    user: UserEntity,
-    milestoneId: string,
-    uploadItemId: string,
-  ) {
-    // Verify milestone exists and user has permission
-    const milestone = await this.prisma.milestone.findUnique({
-      where: { id: milestoneId },
-      include: { fundraiser: true },
-    });
-
-    if (!milestone) {
-      throw new NotFoundException('Milestone not found');
-    }
-
-    // Check group membership and role
-    const membership = await this.prisma.groupMember.findUnique({
-      where: {
-        unique_user_group: {
-          userId: user.id,
-          groupId: milestone.fundraiser.groupId,
-        },
-      },
-    });
-
-    if (!membership || membership.role === 'viewer') {
-      throw new ForbiddenException(
-        'You do not have permission to delete uploads for this milestone',
-      );
-    }
-
+  async deleteMilestoneUpload(milestoneId: string, uploadItemId: string) {
     // Verify upload item exists and belongs to this milestone
     const uploadItem = await this.prisma.milestoneUpload.findFirst({
       where: {
@@ -455,36 +371,9 @@ export class MilestonesService {
    * Reorder milestone uploads
    */
   async reorderMilestoneUploads(
-    user: UserEntity,
     milestoneId: string,
     data: ReorderMilestoneUploadsDto,
   ) {
-    // Verify milestone exists and user has permission
-    const milestone = await this.prisma.milestone.findUnique({
-      where: { id: milestoneId },
-      include: { fundraiser: true },
-    });
-
-    if (!milestone) {
-      throw new NotFoundException('Milestone not found');
-    }
-
-    // Check group membership and role
-    const membership = await this.prisma.groupMember.findUnique({
-      where: {
-        unique_user_group: {
-          userId: user.id,
-          groupId: milestone.fundraiser.groupId,
-        },
-      },
-    });
-
-    if (!membership || membership.role === 'viewer') {
-      throw new ForbiddenException(
-        'You do not have permission to reorder uploads for this milestone',
-      );
-    }
-
     // Verify all upload items exist and belong to this milestone
     const uploadItemIds = data.orderMap.map((item) => item.milestoneUploadId);
     const existingItems = await this.prisma.milestoneUpload.findMany({

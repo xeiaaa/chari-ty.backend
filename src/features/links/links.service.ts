@@ -17,10 +17,7 @@ export class LinksService {
   /**
    * Get all links for a fundraiser
    */
-  async getLinks(fundraiserId: string, userId: string, query?: ListLinksDto) {
-    // Check if fundraiser exists and user has permission
-    await this.validateFundraiserAccess(fundraiserId, userId);
-
+  async getLinks(fundraiserId: string, query?: ListLinksDto) {
     const whereClause: Prisma.FundraiserLinkWhereInput = {
       fundraiserId,
     };
@@ -48,10 +45,7 @@ export class LinksService {
   /**
    * Get a specific link by ID
    */
-  async getLinkById(fundraiserId: string, linkId: string, userId: string) {
-    // Check if fundraiser exists and user has permission
-    await this.validateFundraiserAccess(fundraiserId, userId);
-
+  async getLinkById(fundraiserId: string, linkId: string) {
     const link = await this.prisma.fundraiserLink.findFirst({
       where: {
         id: linkId,
@@ -76,14 +70,7 @@ export class LinksService {
   /**
    * Create a new link
    */
-  async createLink(
-    fundraiserId: string,
-    userId: string,
-    createLinkDto: CreateLinkDto,
-  ) {
-    // Check if fundraiser exists and user has permission to edit
-    await this.validateFundraiserEditAccess(fundraiserId, userId);
-
+  async createLink(fundraiserId: string, createLinkDto: CreateLinkDto) {
     try {
       return await this.prisma.fundraiserLink.create({
         data: {
@@ -118,12 +105,8 @@ export class LinksService {
   async updateLink(
     fundraiserId: string,
     linkId: string,
-    userId: string,
     updateLinkDto: UpdateLinkDto,
   ) {
-    // Check if fundraiser exists and user has permission to edit
-    await this.validateFundraiserEditAccess(fundraiserId, userId);
-
     // Check if link exists and belongs to the fundraiser
     const existingLink = await this.prisma.fundraiserLink.findFirst({
       where: {
@@ -164,10 +147,7 @@ export class LinksService {
   /**
    * Delete a link
    */
-  async deleteLink(fundraiserId: string, linkId: string, userId: string) {
-    // Check if fundraiser exists and user has permission to edit
-    await this.validateFundraiserEditAccess(fundraiserId, userId);
-
+  async deleteLink(fundraiserId: string, linkId: string) {
     // Check if link exists and belongs to the fundraiser
     const existingLink = await this.prisma.fundraiserLink.findFirst({
       where: {

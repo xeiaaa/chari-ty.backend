@@ -15,6 +15,7 @@ import { MilestonesService } from './milestones.service';
 import { AddMilestoneUploadsDto } from './dtos/add-milestone-uploads.dto';
 import { ReorderMilestoneUploadsDto } from './dtos/reorder-milestone-uploads.dto';
 import { UpdateMilestoneUploadDto } from './dtos/update-milestone-upload.dto';
+import { MilestoneAccessGuard } from './guards/milestone-access.guard';
 
 @Controller('milestones')
 @UseGuards(AuthGuard)
@@ -25,6 +26,7 @@ export class MilestonesController {
    * Add uploads to a milestone
    * POST /api/v1/milestones/:milestoneId/uploads
    */
+  @UseGuards(MilestoneAccessGuard)
   @Post(':milestoneId/uploads')
   async addMilestoneUploads(
     @Param('milestoneId') milestoneId: string,
@@ -42,14 +44,13 @@ export class MilestonesController {
    * Reorder milestone uploads
    * PATCH /api/v1/milestones/:milestoneId/uploads/reorder
    */
+  @UseGuards(MilestoneAccessGuard)
   @Patch(':milestoneId/uploads/reorder')
   async reorderMilestoneUploads(
     @Param('milestoneId') milestoneId: string,
     @Body() data: ReorderMilestoneUploadsDto,
-    @AuthUser() user: UserEntity,
   ) {
     return await this.milestonesService.reorderMilestoneUploads(
-      user,
       milestoneId,
       data,
     );
@@ -59,15 +60,14 @@ export class MilestonesController {
    * Update a milestone upload caption
    * PATCH /api/v1/milestones/:milestoneId/uploads/:uploadItemId
    */
+  @UseGuards(MilestoneAccessGuard)
   @Patch(':milestoneId/uploads/:uploadItemId')
   async updateMilestoneUpload(
     @Param('milestoneId') milestoneId: string,
     @Param('uploadItemId') uploadItemId: string,
     @Body() data: UpdateMilestoneUploadDto,
-    @AuthUser() user: UserEntity,
   ) {
     return await this.milestonesService.updateMilestoneUpload(
-      user,
       milestoneId,
       uploadItemId,
       data,
@@ -78,15 +78,14 @@ export class MilestonesController {
    * Delete a milestone upload
    * DELETE /api/v1/milestones/:milestoneId/uploads/:uploadItemId
    */
+  @UseGuards(MilestoneAccessGuard)
   @Delete(':milestoneId/uploads/:uploadItemId')
   @HttpCode(204)
   async deleteMilestoneUpload(
     @Param('milestoneId') milestoneId: string,
     @Param('uploadItemId') uploadItemId: string,
-    @AuthUser() user: UserEntity,
   ) {
     await this.milestonesService.deleteMilestoneUpload(
-      user,
       milestoneId,
       uploadItemId,
     );

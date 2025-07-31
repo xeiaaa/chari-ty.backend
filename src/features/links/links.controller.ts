@@ -9,14 +9,18 @@ import {
   Query,
   HttpCode,
   HttpStatus,
+  UseGuards,
 } from '@nestjs/common';
 import { LinksService } from './links.service';
 import { CreateLinkDto } from './dtos/create-link.dto';
 import { UpdateLinkDto } from './dtos/update-link.dto';
 import { ListLinksDto } from './dtos/list-links.dto';
-import { AuthUser } from '../../common/decorators';
+import { FundraiserAccessGuard } from '../fundraisers/guards/fundraiser-access.guard';
+import { FundraiserRoles } from '../fundraisers/decorators/fundraiser-roles.decorator';
+import { AuthGuard } from '../auth/auth.guard';
 
 @Controller('fundraisers/:fundraiserId/links')
+@UseGuards(AuthGuard)
 export class LinksController {
   constructor(private readonly linksService: LinksService) {}
 
@@ -24,72 +28,70 @@ export class LinksController {
    * Get all links for a fundraiser
    * GET /fundraisers/:fundraiserId/links
    */
+  @UseGuards(FundraiserAccessGuard)
   @Get()
   async getLinks(
     @Param('fundraiserId') fundraiserId: string,
-    @AuthUser('id') userId: string,
     @Query() query: ListLinksDto,
   ) {
-    return this.linksService.getLinks(fundraiserId, userId, query);
+    return this.linksService.getLinks(fundraiserId, query);
   }
 
   /**
    * Get a specific link by ID
    * GET /fundraisers/:fundraiserId/links/:linkId
    */
+  @UseGuards(FundraiserAccessGuard)
   @Get(':linkId')
   async getLinkById(
     @Param('fundraiserId') fundraiserId: string,
     @Param('linkId') linkId: string,
-    @AuthUser('id') userId: string,
   ) {
-    return this.linksService.getLinkById(fundraiserId, linkId, userId);
+    return this.linksService.getLinkById(fundraiserId, linkId);
   }
 
   /**
    * Create a new link
    * POST /fundraisers/:fundraiserId/links
    */
+  @UseGuards(FundraiserAccessGuard)
+  @FundraiserRoles(['admin', 'owner', 'editor'])
   @Post()
   @HttpCode(HttpStatus.CREATED)
   async createLink(
     @Param('fundraiserId') fundraiserId: string,
-    @AuthUser('id') userId: string,
     @Body() createLinkDto: CreateLinkDto,
   ) {
-    return this.linksService.createLink(fundraiserId, userId, createLinkDto);
+    return this.linksService.createLink(fundraiserId, createLinkDto);
   }
 
   /**
    * Update an existing link
    * PATCH /fundraisers/:fundraiserId/links/:linkId
    */
+  @UseGuards(FundraiserAccessGuard)
+  @FundraiserRoles(['admin', 'owner', 'editor'])
   @Patch(':linkId')
   async updateLink(
     @Param('fundraiserId') fundraiserId: string,
     @Param('linkId') linkId: string,
-    @AuthUser('id') userId: string,
     @Body() updateLinkDto: UpdateLinkDto,
   ) {
-    return this.linksService.updateLink(
-      fundraiserId,
-      linkId,
-      userId,
-      updateLinkDto,
-    );
+    return this.linksService.updateLink(fundraiserId, linkId, updateLinkDto);
   }
 
   /**
    * Delete a link
    * DELETE /fundraisers/:fundraiserId/links/:linkId
    */
+  @UseGuards(FundraiserAccessGuard)
+  @FundraiserRoles(['admin', 'owner', 'editor'])
   @Delete(':linkId')
   @HttpCode(HttpStatus.NO_CONTENT)
   async deleteLink(
     @Param('fundraiserId') fundraiserId: string,
     @Param('linkId') linkId: string,
-    @AuthUser('id') userId: string,
   ) {
-    return this.linksService.deleteLink(fundraiserId, linkId, userId);
+    return this.linksService.deleteLink(fundraiserId, linkId);
   }
 }
