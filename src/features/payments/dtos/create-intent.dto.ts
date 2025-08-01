@@ -9,7 +9,7 @@ export class CreateIntentDto {
 
   @IsOptional()
   @IsString()
-  fundraiserLinkId?: string;
+  alias?: string;
 
   @IsOptional()
   @IsString()

@@ -17,6 +17,32 @@ export class TeamOverviewDto {
   };
 }
 
+export class FundraiserLinkStatsDto {
+  totalTrafficSources: number;
+  topPerformingLink: {
+    alias: string;
+    fundraiser: string;
+    totalDonations: number;
+    donationCount: number;
+  };
+  donationsFromSharedLinks: number;
+  percentageFromSharedLinks: number;
+  avgDonationPerLink: number;
+}
+
+export class EngagementInsightsDto {
+  mostSharedFundraiser: {
+    name: string;
+    shareCount: number;
+    totalRaised: number;
+  };
+  memberWithMostLinks: {
+    name: string;
+    linkCount: number;
+    totalRaised: number;
+  };
+}
+
 export class RecentActivityDto {
   type: 'fundraiser_created' | 'donation_received' | 'member_joined';
   user: string;
@@ -44,6 +70,8 @@ export class FundraiserHighlightsDto {
 export class DashboardDto {
   fundraising: FundraisingOverviewDto;
   team: TeamOverviewDto;
+  linkStats: FundraiserLinkStatsDto;
+  engagementInsights: EngagementInsightsDto;
   recentActivity: RecentActivityDto[];
   highlights: FundraiserHighlightsDto;
 }

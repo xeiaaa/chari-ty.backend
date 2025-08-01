@@ -598,92 +598,166 @@ export class GroupsService {
    * Returns comprehensive statistics and activity data
    */
   async getDashboard(group: Group): Promise<DashboardDto> {
-    // Get fundraising overview data
-    const fundraisers = await this.prisma.fundraiser.findMany({
-      where: {
-        groupId: group.id,
-        status: 'published',
-      },
-      include: {
-        donations: {
-          where: {
-            status: 'completed',
+    try {
+      // Get fundraising overview data
+      const fundraisers = await this.prisma.fundraiser.findMany({
+        where: {
+          groupId: group.id,
+          status: 'published',
+        },
+        include: {
+          donations: {
+            where: {
+              status: 'completed',
+            },
           },
         },
-      },
-    });
+      });
 
-    // Calculate fundraising statistics
-    const totalRaised = fundraisers.reduce((sum, fundraiser) => {
-      const fundraiserTotal = fundraiser.donations.reduce(
-        (donationSum, donation) => donationSum + Number(donation.amount),
-        0,
-      );
-      return sum + fundraiserTotal;
-    }, 0);
+      // Calculate fundraising statistics
+      const totalRaised = fundraisers.reduce((sum, fundraiser) => {
+        const fundraiserTotal = (fundraiser.donations || []).reduce(
+          (donationSum, donation) => donationSum + Number(donation.amount),
+          0,
+        );
+        return sum + fundraiserTotal;
+      }, 0);
 
-    const completedGoals = fundraisers.filter(
-      (fundraiser) => fundraiser.isGoalReached,
-    ).length;
+      const completedGoals = fundraisers.filter(
+        (fundraiser) => fundraiser.isGoalReached,
+      ).length;
 
-    const avgDonationPerFundraiser =
-      fundraisers.length > 0 ? totalRaised / fundraisers.length : 0;
+      const avgDonationPerFundraiser =
+        fundraisers.length > 0 ? totalRaised / fundraisers.length : 0;
 
-    // Get team overview data
-    const members = await this.prisma.groupMember.findMany({
-      where: {
-        groupId: group.id,
-        status: GroupMemberStatus.active,
-      },
-      include: {
-        user: true,
-      },
-      orderBy: {
-        joinedAt: 'desc',
-      },
-    });
-
-    const pendingInvitations = await this.prisma.groupMember.count({
-      where: {
-        groupId: group.id,
-        status: GroupMemberStatus.invited,
-      },
-    });
-
-    // Get recent activity data
-    const recentActivity = await this.getRecentActivity(group.id);
-
-    // Get fundraiser highlights
-    const highlights = await this.getFundraiserHighlights(group.id);
-
-    return {
-      fundraising: {
-        activeFundraisers: fundraisers.length,
-        totalRaised,
-        goalCompletionRate: {
-          completed: completedGoals,
-          total: fundraisers.length,
+      // Get team overview data
+      const members = await this.prisma.groupMember.findMany({
+        where: {
+          groupId: group.id,
+          status: GroupMemberStatus.active,
         },
-        avgDonationPerFundraiser,
-      },
-      team: {
-        members: members.length,
-        pendingInvitations,
-        lastMemberJoined: {
-          name: members[0]?.user
-            ? `${members[0].user.firstName} ${members[0].user.lastName}`
-            : members[0]?.invitedName || 'Unknown',
-          date:
-            members[0]?.joinedAt.toLocaleDateString('en-US', {
-              year: 'numeric',
-              month: 'short',
-              day: 'numeric',
-            }) || '',
+        include: {
+          user: true,
         },
-      },
-      recentActivity,
-      highlights,
-    };
+        orderBy: {
+          joinedAt: 'desc',
+        },
+      });
+
+      const pendingInvitations = await this.prisma.groupMember.count({
+        where: {
+          groupId: group.id,
+          status: GroupMemberStatus.invited,
+        },
+      });
+
+      // Get fundraiser link stats
+      const linkStats = await this.getFundraiserLinkStats(group.id);
+
+      // Get engagement insights
+      const engagementInsights = await this.getEngagementInsights(group.id);
+
+      // Get recent activity data
+      const recentActivity = await this.getRecentActivity(group.id);
+
+      // Get fundraiser highlights
+      const highlights = await this.getFundraiserHighlights(group.id);
+
+      return {
+        fundraising: {
+          activeFundraisers: fundraisers.length,
+          totalRaised,
+          goalCompletionRate: {
+            completed: completedGoals,
+            total: fundraisers.length,
+          },
+          avgDonationPerFundraiser,
+        },
+        team: {
+          members: members.length,
+          pendingInvitations,
+          lastMemberJoined: {
+            name: members[0]?.user
+              ? `${members[0].user.firstName} ${members[0].user.lastName}`
+              : members[0]?.invitedName || 'Unknown',
+            date:
+              members[0]?.joinedAt.toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+              }) || '',
+          },
+        },
+        linkStats,
+        engagementInsights,
+        recentActivity,
+        highlights,
+      };
+    } catch (error) {
+      console.error('Error in getDashboard:', error);
+      // Return default values if there's an error
+      return {
+        fundraising: {
+          activeFundraisers: 0,
+          totalRaised: 0,
+          goalCompletionRate: {
+            completed: 0,
+            total: 0,
+          },
+          avgDonationPerFundraiser: 0,
+        },
+        team: {
+          members: 0,
+          pendingInvitations: 0,
+          lastMemberJoined: {
+            name: 'Unknown',
+            date: '',
+          },
+        },
+        linkStats: {
+          totalTrafficSources: 0,
+          topPerformingLink: {
+            alias: 'No links',
+            fundraiser: 'No fundraisers',
+            totalDonations: 0,
+            donationCount: 0,
+          },
+          donationsFromSharedLinks: 0,
+          percentageFromSharedLinks: 0,
+          avgDonationPerLink: 0,
+        },
+        engagementInsights: {
+          mostSharedFundraiser: {
+            name: 'No fundraisers',
+            shareCount: 0,
+            totalRaised: 0,
+          },
+          memberWithMostLinks: {
+            name: 'No members',
+            linkCount: 0,
+            totalRaised: 0,
+          },
+        },
+        recentActivity: [],
+        highlights: {
+          topPerforming: {
+            name: 'No fundraisers',
+            raised: 0,
+            goal: 0,
+          },
+          mostRecent: {
+            name: 'No fundraisers',
+            created: '',
+            raised: 0,
+          },
+          mostDonatedToday: {
+            name: 'No donations today',
+            donations: 0,
+            amount: 0,
+          },
+        },
+      };
+    }
   }
 
   /**
@@ -787,7 +861,6 @@ export class GroupsService {
     }
 
     // Sort all activities by date and take the most recent 10
-    console.log({ activities });
     return activities
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
       .slice(0, 10);
@@ -907,6 +980,200 @@ export class GroupsService {
             )
           : 0,
       },
+    };
+  }
+
+  /**
+   * Get fundraiser link stats for a group
+   */
+  private async getFundraiserLinkStats(groupId: string) {
+    // Get all fundraiser links for the group
+    const fundraiserLinks = await this.prisma.fundraiserLink.findMany({
+      where: {
+        fundraiser: {
+          groupId,
+        },
+      },
+      include: {
+        fundraiser: true,
+        donations: {
+          where: {
+            status: 'completed',
+          },
+        },
+      },
+    });
+
+    // Calculate total traffic sources
+    const totalTrafficSources = fundraiserLinks.length;
+
+    // Calculate donations from shared links
+    const donationsFromSharedLinks = fundraiserLinks.reduce((sum, link) => {
+      return (
+        sum +
+        link.donations.reduce((linkSum, donation) => {
+          return linkSum + Number(donation.amount);
+        }, 0)
+      );
+    }, 0);
+
+    // Get total donations for percentage calculation
+    const totalDonations = await this.prisma.donation.aggregate({
+      where: {
+        fundraiser: {
+          groupId,
+        },
+        status: 'completed',
+      },
+      _sum: {
+        amount: true,
+      },
+    });
+
+    const totalDonationsAmount = Number(totalDonations._sum.amount || 0);
+    const percentageFromSharedLinks =
+      totalDonationsAmount > 0
+        ? Math.round((donationsFromSharedLinks / totalDonationsAmount) * 100)
+        : 0;
+
+    // Calculate average donation per link
+    const avgDonationPerLink =
+      totalTrafficSources > 0
+        ? Math.round(donationsFromSharedLinks / totalTrafficSources)
+        : 0;
+
+    // Find top performing link
+    const topPerformingLink = fundraiserLinks.reduce((top, link) => {
+      const linkTotal = (link.donations || []).reduce((sum, donation) => {
+        return sum + Number(donation.amount);
+      }, 0);
+
+      if (!top || linkTotal > top.total) {
+        return {
+          alias: link.alias,
+          fundraiser: link.fundraiser?.title || 'Unknown Fundraiser',
+          totalDonations: linkTotal,
+          donationCount: (link.donations || []).length,
+        };
+      }
+      return top;
+    }, null as any);
+
+    return {
+      totalTrafficSources,
+      topPerformingLink: topPerformingLink || {
+        alias: 'No links',
+        fundraiser: 'No fundraisers',
+        totalDonations: 0,
+        donationCount: 0,
+      },
+      donationsFromSharedLinks,
+      percentageFromSharedLinks,
+      avgDonationPerLink,
+    };
+  }
+
+  /**
+   * Get engagement insights for a group
+   */
+  private async getEngagementInsights(groupId: string) {
+    // Get all fundraisers with their link counts
+    const fundraisersWithLinks = await this.prisma.fundraiser.findMany({
+      where: {
+        groupId,
+      },
+      include: {
+        links: true,
+        donations: {
+          where: {
+            status: 'completed',
+          },
+        },
+      },
+    });
+
+    // Find most shared fundraiser
+    const mostSharedFundraiser = fundraisersWithLinks.reduce(
+      (most, fundraiser) => {
+        const linkCount = fundraiser.links?.length || 0;
+        if (!most || linkCount > most.shareCount) {
+          return {
+            name: fundraiser.title,
+            shareCount: linkCount,
+            totalRaised: (fundraiser.donations || []).reduce(
+              (sum, donation) => {
+                return sum + Number(donation.amount);
+              },
+              0,
+            ),
+          };
+        }
+        return most;
+      },
+      null as any,
+    );
+
+    // Get member with most links
+    const memberWithMostLinks = await this.prisma.fundraiserLink.groupBy({
+      by: ['userId'],
+      where: {
+        fundraiser: {
+          groupId,
+        },
+      },
+      _count: {
+        id: true,
+      },
+      orderBy: {
+        _count: {
+          id: 'desc',
+        },
+      },
+      take: 1,
+    });
+
+    let memberWithMostLinksData = {
+      name: 'No members',
+      linkCount: 0,
+      totalRaised: 0,
+    };
+
+    if (memberWithMostLinks.length > 0) {
+      const topMember = memberWithMostLinks[0];
+      const user = await this.prisma.user.findUnique({
+        where: { id: topMember.userId },
+      });
+
+      // Calculate total raised via their links
+      const totalRaised = await this.prisma.donation.aggregate({
+        where: {
+          sourceLink: {
+            userId: topMember.userId,
+            fundraiser: {
+              groupId,
+            },
+          },
+          status: 'completed',
+        },
+        _sum: {
+          amount: true,
+        },
+      });
+
+      memberWithMostLinksData = {
+        name: user ? `${user.firstName} ${user.lastName}` : 'Unknown User',
+        linkCount: topMember._count.id,
+        totalRaised: Number(totalRaised._sum?.amount || 0),
+      };
+    }
+
+    return {
+      mostSharedFundraiser: mostSharedFundraiser || {
+        name: 'No fundraisers',
+        shareCount: 0,
+        totalRaised: 0,
+      },
+      memberWithMostLinks: memberWithMostLinksData,
     };
   }
 

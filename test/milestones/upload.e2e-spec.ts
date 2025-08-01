@@ -100,8 +100,6 @@ describe('Milestones Module - Uploads', () => {
         .set('Authorization', `Bearer ${token}`)
         .send(uploadData);
 
-      console.log(response.body);
-
       expect(response.statusCode).toBe(201);
       expect(response.body).toHaveLength(2);
       expect(response.body[0]).toMatchObject({
@@ -508,8 +506,6 @@ describe('Milestones Module - Uploads', () => {
         .patch(createApiPath(`milestones/${milestone.id}/uploads/reorder`))
         .set('Authorization', `Bearer ${token}`)
         .send(reorderData);
-
-      console.log(response.body);
 
       expect(response.statusCode).toBe(200);
       expect(response.body).toHaveLength(3);

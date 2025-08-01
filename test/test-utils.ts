@@ -181,9 +181,17 @@ export async function resetDatabase(): Promise<void> {
     await prisma.$executeRaw`SET session_replication_role = replica;`;
 
     // Use raw SQL to truncate all tables and reset sequences
+    // Order matters - truncate child tables first, then parent tables
+    await prisma.$executeRaw`TRUNCATE TABLE "donations" RESTART IDENTITY CASCADE;`;
+    await prisma.$executeRaw`TRUNCATE TABLE "fundraiser_links" RESTART IDENTITY CASCADE;`;
+    await prisma.$executeRaw`TRUNCATE TABLE "fundraiser_gallery" RESTART IDENTITY CASCADE;`;
+    await prisma.$executeRaw`TRUNCATE TABLE "milestone_uploads" RESTART IDENTITY CASCADE;`;
+    await prisma.$executeRaw`TRUNCATE TABLE "milestones" RESTART IDENTITY CASCADE;`;
+    await prisma.$executeRaw`TRUNCATE TABLE "group_uploads" RESTART IDENTITY CASCADE;`;
     await prisma.$executeRaw`TRUNCATE TABLE "fundraisers" RESTART IDENTITY CASCADE;`;
     await prisma.$executeRaw`TRUNCATE TABLE "group_members" RESTART IDENTITY CASCADE;`;
     await prisma.$executeRaw`TRUNCATE TABLE "groups" RESTART IDENTITY CASCADE;`;
+    await prisma.$executeRaw`TRUNCATE TABLE "uploads" RESTART IDENTITY CASCADE;`;
     await prisma.$executeRaw`TRUNCATE TABLE "users" RESTART IDENTITY CASCADE;`;
 
     // Re-enable foreign key constraints

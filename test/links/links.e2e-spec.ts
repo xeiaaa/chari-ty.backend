@@ -637,8 +637,6 @@ describe('Links Module', () => {
         .set('Authorization', `Bearer ${token}`)
         .send(updateData);
 
-      console.log(response.body);
-
       expect(response.statusCode).toBe(200);
       expect(response.body).toMatchObject({
         id: link.id,

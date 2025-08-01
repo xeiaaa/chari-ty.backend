@@ -108,13 +108,28 @@ export class PaymentsService {
     // Calculate amounts
     const amountInCents = Math.round(dto.amount * 100);
     const applicationFeeAmount = Math.round(amountInCents * 0.05);
+
+    // Look up fundraiser link by alias if provided
+    let fundraiserLinkId: string | undefined;
+    if (dto.alias) {
+      const fundraiserLink = await this.prisma.fundraiserLink.findFirst({
+        where: {
+          alias: dto.alias,
+          fundraiserId: dto.fundraiserId,
+        },
+      });
+      if (fundraiserLink) {
+        fundraiserLinkId = fundraiserLink.id;
+      }
+    }
+
     // 1. Create pending donation (without stripeId)
     const donation = await this.prisma.donation.create({
       data: {
         amount: new Decimal(dto.amount),
         currency: fundraiser.currency,
         fundraiserId: dto.fundraiserId,
-        fundraiserLinkId: dto.fundraiserLinkId,
+        fundraiserLinkId: fundraiserLinkId,
         name: dto.name,
         message: dto.message,
         isAnonymous: dto.isAnonymous,
@@ -133,9 +148,10 @@ export class PaymentsService {
       metadata: {
         donationId: donation.id,
         fundraiserId: dto.fundraiserId,
-        fundraiserLinkId: dto.fundraiserLinkId || '',
+        fundraiserLinkId: fundraiserLinkId || '',
       },
     });
+
     // 3. Update donation with stripeId
     await this.prisma.donation.update({
       where: { id: donation.id },
