@@ -540,6 +540,13 @@ export class FundraisersService {
       include: {
         milestones: {
           orderBy: { stepNumber: 'asc' },
+          include: {
+            milestoneUploads: {
+              include: {
+                upload: true,
+              },
+            },
+          },
         },
         group: {
           select: {
