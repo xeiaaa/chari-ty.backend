@@ -30,6 +30,7 @@ import { UpdateGroupUploadDto } from './dtos/update-group-upload.dto';
 import { ListPublicFundraisersDto } from '../fundraisers/dtos/list-public-fundraisers.dto';
 import { CreateVerificationRequestDto } from './dtos/create-verification-request.dto';
 import { UpdateVerificationRequestDto } from './dtos/update-verification-request.dto';
+import { ListVerificationRequestsDto } from './dtos/list-verification-requests.dto';
 
 /**
  * GroupsService handles all group-related database operations
@@ -1622,5 +1623,95 @@ export class GroupsService {
     });
 
     return result;
+  }
+
+  /**
+   * List all verification requests with pagination and filtering (admin only)
+   */
+  async listVerificationRequests(query: ListVerificationRequestsDto) {
+    const page = parseInt(query.page || '1');
+    const limit = parseInt(query.limit || '10');
+    const skip = (page - 1) * limit;
+
+    // Build where clause for filtering
+    const where: any = {};
+
+    if (query.status) {
+      where.status = query.status;
+    }
+
+    if (query.groupName) {
+      where.group = {
+        name: {
+          contains: query.groupName,
+          mode: 'insensitive',
+        },
+      };
+    }
+
+    // Get verification requests with all relations
+    const [verificationRequests, total] = await Promise.all([
+      this.prisma.groupVerificationRequest.findMany({
+        where,
+        include: {
+          group: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              description: true,
+              type: true,
+              website: true,
+              ein: true,
+              verified: true,
+              createdAt: true,
+              updatedAt: true,
+              groupUploads: {
+                include: {
+                  upload: true,
+                },
+              },
+            },
+          },
+          submitter: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              username: true,
+              accountType: true,
+            },
+          },
+          reviewer: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              username: true,
+            },
+          },
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+        skip,
+        take: limit,
+      }),
+      this.prisma.groupVerificationRequest.count({ where }),
+    ]);
+
+    return {
+      data: verificationRequests,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        hasNext: page * limit < total,
+        hasPrev: page > 1,
+      },
+    };
   }
 }

@@ -37,5 +37,25 @@ Content-Type: {{contentType}}
   "reason": "Insufficient documentation provided. Please provide additional verification documents."
 }
 
+### Admin: List all verification requests (admin only)
+GET {{baseUrl}}/{{apiPrefix}}/admin/verification-requests
+Authorization: Bearer {{devToken}}
+
+### Admin: List verification requests with pagination
+GET {{baseUrl}}/{{apiPrefix}}/admin/verification-requests?page=1&limit=20
+Authorization: Bearer {{devToken}}
+
+### Admin: List verification requests filtered by status
+GET {{baseUrl}}/{{apiPrefix}}/admin/verification-requests?status=pending
+Authorization: Bearer {{devToken}}
+
+### Admin: List verification requests filtered by group name
+GET {{baseUrl}}/{{apiPrefix}}/admin/verification-requests?groupName=charity
+Authorization: Bearer {{devToken}}
+
+### Admin: List verification requests with multiple filters
+GET {{baseUrl}}/{{apiPrefix}}/admin/verification-requests?status=pending&groupName=charity&page=1&limit=10
+Authorization: Bearer {{devToken}}
+
 ### Variables (set these in your environment or replace directly)
 # @groupId = your_group_id_here
