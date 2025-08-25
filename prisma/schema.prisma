@@ -40,6 +40,12 @@ enum GroupMemberStatus {
   removed
 }
 
+enum VerificationStatus {
+  pending
+  approved
+  rejected
+}
+
 // Models
 model User {
   id            String      @id @default(cuid())
@@ -57,11 +63,13 @@ model User {
   updatedAt     DateTime    @updatedAt
 
   // Relations
-  groupMemberships GroupMember[]
-  donations        Donation[]
-  groups           Group[]
-  uploads          Upload[]
-  fundraiserLinks  FundraiserLink[]
+  groupMemberships              GroupMember[]
+  donations                     Donation[]
+  groups                        Group[]
+  uploads                       Upload[]
+  fundraiserLinks               FundraiserLink[]
+  submittedVerificationRequests GroupVerificationRequest[] @relation("VerificationRequestSubmitter")
+  reviewedVerificationRequests  GroupVerificationRequest[] @relation("VerificationRequestReviewer")
 
   @@map("users")
 }
@@ -83,13 +91,33 @@ model Group {
   avatarUploadId String?
 
   // Relations
-  owner        User          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  members      GroupMember[]
-  fundraisers  Fundraiser[]
-  groupUploads GroupUpload[]
-  avatar       Upload?       @relation(fields: [avatarUploadId], references: [id], onDelete: SetNull)
+  owner               User                      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  members             GroupMember[]
+  fundraisers         Fundraiser[]
+  groupUploads        GroupUpload[]
+  avatar              Upload?                   @relation(fields: [avatarUploadId], references: [id], onDelete: SetNull)
+  verificationRequest GroupVerificationRequest?
 
   @@map("groups")
+}
+
+model GroupVerificationRequest {
+  id          String             @id @default(cuid())
+  groupId     String             @unique
+  submittedBy String // FK to User who submitted the request
+  status      VerificationStatus @default(pending)
+  reason      String? // Optional rejection reason or notes from admin
+  reviewedBy  String? // FK to admin User
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  reviewedAt  DateTime?
+
+  // Relations
+  group     Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  submitter User  @relation("VerificationRequestSubmitter", fields: [submittedBy], references: [id], onDelete: Cascade)
+  reviewer  User? @relation("VerificationRequestReviewer", fields: [reviewedBy], references: [id])
+
+  @@map("group_verification_requests")
 }
 
 model GroupMember {

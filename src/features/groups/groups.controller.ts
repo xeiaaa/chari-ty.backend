@@ -27,6 +27,7 @@ import { ListGroupDonationsDto } from '../donations/dtos/list-group-donations.dt
 import { AddGroupUploadsDto } from './dtos/add-group-uploads.dto';
 import { ReorderGroupUploadsDto } from './dtos/reorder-group-uploads.dto';
 import { UpdateGroupUploadDto } from './dtos/update-group-upload.dto';
+import { CreateVerificationRequestDto } from './dtos/create-verification-request.dto';
 import { AuthGuard } from '../auth/auth.guard';
 import { AuthUser } from '../../common/decorators';
 import { GroupSlugAccessGuard } from './guards/group-slug-access.guard';
@@ -97,6 +98,25 @@ export class GroupsController {
     @AuthUser() user: UserEntity,
   ) {
     return this.groupsService.inviteUser(user, group, createInviteDto);
+  }
+
+  /**
+   * Submit a verification request for a group
+   * POST /api/v1/groups/:groupId/verification-request
+   */
+  @UseGuards(GroupAccessGuard)
+  @GroupRoles(['owner', 'admin'])
+  @Post(':groupId/verification-request')
+  async submitVerificationRequest(
+    @Param('groupId') groupId: string,
+    @Body() createVerificationRequestDto: CreateVerificationRequestDto,
+    @AuthUser() user: UserEntity,
+  ) {
+    return this.groupsService.submitVerificationRequest(
+      user,
+      groupId,
+      createVerificationRequestDto,
+    );
   }
 
   /**

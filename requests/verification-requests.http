@@ -1,0 +1,41 @@
+### Import common variables
+@import "_common.http"
+
+### Submit a verification request for a group
+POST {{baseUrl}}/{{apiPrefix}}/groups/{{groupId}}/verification-request
+Authorization: Bearer {{devToken}}
+Content-Type: {{contentType}}
+
+{
+  "reason": "We are a legitimate nonprofit organization seeking verification to build trust with our donors."
+}
+
+### Submit a verification request without reason
+POST {{baseUrl}}/{{apiPrefix}}/groups/{{groupId}}/verification-request
+Authorization: Bearer {{devToken}}
+Content-Type: {{contentType}}
+
+{}
+
+### Admin: Update verification request (admin only)
+PATCH {{baseUrl}}/{{apiPrefix}}/admin/group/{{groupId}}/verification-request
+Authorization: Bearer {{devToken}}
+Content-Type: {{contentType}}
+
+{
+  "status": "approved",
+  "reason": "Approved after review of documentation. Group meets all verification requirements."
+}
+
+### Admin: Reject verification request (admin only)
+PATCH {{baseUrl}}/{{apiPrefix}}/admin/group/{{groupId}}/verification-request
+Authorization: Bearer {{devToken}}
+Content-Type: {{contentType}}
+
+{
+  "status": "rejected",
+  "reason": "Insufficient documentation provided. Please provide additional verification documents."
+}
+
+### Variables (set these in your environment or replace directly)
+# @groupId = your_group_id_here

@@ -28,6 +28,8 @@ import { AddGroupUploadsDto } from './dtos/add-group-uploads.dto';
 import { ReorderGroupUploadsDto } from './dtos/reorder-group-uploads.dto';
 import { UpdateGroupUploadDto } from './dtos/update-group-upload.dto';
 import { ListPublicFundraisersDto } from '../fundraisers/dtos/list-public-fundraisers.dto';
+import { CreateVerificationRequestDto } from './dtos/create-verification-request.dto';
+import { UpdateVerificationRequestDto } from './dtos/update-verification-request.dto';
 
 /**
  * GroupsService handles all group-related database operations
@@ -46,12 +48,19 @@ export class GroupsService {
    * Find a group by slug
    */
   async findBySlug(slug: string): Promise<Group | null> {
+    console.log('yes');
     return this.prisma.group.findUnique({
       where: { slug },
       include: {
         groupUploads: {
           include: {
             upload: true,
+          },
+        },
+        verificationRequest: {
+          include: {
+            submitter: true,
+            reviewer: true,
           },
         },
       },
@@ -266,6 +275,12 @@ export class GroupsService {
         groupUploads: {
           include: {
             upload: true,
+          },
+        },
+        verificationRequest: {
+          include: {
+            submitter: true,
+            reviewer: true,
           },
         },
       },
@@ -1443,5 +1458,169 @@ export class GroupsService {
 
       return updatedItems;
     });
+  }
+
+  /**
+   * Submit a verification request for a group
+   */
+  async submitVerificationRequest(
+    user: UserEntity,
+    groupId: string,
+    data: CreateVerificationRequestDto,
+  ) {
+    // Verify group exists
+    const group = await this.prisma.group.findUnique({
+      where: { id: groupId },
+    });
+
+    if (!group) {
+      throw new NotFoundException('Group not found');
+    }
+
+    // Check if user is a member of the group
+    const membership = await this.prisma.groupMember.findUnique({
+      where: {
+        unique_user_group: {
+          userId: user.id,
+          groupId,
+        },
+      },
+    });
+
+    if (!membership) {
+      throw new ForbiddenException('You are not a member of this group');
+    }
+
+    // Check if a verification request already exists for this group
+    const existingRequest =
+      await this.prisma.groupVerificationRequest.findUnique({
+        where: { groupId },
+      });
+
+    if (existingRequest) {
+      throw new ConflictException(
+        'A verification request already exists for this group',
+      );
+    }
+
+    // Create the verification request
+    const verificationRequest =
+      await this.prisma.groupVerificationRequest.create({
+        data: {
+          groupId,
+          submittedBy: user.id,
+          reason: data.reason,
+        },
+        include: {
+          group: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+            },
+          },
+          submitter: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+        },
+      });
+
+    return verificationRequest;
+  }
+
+  /**
+   * Update a verification request (admin only)
+   */
+  async updateVerificationRequest(
+    adminUser: UserEntity,
+    groupId: string,
+    data: UpdateVerificationRequestDto,
+  ) {
+    // Verify group exists
+    const group = await this.prisma.group.findUnique({
+      where: { id: groupId },
+      include: {
+        verificationRequest: {
+          include: {
+            submitter: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!group) {
+      throw new NotFoundException('Group not found');
+    }
+
+    if (!group.verificationRequest) {
+      throw new NotFoundException(
+        'No verification request found for this group',
+      );
+    }
+
+    // Update the verification request and potentially the group verification status
+    const result = await this.prisma.$transaction(async (tx) => {
+      // Update the verification request
+      const updatedRequest = await tx.groupVerificationRequest.update({
+        where: { groupId },
+        data: {
+          status: data.status,
+          reason: data.reason,
+          reviewedBy: adminUser.id,
+          reviewedAt: new Date(),
+        },
+        include: {
+          group: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              verified: true,
+            },
+          },
+          submitter: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+          reviewer: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+        },
+      });
+
+      // If status is approved, update the group's verified status
+      if (data.status === 'approved') {
+        await tx.group.update({
+          where: { id: groupId },
+          data: { verified: true },
+        });
+        updatedRequest.group.verified = true;
+      }
+
+      return updatedRequest;
+    });
+
+    return result;
   }
 }

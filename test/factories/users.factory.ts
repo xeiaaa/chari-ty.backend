@@ -16,6 +16,7 @@ const prisma = new PrismaClient();
 interface CreateFakeUserOptions {
   accountType?: AccountType;
   setupComplete?: boolean;
+  isAdmin?: boolean;
 }
 
 interface CreateFakeUserResult {
@@ -31,8 +32,11 @@ interface CreateFakeUserWithTokenResult extends CreateFakeUserResult {
 export const createFakeUser = async (
   options: CreateFakeUserOptions = {},
 ): Promise<CreateFakeUserResult> => {
-  const { accountType = AccountType.individual, setupComplete = true } =
-    options;
+  const {
+    accountType = AccountType.individual,
+    setupComplete = true,
+    isAdmin = false,
+  } = options;
 
   const user = await prisma.user.create({
     data: {
@@ -46,6 +50,7 @@ export const createFakeUser = async (
       bio: faker.lorem.paragraph(),
       accountType,
       setupComplete,
+      isAdmin,
       createdAt: faker.date.past(),
       updatedAt: faker.date.recent(),
     },

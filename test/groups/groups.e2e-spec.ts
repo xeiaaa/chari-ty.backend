@@ -957,4 +957,149 @@ describe('Groups Module - CRUD', () => {
       expect(slug2).toContain('same-name-group');
     });
   });
+
+  describe('POST /api/v1/groups/:groupId/verification-request', () => {
+    it('should create verification request for group member', async () => {
+      const { token, group } = await createFakeUserWithToken({
+        accountType: AccountType.team,
+        setupComplete: true,
+      });
+
+      const verificationRequestData = {
+        reason: 'We are a legitimate nonprofit organization',
+      };
+
+      const response = await request(app.getHttpServer())
+        .post(createApiPath(`groups/${group!.id}/verification-request`))
+        .set('Authorization', `Bearer ${token}`)
+        .send(verificationRequestData);
+
+      expect(response.statusCode).toBe(201);
+      expect(response.body).toMatchObject({
+        id: expect.any(String),
+        groupId: group!.id,
+        status: 'pending',
+        reason: verificationRequestData.reason,
+        createdAt: expect.any(String),
+        updatedAt: expect.any(String),
+        group: {
+          id: group!.id,
+          name: group!.name,
+          slug: group!.slug,
+        },
+        submitter: {
+          id: expect.any(String),
+          firstName: expect.any(String),
+          lastName: expect.any(String),
+          email: expect.any(String),
+        },
+      });
+      expect(response.body.reviewedBy).toBeNull();
+      expect(response.body.reviewedAt).toBeNull();
+    });
+
+    it('should create verification request without reason', async () => {
+      const { token, group } = await createFakeUserWithToken({
+        accountType: AccountType.team,
+        setupComplete: true,
+      });
+
+      const response = await request(app.getHttpServer())
+        .post(createApiPath(`groups/${group!.id}/verification-request`))
+        .set('Authorization', `Bearer ${token}`)
+        .send({});
+
+      expect(response.statusCode).toBe(201);
+      expect(response.body).toMatchObject({
+        id: expect.any(String),
+        groupId: group!.id,
+        status: 'pending',
+        reason: null,
+        createdAt: expect.any(String),
+        updatedAt: expect.any(String),
+      });
+    });
+
+    it('should return 403 for non-member user', async () => {
+      const { group } = await createFakeUserWithToken({
+        accountType: AccountType.team,
+        setupComplete: true,
+      });
+
+      // Create a different user
+      const { token } = await createFakeUserWithToken({
+        accountType: AccountType.team,
+        setupComplete: true,
+      });
+
+      const verificationRequestData = {
+        reason: 'We are a legitimate nonprofit organization',
+      };
+
+      await request(app.getHttpServer())
+        .post(createApiPath(`groups/${group!.id}/verification-request`))
+        .set('Authorization', `Bearer ${token}`)
+        .send(verificationRequestData)
+        .expect(403);
+    });
+
+    it('should return 404 for non-existent group', async () => {
+      const { token } = await createFakeUserWithToken({
+        accountType: AccountType.team,
+        setupComplete: true,
+      });
+
+      const verificationRequestData = {
+        reason: 'We are a legitimate nonprofit organization',
+      };
+
+      await request(app.getHttpServer())
+        .post(createApiPath('groups/non-existent-id/verification-request'))
+        .set('Authorization', `Bearer ${token}`)
+        .send(verificationRequestData)
+        .expect(404);
+    });
+
+    it('should return 409 for duplicate verification request', async () => {
+      const { token, group } = await createFakeUserWithToken({
+        accountType: AccountType.team,
+        setupComplete: true,
+      });
+
+      const verificationRequestData = {
+        reason: 'We are a legitimate nonprofit organization',
+      };
+
+      // Create first verification request
+      await request(app.getHttpServer())
+        .post(createApiPath(`groups/${group!.id}/verification-request`))
+        .set('Authorization', `Bearer ${token}`)
+        .send(verificationRequestData)
+        .expect(201);
+
+      // Try to create second verification request
+      await request(app.getHttpServer())
+        .post(createApiPath(`groups/${group!.id}/verification-request`))
+        .set('Authorization', `Bearer ${token}`)
+        .send(verificationRequestData)
+        .expect(409);
+    });
+
+    it('should return 400 for invalid reason length', async () => {
+      const { token, group } = await createFakeUserWithToken({
+        accountType: AccountType.team,
+        setupComplete: true,
+      });
+
+      const verificationRequestData = {
+        reason: 'a'.repeat(1001), // Exceeds 1000 character limit
+      };
+
+      await request(app.getHttpServer())
+        .post(createApiPath(`groups/${group!.id}/verification-request`))
+        .set('Authorization', `Bearer ${token}`)
+        .send(verificationRequestData)
+        .expect(400);
+    });
+  });
 });

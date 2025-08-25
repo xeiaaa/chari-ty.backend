@@ -2,6 +2,7 @@ import { Module, forwardRef } from '@nestjs/common';
 import { GroupsService } from './groups.service';
 import { GroupsController } from './groups.controller';
 import { PublicGroupsController } from './public-groups.controller';
+import { AdminGroupsController } from './admin-groups.controller';
 import { PrismaModule } from '../../core/prisma/prisma.module';
 import { FundraisersModule } from '../fundraisers/fundraisers.module';
 import { AuthModule } from '../auth/auth.module';
@@ -18,7 +19,11 @@ import { UploadsModule } from '../uploads/uploads.module';
     DonationsModule,
     UploadsModule,
   ],
-  controllers: [GroupsController, PublicGroupsController],
+  controllers: [
+    GroupsController,
+    PublicGroupsController,
+    AdminGroupsController,
+  ],
   providers: [GroupsService],
   exports: [GroupsService],
 })
