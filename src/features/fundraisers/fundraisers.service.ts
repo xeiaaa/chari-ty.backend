@@ -493,6 +493,7 @@ export class FundraisersService {
               description: true,
               slug: true,
               type: true,
+              verified: true,
               owner: {
                 select: {
                   id: true,
@@ -554,6 +555,17 @@ export class FundraisersService {
             name: true,
             description: true,
             slug: true,
+            type: true,
+            verified: true,
+            owner: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                avatarUrl: true,
+              },
+            },
           },
         },
         fundraiserGallery: {
