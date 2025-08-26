@@ -81,6 +81,14 @@ export class GroupsService {
             upload: true,
           },
         },
+        owner: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            avatarUrl: true,
+          },
+        },
       },
     });
 
@@ -91,7 +99,10 @@ export class GroupsService {
     // Return only public data
     return {
       id: group.id,
-      name: group.name,
+      name:
+        group.type === 'individual'
+          ? group.owner.firstName + ' ' + group.owner.lastName
+          : group.name,
       slug: group.slug,
       description: group.description,
       type: group.type,
