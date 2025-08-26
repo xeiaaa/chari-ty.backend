@@ -1,8 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { createHmac, timingSafeEqual } from 'crypto';
-import { AccountType, DonationStatus } from '../../../generated/prisma';
+import {
+  AccountType,
+  DonationStatus,
+  NotificationType,
+} from '../../../generated/prisma';
 import { UsersService } from '../users/users.service';
 import { PrismaService } from '../../core/prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { Decimal } from '@prisma/client/runtime/library';
 import {
   ClerkWebhookEvent,
@@ -21,6 +26,7 @@ export class WebhooksService {
   constructor(
     private readonly usersService: UsersService,
     private readonly prisma: PrismaService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   /**
@@ -203,6 +209,27 @@ export class WebhooksService {
     const donation = await this.prisma.donation.update({
       where: { id: metadata.donationId },
       data: { status: DonationStatus.completed },
+      include: {
+        fundraiser: {
+          include: {
+            group: {
+              include: {
+                owner: true,
+                members: {
+                  where: {
+                    role: { in: ['owner', 'admin'] },
+                    status: 'active',
+                  },
+                  include: {
+                    user: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        donor: true,
+      },
     });
 
     this.logger.log(`Donation ${donation.id} marked as completed`);
@@ -221,9 +248,110 @@ export class WebhooksService {
     // Update milestone achievements with cumulative logic
     await this.updateMilestoneAchievements(metadata.fundraiserId, totalAmount);
 
+    // Send notifications to fundraiser owner and group admins
+    await this.sendDonationNotifications(donation, totalAmount);
+
     this.logger.log(
       `Updated milestone achievements for fundraiser ${metadata.fundraiserId}`,
     );
+  }
+
+  /**
+   * Send donation notifications to fundraiser owner and group admins
+   */
+  private async sendDonationNotifications(
+    donation: any,
+    totalAmount: Decimal,
+  ): Promise<void> {
+    try {
+      const fundraiser = donation.fundraiser;
+      const group = fundraiser.group;
+
+      // Collect user IDs to notify (owner + admins)
+      const userIdsToNotify: string[] = [];
+
+      // Add group owner
+      if (group.owner) {
+        userIdsToNotify.push(group.owner.id);
+      }
+
+      // Add group admins (excluding owner if they're also an admin)
+      group.members.forEach((member: any) => {
+        if (member.user && !userIdsToNotify.includes(member.user.id)) {
+          userIdsToNotify.push(member.user.id);
+        }
+      });
+
+      if (userIdsToNotify.length === 0) {
+        this.logger.warn('No users to notify for donation');
+        return;
+      }
+
+      // Prepare donation notification data
+      const donationNotificationData = {
+        donationId: donation.id,
+        fundraiserId: fundraiser.id,
+        fundraiserTitle: fundraiser.title,
+        fundraiserSlug: fundraiser.slug,
+        amount: donation.amount.toString(),
+        currency: donation.currency,
+        donorName: donation.name || donation.donor?.firstName || 'Anonymous',
+        donorMessage: donation.message,
+        totalRaised: totalAmount.toString(),
+        goalAmount: fundraiser.goalAmount.toString(),
+        isAnonymous: donation.isAnonymous,
+        createdAt: donation.createdAt.toISOString(),
+      };
+
+      // Send donation notifications
+      await this.notificationsService.notifyAll(
+        userIdsToNotify,
+        NotificationType.donation_received,
+        donationNotificationData,
+      );
+
+      this.logger.log(
+        `Sent donation notifications to ${userIdsToNotify.length} users`,
+      );
+
+      // Check if this donation completes the fundraiser goal
+      const goalAmount = new Decimal(fundraiser.goalAmount);
+      const previousTotal = totalAmount.sub(donation.amount);
+      const isGoalReached =
+        totalAmount.gte(goalAmount) && previousTotal.lt(goalAmount);
+
+      if (isGoalReached) {
+        // Prepare goal reached notification data
+        const goalReachedNotificationData = {
+          fundraiserId: fundraiser.id,
+          fundraiserTitle: fundraiser.title,
+          fundraiserSlug: fundraiser.slug,
+          goalAmount: fundraiser.goalAmount.toString(),
+          totalRaised: totalAmount.toString(),
+          currency: fundraiser.currency,
+          completedAt: donation.createdAt.toISOString(),
+          completedByDonation: {
+            amount: donation.amount.toString(),
+            donorName:
+              donation.name || donation.donor?.firstName || 'Anonymous',
+            isAnonymous: donation.isAnonymous,
+          },
+        };
+
+        // Send goal reached notifications
+        await this.notificationsService.notifyAll(
+          userIdsToNotify,
+          NotificationType.fundraiser_goal_reached,
+          goalReachedNotificationData,
+        );
+
+        this.logger.log(
+          `Sent goal reached notifications to ${userIdsToNotify.length} users`,
+        );
+      }
+    } catch (error) {
+      this.logger.error('Error sending donation notifications:', error);
+    }
   }
 
   /**

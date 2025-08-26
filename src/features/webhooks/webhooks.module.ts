@@ -2,12 +2,13 @@ import { Module } from '@nestjs/common';
 import { WebhooksController } from './webhooks.controller';
 import { WebhooksService } from './webhooks.service';
 import { UsersModule } from '../users/users.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 /**
  * Module for handling webhook functionality
  */
 @Module({
-  imports: [UsersModule],
+  imports: [UsersModule, NotificationsModule],
   controllers: [WebhooksController],
   providers: [WebhooksService],
   exports: [WebhooksService],

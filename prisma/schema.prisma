@@ -46,6 +46,16 @@ enum VerificationStatus {
   rejected
 }
 
+enum NotificationType {
+  donation_received
+  fundraiser_goal_reached
+  group_invitation
+  invitation_accepted
+  verification_request_submitted
+  verification_rejected
+  verification_approved
+}
+
 // Models
 model User {
   id            String      @id @default(cuid())
@@ -70,6 +80,7 @@ model User {
   fundraiserLinks               FundraiserLink[]
   submittedVerificationRequests GroupVerificationRequest[] @relation("VerificationRequestSubmitter")
   reviewedVerificationRequests  GroupVerificationRequest[] @relation("VerificationRequestReviewer")
+  notifications                 Notification[]
 
   @@map("users")
 }
@@ -343,4 +354,18 @@ model MilestoneUpload {
   upload    Upload    @relation(fields: [uploadId], references: [id], onDelete: Cascade)
 
   @@map("milestone_uploads")
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  type      NotificationType
+  userId    String // recipient
+  data      Json // flexible payload (e.g. fundraiserId, amount, message)
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
 }

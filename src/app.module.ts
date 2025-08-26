@@ -13,6 +13,7 @@ import { UploadsModule } from './features/uploads/uploads.module';
 import { GroupsModule } from './features/groups/groups.module';
 import { PaymentsModule } from './features/payments/payments.module';
 import { MilestonesModule } from './features/milestones/milestones.module';
+import { NotificationsModule } from './features/notifications/notifications.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { MilestonesModule } from './features/milestones/milestones.module';
     GroupsModule,
     PaymentsModule,
     MilestonesModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
