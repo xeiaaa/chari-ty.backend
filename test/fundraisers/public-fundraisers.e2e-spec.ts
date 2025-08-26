@@ -390,4 +390,83 @@ describe('Public Fundraisers', () => {
       expect(fundraiser.progress.progressPercentage).toBe(0);
     });
   });
+
+  describe('GET /api/v1/public/fundraisers/categories', () => {
+    it('should return categories with counts of published fundraisers', async () => {
+      const { group } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
+
+      // Create published and public fundraisers with different categories
+      await createFakeFundraiser(group!, {
+        status: FundraiserStatus.published,
+        isPublic: true,
+        category: FundraiserCategory.education,
+      });
+      await createFakeFundraiser(group!, {
+        status: FundraiserStatus.published,
+        isPublic: true,
+        category: FundraiserCategory.education,
+      });
+      await createFakeFundraiser(group!, {
+        status: FundraiserStatus.published,
+        isPublic: true,
+        category: FundraiserCategory.education,
+      });
+      await createFakeFundraiser(group!, {
+        status: FundraiserStatus.published,
+        isPublic: true,
+        category: FundraiserCategory.other,
+      });
+
+      // Create fundraisers that should not be counted
+      await createFakeFundraiser(group!, {
+        status: FundraiserStatus.draft,
+        isPublic: true,
+        category: FundraiserCategory.health,
+      });
+      await createFakeFundraiser(group!, {
+        status: FundraiserStatus.published,
+        isPublic: false,
+        category: FundraiserCategory.arts,
+      });
+
+      const response = await request(app.getHttpServer()).get(
+        createApiPath('public/fundraisers/categories'),
+      );
+
+      expect(response.statusCode).toBe(200);
+      expect(response.body).toEqual({
+        education: 3,
+        other: 1,
+      });
+    });
+
+    it('should return empty object when no published and public fundraisers exist', async () => {
+      const { group } = await createFakeUserWithToken({
+        accountType: AccountType.individual,
+        setupComplete: true,
+      });
+
+      // Create only draft and non-public fundraisers
+      await createFakeFundraiser(group!, {
+        status: FundraiserStatus.draft,
+        isPublic: true,
+        category: FundraiserCategory.health,
+      });
+      await createFakeFundraiser(group!, {
+        status: FundraiserStatus.published,
+        isPublic: false,
+        category: FundraiserCategory.arts,
+      });
+
+      const response = await request(app.getHttpServer()).get(
+        createApiPath('public/fundraisers/categories'),
+      );
+
+      expect(response.statusCode).toBe(200);
+      expect(response.body).toEqual({});
+    });
+  });
 });

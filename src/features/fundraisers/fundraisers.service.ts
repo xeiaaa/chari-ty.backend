@@ -808,4 +808,27 @@ export class FundraisersService {
       return updatedItems;
     });
   }
+
+  /**
+   * Get categories with counts of published fundraisers
+   */
+  async getCategoriesWithCounts() {
+    const categories = await this.prisma.fundraiser.groupBy({
+      by: ['category'],
+      where: {
+        status: FundraiserStatus.published,
+        isPublic: true,
+      },
+      _count: {
+        category: true,
+      },
+    });
+
+    const result: Record<string, number> = {};
+    categories.forEach((category) => {
+      result[category.category] = category._count.category;
+    });
+
+    return result;
+  }
 }

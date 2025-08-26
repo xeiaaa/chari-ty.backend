@@ -48,4 +48,14 @@ export class PublicFundraisersController {
   ) {
     return await this.donationsService.listPublicBySlug(slug, query.status);
   }
+
+  /**
+   * Get categories with counts of published fundraisers
+   * GET /api/v1/public/fundraisers/categories
+   */
+  @Public()
+  @Get('categories')
+  async getCategories() {
+    return await this.fundraisersService.getCategoriesWithCounts();
+  }
 }
