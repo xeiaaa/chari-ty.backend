@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { NotificationType } from '../../../generated/prisma';
+import { ListNotificationsDto } from './dtos/list-notifications.dto';
+import { PaginatedNotificationsDto } from './dtos/paginated-notifications.dto';
 
 @Injectable()
 export class NotificationsService {
@@ -42,11 +44,40 @@ export class NotificationsService {
     });
   }
 
-  getUserNotifications(userId: string) {
-    return this.prisma.notification.findMany({
-      where: { userId },
-      orderBy: { createdAt: 'desc' },
-    });
+  async getUserNotifications(
+    userId: string,
+    query: ListNotificationsDto,
+  ): Promise<PaginatedNotificationsDto> {
+    const { page = 1, limit = 20 } = query;
+    const skip = (page - 1) * limit;
+
+    const [notifications, total] = await Promise.all([
+      this.prisma.notification.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.notification.count({
+        where: { userId },
+      }),
+    ]);
+
+    const totalPages = Math.ceil(total / limit);
+    const hasNext = page < totalPages;
+    const hasPrev = page > 1;
+
+    return {
+      notifications,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+        hasNext,
+        hasPrev,
+      },
+    };
   }
 
   getUnreadCount(userId: string) {

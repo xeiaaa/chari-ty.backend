@@ -14,6 +14,8 @@ import { OnboardingDto } from './dtos/onboarding.dto';
 import { OrganizationDto } from './dtos/organization.dto';
 import { AcceptInvitationDto } from './dtos/accept-invitation.dto';
 import { PrismaService } from '../../core/prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationType } from '../../../generated/prisma';
 
 /**
  * AuthController handles authentication-related HTTP requests
@@ -23,6 +25,7 @@ export class AuthController {
   constructor(
     private readonly onboardingService: OnboardingService,
     private readonly prisma: PrismaService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   /**
@@ -158,7 +161,20 @@ export class AuthController {
         status: 'invited',
       },
       include: {
-        group: true,
+        group: {
+          include: {
+            owner: true,
+            members: {
+              where: {
+                role: { in: ['owner', 'admin'] },
+                status: 'active',
+              },
+              include: {
+                user: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -176,14 +192,92 @@ export class AuthController {
         joinedAt: new Date(),
       },
       include: {
-        group: true,
+        group: {
+          include: {
+            owner: true,
+            members: {
+              where: {
+                role: { in: ['owner', 'admin'] },
+                status: 'active',
+              },
+              include: {
+                user: true,
+              },
+            },
+          },
+        },
       },
     });
+
+    // Send notifications to group owner and admins
+    await this.sendInvitationAcceptedNotifications(updatedGroupMember, user);
 
     return {
       message: `Successfully joined ${updatedGroupMember.group.name}`,
       groupMember: updatedGroupMember,
     };
+  }
+
+  /**
+   * Send invitation accepted notifications to group owner and admins
+   */
+  private async sendInvitationAcceptedNotifications(
+    groupMember: any,
+    acceptedByUser: UserEntity,
+  ): Promise<void> {
+    try {
+      const group = groupMember.group;
+
+      // Collect user IDs to notify (owner + admins)
+      const userIdsToNotify: string[] = [];
+
+      // Add group owner (excluding the user who just accepted the invitation)
+      if (group.owner && group.owner.id !== acceptedByUser.id) {
+        userIdsToNotify.push(group.owner.id);
+      }
+
+      // Add group admins (excluding owner if they're also an admin, and excluding the user who just accepted)
+      group.members.forEach((member: any) => {
+        if (
+          member.user &&
+          !userIdsToNotify.includes(member.user.id) &&
+          member.user.id !== acceptedByUser.id
+        ) {
+          userIdsToNotify.push(member.user.id);
+        }
+      });
+
+      if (userIdsToNotify.length === 0) {
+        console.warn('No users to notify for invitation acceptance');
+        return;
+      }
+
+      // Prepare notification data
+      const notificationData = {
+        groupId: group.id,
+        groupName: group.name,
+        groupSlug: group.slug,
+        acceptedBy: `${acceptedByUser.firstName} ${acceptedByUser.lastName}`,
+        acceptedById: acceptedByUser.id,
+        acceptedByEmail: acceptedByUser.email,
+        role: groupMember.role,
+        joinedAt: groupMember.joinedAt.toISOString(),
+      };
+
+      // Send notifications
+      await this.notificationsService.notifyAll(
+        userIdsToNotify,
+        NotificationType.invitation_accepted,
+        notificationData,
+      );
+
+      console.log(
+        `Sent invitation accepted notifications to ${userIdsToNotify.length} users`,
+      );
+    } catch (error) {
+      // Log the error but don't fail the invitation acceptance process
+      console.error('Failed to send invitation accepted notifications:', error);
+    }
   }
 
   /**

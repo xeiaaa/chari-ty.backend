@@ -19,6 +19,7 @@ import {
   GroupUpload,
   Upload,
   GroupMember,
+  NotificationType,
 } from '../../../generated/prisma';
 import { UpdateGroupDto } from './dtos/update-group.dto';
 import { CreateInviteDto } from './dtos/create-invite.dto';
@@ -31,6 +32,7 @@ import { ListPublicFundraisersDto } from '../fundraisers/dtos/list-public-fundra
 import { CreateVerificationRequestDto } from './dtos/create-verification-request.dto';
 import { UpdateVerificationRequestDto } from './dtos/update-verification-request.dto';
 import { ListVerificationRequestsDto } from './dtos/list-verification-requests.dto';
+import { NotificationsService } from '../notifications/notifications.service';
 
 /**
  * GroupsService handles all group-related database operations
@@ -43,6 +45,7 @@ export class GroupsService {
     private readonly fundraisersService: FundraisersService,
     private readonly clerkService: ClerkService,
     private readonly uploadsService: UploadsService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   /**
@@ -469,6 +472,31 @@ export class GroupsService {
       },
     });
 
+    // Send notification to the invited user if they have a userId
+    if (inviteData.userId) {
+      try {
+        const notificationData = {
+          groupId: group.id,
+          groupName: group.name,
+          groupSlug: group.slug,
+          inviterName: `${user.firstName} ${user.lastName}`,
+          inviterId: user.id,
+          role: inviteData.role,
+          invitationId: invitation.id,
+          invitedAt: invitation.createdAt.toISOString(),
+        };
+
+        await this.notificationsService.notify(
+          inviteData.userId,
+          NotificationType.group_invitation,
+          notificationData,
+        );
+      } catch (error) {
+        // Log the error but don't fail the invitation process
+        console.error('Failed to send invitation notification:', error);
+      }
+    }
+
     return {
       id: invitation.id,
       groupId: invitation.groupId,
@@ -505,6 +533,11 @@ export class GroupsService {
       where: { id: memberToUpdateId },
       include: {
         user: true,
+        group: {
+          include: {
+            owner: true,
+          },
+        },
       },
     });
 
@@ -542,11 +575,22 @@ export class GroupsService {
       }
     }
 
+    // Store the old role for notification
+    const oldRole = memberToUpdate.role;
+
     // Update the member's role
     const updatedMember = await this.prisma.groupMember.update({
       where: { id: memberToUpdateId },
       data: { role: newRole },
     });
+
+    // Send notification to the user whose role was changed
+    await this.sendRoleChangedNotification(
+      memberToUpdate,
+      oldRole,
+      newRole,
+      user,
+    );
 
     return {
       id: updatedMember.id,
@@ -573,6 +617,11 @@ export class GroupsService {
       where: { id: memberId },
       include: {
         user: true,
+        group: {
+          include: {
+            owner: true,
+          },
+        },
       },
     });
 
@@ -609,6 +658,9 @@ export class GroupsService {
         );
       }
     }
+
+    // Send notification to the user who was removed
+    await this.sendUserRemovedNotification(memberToRemove, user);
 
     // Delete the member from the group
     await this.prisma.groupMember.delete({
@@ -1542,6 +1594,9 @@ export class GroupsService {
         },
       });
 
+    // Send notification to all admin users
+    await this.sendVerificationRequestNotification(verificationRequest);
+
     return verificationRequest;
   }
 
@@ -1600,6 +1655,28 @@ export class GroupsService {
               name: true,
               slug: true,
               verified: true,
+              owner: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                },
+              },
+              members: {
+                where: {
+                  role: { in: ['owner', 'admin'] },
+                  status: 'active',
+                },
+                include: {
+                  user: {
+                    select: {
+                      id: true,
+                      firstName: true,
+                      lastName: true,
+                    },
+                  },
+                },
+              },
             },
           },
           submitter: {
@@ -1632,6 +1709,9 @@ export class GroupsService {
 
       return updatedRequest;
     });
+
+    // Send notification to group owner and admins
+    await this.sendVerificationStatusNotification(result, adminUser);
 
     return result;
   }
@@ -1724,5 +1804,206 @@ export class GroupsService {
         hasPrev: page > 1,
       },
     };
+  }
+
+  /**
+   * Send role changed notification to the affected user
+   */
+  private async sendRoleChangedNotification(
+    memberToUpdate: any,
+    oldRole: GroupMemberRole,
+    newRole: GroupMemberRole,
+    changedByUser: UserEntity,
+  ): Promise<void> {
+    try {
+      if (!memberToUpdate.user) {
+        console.warn('No user to notify for role change');
+        return;
+      }
+
+      const notificationData = {
+        groupId: memberToUpdate.group.id,
+        groupName: memberToUpdate.group.name,
+        groupSlug: memberToUpdate.group.slug,
+        changedBy: `${changedByUser.firstName} ${changedByUser.lastName}`,
+        changedById: changedByUser.id,
+        oldRole: oldRole,
+        newRole: newRole,
+        changedAt: new Date().toISOString(),
+      };
+
+      await this.notificationsService.notify(
+        memberToUpdate.user.id,
+        NotificationType.user_role_changed,
+        notificationData,
+      );
+
+      console.log(
+        `Sent role changed notification to user ${memberToUpdate.user.id}`,
+      );
+    } catch (error) {
+      // Log the error but don't fail the role update process
+      console.error('Failed to send role changed notification:', error);
+    }
+  }
+
+  /**
+   * Send user removed notification to the affected user
+   */
+  private async sendUserRemovedNotification(
+    memberToRemove: any,
+    removedByUser: UserEntity,
+  ): Promise<void> {
+    try {
+      if (!memberToRemove.user) {
+        console.warn('No user to notify for removal');
+        return;
+      }
+
+      const notificationData = {
+        groupId: memberToRemove.group.id,
+        groupName: memberToRemove.group.name,
+        groupSlug: memberToRemove.group.slug,
+        removedBy: `${removedByUser.firstName} ${removedByUser.lastName}`,
+        removedById: removedByUser.id,
+        removedAt: new Date().toISOString(),
+        userRole: memberToRemove.role,
+      };
+
+      await this.notificationsService.notify(
+        memberToRemove.user.id,
+        NotificationType.user_removed_from_group,
+        notificationData,
+      );
+
+      console.log(
+        `Sent user removed notification to user ${memberToRemove.user.id}`,
+      );
+    } catch (error) {
+      // Log the error but don't fail the removal process
+      console.error('Failed to send user removed notification:', error);
+    }
+  }
+
+  /**
+   * Send verification request notification to all admin users
+   */
+  private async sendVerificationRequestNotification(
+    verificationRequest: any,
+  ): Promise<void> {
+    try {
+      // Get all admin users
+      const adminUsers = await this.prisma.user.findMany({
+        where: {
+          isAdmin: true,
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      if (adminUsers.length === 0) {
+        console.warn('No admin users found to notify');
+        return;
+      }
+
+      const adminUserIds = adminUsers.map((admin) => admin.id);
+
+      // Prepare notification data
+      const notificationData = {
+        groupId: verificationRequest.group.id,
+        groupName: verificationRequest.group.name,
+        groupSlug: verificationRequest.group.slug,
+        submittedBy: `${verificationRequest.submitter.firstName} ${verificationRequest.submitter.lastName}`,
+        submittedById: verificationRequest.submitter.id,
+        submittedByEmail: verificationRequest.submitter.email,
+        reason: verificationRequest.reason,
+        submittedAt: verificationRequest.createdAt.toISOString(),
+        verificationRequestId: verificationRequest.id,
+      };
+
+      // Send notifications to all admin users
+      await this.notificationsService.notifyAll(
+        adminUserIds,
+        NotificationType.verification_request_submitted,
+        notificationData,
+      );
+
+      console.log(
+        `Sent verification request notifications to ${adminUserIds.length} admin users`,
+      );
+    } catch (error) {
+      // Log the error but don't fail the verification request process
+      console.error(
+        'Failed to send verification request notifications:',
+        error,
+      );
+    }
+  }
+
+  /**
+   * Send verification status notification to group owner and admins
+   */
+  private async sendVerificationStatusNotification(
+    verificationRequest: any,
+    adminUser: UserEntity,
+  ): Promise<void> {
+    try {
+      const group = verificationRequest.group;
+
+      // Collect user IDs to notify (owner + admins)
+      const userIdsToNotify: string[] = [];
+
+      // Add group owner
+      if (group.owner) {
+        userIdsToNotify.push(group.owner.id);
+      }
+
+      // Add group admins (excluding owner if they're also an admin)
+      group.members.forEach((member: any) => {
+        if (member.user && !userIdsToNotify.includes(member.user.id)) {
+          userIdsToNotify.push(member.user.id);
+        }
+      });
+
+      if (userIdsToNotify.length === 0) {
+        console.warn('No users to notify for verification status change');
+        return;
+      }
+
+      // Determine notification type based on status
+      const notificationType =
+        verificationRequest.status === 'approved'
+          ? NotificationType.verification_approved
+          : NotificationType.verification_rejected;
+
+      // Prepare notification data
+      const notificationData = {
+        groupId: group.id,
+        groupName: group.name,
+        groupSlug: group.slug,
+        status: verificationRequest.status,
+        reviewedBy: `${adminUser.firstName} ${adminUser.lastName}`,
+        reviewedById: adminUser.id,
+        reason: verificationRequest.reason,
+        reviewedAt: verificationRequest.reviewedAt.toISOString(),
+        groupVerified: group.verified,
+        verificationRequestId: verificationRequest.id,
+      };
+
+      // Send notifications
+      await this.notificationsService.notifyAll(
+        userIdsToNotify,
+        notificationType,
+        notificationData,
+      );
+
+      console.log(
+        `Sent verification ${verificationRequest.status} notifications to ${userIdsToNotify.length} users`,
+      );
+    } catch (error) {
+      // Log the error but don't fail the verification update process
+      console.error('Failed to send verification status notifications:', error);
+    }
   }
 }

@@ -9,6 +9,7 @@ import { AuthModule } from '../auth/auth.module';
 import { UsersModule } from '../users/users.module';
 import { DonationsModule } from '../donations/donations.module';
 import { UploadsModule } from '../uploads/uploads.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { UploadsModule } from '../uploads/uploads.module';
     UsersModule,
     DonationsModule,
     UploadsModule,
+    NotificationsModule,
   ],
   controllers: [
     GroupsController,

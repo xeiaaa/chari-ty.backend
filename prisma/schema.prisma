@@ -54,6 +54,8 @@ enum NotificationType {
   verification_request_submitted
   verification_rejected
   verification_approved
+  user_removed_from_group
+  user_role_changed
 }
 
 // Models
