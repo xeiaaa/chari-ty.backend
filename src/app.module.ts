@@ -14,6 +14,7 @@ import { GroupsModule } from './features/groups/groups.module';
 import { PaymentsModule } from './features/payments/payments.module';
 import { MilestonesModule } from './features/milestones/milestones.module';
 import { NotificationsModule } from './features/notifications/notifications.module';
+import { CommonModule } from './common/common.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { NotificationsModule } from './features/notifications/notifications.modu
     PaymentsModule,
     MilestonesModule,
     NotificationsModule,
+    CommonModule,
   ],
   controllers: [AppController],
   providers: [AppService],

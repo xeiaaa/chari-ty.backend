@@ -7,6 +7,7 @@ import { OnboardingService } from './onboarding.service';
 import { UsersModule } from '../users/users.module';
 import { PrismaModule } from '../../core/prisma/prisma.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { CommonModule } from '../../common/common.module';
 
 /**
  * AuthModule handles authentication functionality
@@ -17,6 +18,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
     forwardRef(() => UsersModule),
     PrismaModule,
     forwardRef(() => NotificationsModule),
+    forwardRef(() => CommonModule),
   ],
   controllers: [AuthController],
   providers: [
