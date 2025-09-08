@@ -1,14 +1,20 @@
-# Production Dockerfile for Backend
-FROM node:18.18.2-alpine AS builder
+# Railway-optimized Dockerfile
+FROM node:18.18.2-alpine
 
 # Set working directory
 WORKDIR /app
 
+# Install system dependencies
+RUN apk add --no-cache \
+    postgresql-client \
+    openssl
+
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci --only=production && npm cache clean --force
+# Install dependencies with memory optimization
+RUN npm ci --no-audit --no-fund && \
+    npm cache clean --force
 
 # Copy source code
 COPY . .
@@ -19,26 +25,14 @@ RUN npx prisma generate
 # Build the application
 RUN npm run build
 
-# Production stage
-FROM node:18.18.2-alpine AS production
-
-# Set working directory
-WORKDIR /app
+# Remove dev dependencies to reduce image size
+RUN npm prune --production && \
+    npm cache clean --force
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nestjs -u 1001
-
-# Copy package files
-COPY package*.json ./
-
-# Install only production dependencies
-RUN npm ci --only=production && npm cache clean --force
-
-# Copy built application from builder stage
-COPY --from=builder --chown=nestjs:nodejs /app/dist ./dist
-COPY --from=builder --chown=nestjs:nodejs /app/generated ./generated
-COPY --from=builder --chown=nestjs:nodejs /app/prisma ./prisma
+    adduser -S nestjs -u 1001 && \
+    chown -R nestjs:nodejs /app
 
 # Switch to non-root user
 USER nestjs
