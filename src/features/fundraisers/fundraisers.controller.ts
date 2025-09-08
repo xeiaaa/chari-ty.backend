@@ -9,7 +9,10 @@ import {
   Patch,
   Delete,
   HttpCode,
+  Inject,
 } from '@nestjs/common';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
 import { FundraisersService } from './fundraisers.service';
 import { CreateFundraiserDto } from './dtos/create-fundraiser.dto';
 import { ListFundraisersDto } from './dtos/list-fundraisers.dto';
@@ -47,6 +50,7 @@ export class FundraisersController {
     private readonly fundraisersService: FundraisersService,
     private readonly milestonesService: MilestonesService,
     private readonly donationsService: DonationsService,
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
   ) {}
 
   /**
@@ -61,7 +65,12 @@ export class FundraisersController {
     @Body() data: CreateFundraiserDto,
     @AuthUser() user: UserEntity,
   ) {
-    return this.fundraisersService.create(user, data);
+    const result = await this.fundraisersService.create(user, data);
+
+    // Invalidate public fundraisers list cache
+    await this.invalidatePublicFundraisersCache();
+
+    return result;
   }
 
   /**
@@ -105,7 +114,16 @@ export class FundraisersController {
     @Body() data: UpdateFundraiserDto,
     @AuthUser() user: UserEntity,
   ) {
-    return this.fundraisersService.update(user, fundraiserId, data);
+    const result = await this.fundraisersService.update(
+      user,
+      fundraiserId,
+      data,
+    );
+
+    // Invalidate caches for updated fundraiser
+    await this.invalidateFundraiserCaches(fundraiserId);
+
+    return result;
   }
 
   /**
@@ -118,6 +136,9 @@ export class FundraisersController {
   @HttpCode(204)
   async delete(@Param('fundraiserId') fundraiserId: string) {
     await this.fundraisersService.delete(fundraiserId);
+
+    // Invalidate caches for deleted fundraiser
+    await this.invalidateFundraiserCaches(fundraiserId);
   }
 
   /**
@@ -131,6 +152,9 @@ export class FundraisersController {
     @Param('fundraiserId') fundraiserId: string,
     @Body() data: PublishFundraiserDto,
   ) {
+    // Invalidate caches for published / unpublished fundraiser
+    await this.invalidateFundraiserCaches(fundraiserId);
+
     return this.fundraisersService.publish(fundraiserId, data.published);
   }
 
@@ -145,7 +169,12 @@ export class FundraisersController {
     @Body() data: CreateMilestoneDto,
     @FundraiserParam() fundraiser: Fundraiser,
   ) {
-    return this.milestonesService.create(fundraiser, data);
+    const result = await this.milestonesService.create(fundraiser, data);
+
+    // Invalidate caches for fundraiser
+    await this.invalidateFundraiserCaches(fundraiser.id);
+
+    return result;
   }
 
   /**
@@ -170,7 +199,16 @@ export class FundraisersController {
     @MilestoneParam() milestone: Milestone & { fundraiser: Fundraiser },
     @Body() data: UpdateMilestoneDto,
   ) {
-    return this.milestonesService.update(fundraiserId, milestone, data);
+    const result = await this.milestonesService.update(
+      fundraiserId,
+      milestone,
+      data,
+    );
+
+    // Invalidate caches for fundraiser
+    await this.invalidateFundraiserCaches(fundraiserId);
+
+    return result;
   }
 
   /**
@@ -183,6 +221,9 @@ export class FundraisersController {
   @HttpCode(204)
   async deleteMilestone(@MilestoneParam() milestone: Milestone) {
     await this.milestonesService.delete(milestone);
+
+    // Invalidate caches for fundraiser
+    await this.invalidateFundraiserCaches(milestone.fundraiserId);
   }
 
   /**
@@ -196,7 +237,12 @@ export class FundraisersController {
     @MilestoneParam() milestone: Milestone,
     @Body() data: CompleteMilestoneDto,
   ) {
-    return this.milestonesService.complete(milestone, data);
+    const result = await this.milestonesService.complete(milestone, data);
+
+    // Invalidate caches for fundraiser
+    await this.invalidateFundraiserCaches(milestone.fundraiserId);
+
+    return result;
   }
 
   /**
@@ -224,7 +270,16 @@ export class FundraisersController {
     @Body() data: AddGalleryItemsDto,
     @AuthUser() user: UserEntity,
   ) {
-    return this.fundraisersService.addGalleryItems(user, fundraiserId, data);
+    const result = await this.fundraisersService.addGalleryItems(
+      user,
+      fundraiserId,
+      data,
+    );
+
+    // Invalidate caches for fundraiser
+    await this.invalidateFundraiserCaches(fundraiserId);
+
+    return result;
   }
 
   /**
@@ -238,7 +293,15 @@ export class FundraisersController {
     @Param('fundraiserId') fundraiserId: string,
     @Body() data: ReorderGalleryItemsDto,
   ) {
-    return this.fundraisersService.reorderGalleryItems(fundraiserId, data);
+    const result = await this.fundraisersService.reorderGalleryItems(
+      fundraiserId,
+      data,
+    );
+
+    // Invalidate caches for fundraiser
+    await this.invalidateFundraiserCaches(fundraiserId);
+
+    return result;
   }
 
   /**
@@ -253,11 +316,16 @@ export class FundraisersController {
     @Param('galleryItemId') galleryItemId: string,
     @Body() data: UpdateGalleryItemDto,
   ) {
-    return this.fundraisersService.updateGalleryItem(
+    const result = await this.fundraisersService.updateGalleryItem(
       fundraiserId,
       galleryItemId,
       data,
     );
+
+    // Invalidate caches for fundraiser
+    await this.invalidateFundraiserCaches(fundraiserId);
+
+    return result;
   }
 
   /**
@@ -276,5 +344,84 @@ export class FundraisersController {
       fundraiserId,
       galleryItemId,
     );
+
+    // Invalidate caches for fundraiser
+    await this.invalidateFundraiserCaches(fundraiserId);
+  }
+
+  /**
+   * Invalidate public fundraisers cache
+   */
+  private async invalidatePublicFundraisersCache(): Promise<void> {
+    try {
+      // Clear all fundraisers-list cache keys
+      await this.invalidateCacheByPattern('fundraisers-list');
+      await this.cacheManager.del('cache:public:fundraisers:categories');
+    } catch (error) {
+      // Log error but don't fail the request
+      console.warn('Failed to invalidate cache:', error);
+    }
+  }
+
+  /**
+   * Invalidate fundraiser-specific caches
+   */
+  private async invalidateFundraiserCaches(
+    fundraiserId: string,
+  ): Promise<void> {
+    try {
+      // Get fundraiser to find its slug
+      const fundraiser = await this.fundraisersService.findOne(fundraiserId);
+      if (!fundraiser) {
+        return;
+      }
+
+      // Clear all fundraisers list cache keys
+      await this.invalidateCacheByPattern('fundraisers-list');
+
+      // Clear fundraiser categories cache
+      await this.cacheManager.del('cache:public:fundraisers:categories');
+
+      // Clear fundraiser slug cache
+      await this.cacheManager.del(
+        `cache:public:fundraiser:slug:${fundraiser.slug}`,
+      );
+
+      // Clear fundraiser donations cache
+      await this.cacheManager.del(
+        `cache:public:fundraiser:slug:${fundraiser.slug}:donations:*`,
+      );
+    } catch (error) {
+      // Log error but don't fail the request
+      console.warn('Failed to invalidate fundraiser caches:', error);
+    }
+  }
+
+  /**
+   * Invalidate cache keys by pattern
+   */
+  private async invalidateCacheByPattern(pattern: string): Promise<void> {
+    try {
+      // For Redis, we need to use the store directly to get keys by pattern
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+      const store = (this.cacheManager as any).store;
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      if (store && typeof store.keys === 'function') {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+        const keys = await store.keys(`${pattern}*`);
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        if (keys && keys.length > 0) {
+          await Promise.all(
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+            keys.map((key: string) => this.cacheManager.del(key)),
+          );
+        }
+      } else {
+        // Fallback: clear the base key if pattern matching isn't available
+        await this.cacheManager.del(pattern);
+      }
+    } catch (error) {
+      console.warn(`Failed to invalidate cache pattern ${pattern}:`, error);
+    }
   }
 }

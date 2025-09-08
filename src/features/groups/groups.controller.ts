@@ -9,7 +9,10 @@ import {
   Query,
   UseGuards,
   HttpCode,
+  Inject,
 } from '@nestjs/common';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
 import {
   Group,
   GroupMember,
@@ -45,6 +48,7 @@ export class GroupsController {
   constructor(
     private readonly groupsService: GroupsService,
     private readonly donationsService: DonationsService,
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
   ) {}
 
   /**
@@ -82,7 +86,17 @@ export class GroupsController {
     @Body() updateGroupDto: UpdateGroupDto,
     @AuthUser() user: UserEntity,
   ) {
-    return this.groupsService.updateBySlug(user, slug, group, updateGroupDto);
+    const result = await this.groupsService.updateBySlug(
+      user,
+      slug,
+      group,
+      updateGroupDto,
+    );
+
+    // Invalidate caches for group
+    await this.invalidateGroupCaches(group.id);
+
+    return result;
   }
 
   /**
@@ -97,7 +111,16 @@ export class GroupsController {
     @Body() createInviteDto: CreateInviteDto,
     @AuthUser() user: UserEntity,
   ) {
-    return this.groupsService.inviteUser(user, group, createInviteDto);
+    const result = await this.groupsService.inviteUser(
+      user,
+      group,
+      createInviteDto,
+    );
+
+    // Invalidate caches for group
+    await this.invalidateGroupCaches(group.id);
+
+    return result;
   }
 
   /**
@@ -112,11 +135,16 @@ export class GroupsController {
     @Body() createVerificationRequestDto: CreateVerificationRequestDto,
     @AuthUser() user: UserEntity,
   ) {
-    return this.groupsService.submitVerificationRequest(
+    const result = await this.groupsService.submitVerificationRequest(
       user,
       groupId,
       createVerificationRequestDto,
     );
+
+    // Invalidate caches for group
+    await this.invalidateGroupCaches(groupId);
+
+    return result;
   }
 
   /**
@@ -133,13 +161,18 @@ export class GroupsController {
     @AuthUser() user: UserEntity,
     @CurrentUserMembershipParam() currentUserMembership: GroupMember,
   ) {
-    return this.groupsService.updateMemberRole(
+    const result = await this.groupsService.updateMemberRole(
       user,
       groupId,
       memberId,
       updateMemberRoleDto.role,
       currentUserMembership,
     );
+
+    // Invalidate caches for group
+    await this.invalidateGroupCaches(groupId);
+
+    return result;
   }
 
   /**
@@ -155,12 +188,17 @@ export class GroupsController {
     @AuthUser() user: UserEntity,
     @CurrentUserMembershipParam() currentUserMembership: GroupMember,
   ) {
-    return this.groupsService.removeMember(
+    const result = await this.groupsService.removeMember(
       user,
       groupId,
       memberId,
       currentUserMembership,
     );
+
+    // Invalidate caches for group
+    await this.invalidateGroupCaches(groupId);
+
+    return result;
   }
 
   /**
@@ -198,7 +236,16 @@ export class GroupsController {
     @Body() data: AddGroupUploadsDto,
     @AuthUser() user: UserEntity,
   ) {
-    return this.groupsService.addGroupUploads(user, groupId, data);
+    const result = await this.groupsService.addGroupUploads(
+      user,
+      groupId,
+      data,
+    );
+
+    // Invalidate caches for group
+    await this.invalidateGroupCaches(groupId);
+
+    return result;
   }
 
   /**
@@ -211,7 +258,16 @@ export class GroupsController {
     @Body() data: ReorderGroupUploadsDto,
     @AuthUser() user: UserEntity,
   ) {
-    return this.groupsService.reorderGroupUploads(user, groupId, data);
+    const result = await this.groupsService.reorderGroupUploads(
+      user,
+      groupId,
+      data,
+    );
+
+    // Invalidate caches for group
+    await this.invalidateGroupCaches(groupId);
+
+    return result;
   }
 
   /**
@@ -225,12 +281,17 @@ export class GroupsController {
     @Body() data: UpdateGroupUploadDto,
     @AuthUser() user: UserEntity,
   ) {
-    return this.groupsService.updateGroupUpload(
+    const result = await this.groupsService.updateGroupUpload(
       user,
       groupId,
       uploadItemId,
       data,
     );
+
+    // Invalidate caches for group
+    await this.invalidateGroupCaches(groupId);
+
+    return result;
   }
 
   /**
@@ -245,5 +306,67 @@ export class GroupsController {
     @AuthUser() user: UserEntity,
   ) {
     await this.groupsService.deleteGroupUpload(user, groupId, uploadItemId);
+
+    // Invalidate caches for group
+    await this.invalidateGroupCaches(groupId);
+  }
+
+  /**
+   * Invalidate group-specific caches
+   */
+  private async invalidateGroupCaches(groupId: string): Promise<void> {
+    try {
+      // Get group to find its slug
+      const group = await this.groupsService.findById(groupId);
+      if (!group) {
+        return;
+      }
+
+      // Clear group slug cache
+      await this.cacheManager.del(`cache:public:group:slug:${group.slug}`);
+
+      // Clear group fundraisers cache (with all query variations)
+      await this.invalidateCacheByPattern(
+        `cache:public:group:slug:${group.slug}:fundraisers`,
+      );
+
+      // Clear fundraisers list cache (group changes might affect fundraiser display)
+      await this.invalidateCacheByPattern('cache:public:fundraisers-list');
+
+      // Clear individual fundraiser caches that might be affected by group changes
+      // This is a broader invalidation but necessary when group data changes
+      await this.invalidateCacheByPattern('cache:public:fundraiser:slug');
+    } catch (error) {
+      // Log error but don't fail the request
+      console.warn('Failed to invalidate group caches:', error);
+    }
+  }
+
+  /**
+   * Invalidate cache keys by pattern
+   */
+  private async invalidateCacheByPattern(pattern: string): Promise<void> {
+    try {
+      // For Redis, we need to use the store directly to get keys by pattern
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+      const store = (this.cacheManager as any).store;
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      if (store && typeof store.keys === 'function') {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+        const keys = await store.keys(`${pattern}*`);
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        if (keys && keys.length > 0) {
+          await Promise.all(
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+            keys.map((key: string) => this.cacheManager.del(key)),
+          );
+        }
+      } else {
+        // Fallback: clear the base key if pattern matching isn't available
+        await this.cacheManager.del(pattern);
+      }
+    } catch (error) {
+      console.warn(`Failed to invalidate cache pattern ${pattern}:`, error);
+    }
   }
 }

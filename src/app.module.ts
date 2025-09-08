@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { CacheModule } from '@nestjs/cache-manager';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './core/prisma/prisma.module';
@@ -15,12 +16,28 @@ import { PaymentsModule } from './features/payments/payments.module';
 import { MilestonesModule } from './features/milestones/milestones.module';
 import { NotificationsModule } from './features/notifications/notifications.module';
 import { CommonModule } from './common/common.module';
+import KeyvRedis from '@keyv/redis';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
+    }),
+    CacheModule.registerAsync<{ stores?: unknown[]; ttl?: number }>({
+      isGlobal: true,
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => {
+        const redisUrl: string | undefined =
+          configService.get<string>('REDIS_URL');
+        if (!redisUrl) {
+          return { ttl: 60_000 };
+        }
+        return {
+          ttl: 60_000,
+          stores: [new KeyvRedis(redisUrl)],
+        };
+      },
     }),
     PrismaModule,
     AuthModule,

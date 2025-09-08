@@ -1,4 +1,8 @@
-import { Controller, Get, Query, Param } from '@nestjs/common';
+import { Controller, Get, Query, Param, UseInterceptors } from '@nestjs/common';
+import { FundraisersListCacheInterceptor } from '../../common/interceptors/fundraisers-list-cache.interceptor';
+import { FundraiserSlugCacheInterceptor } from '../../common/interceptors/fundraiser-slug-cache.interceptor';
+import { FundraiserDonationsCacheInterceptor } from '../../common/interceptors/fundraiser-donations-cache.interceptor';
+import { FundraiserCategoriesCacheInterceptor } from '../../common/interceptors/fundraiser-categories-cache.interceptor';
 import { FundraisersService } from './fundraisers.service';
 import { ListPublicFundraisersDto } from './dtos/list-public-fundraisers.dto';
 import { Public } from '../../common/decorators/public.decorator';
@@ -22,7 +26,9 @@ export class PublicFundraisersController {
    */
   @Public()
   @Get()
+  @UseInterceptors(FundraisersListCacheInterceptor)
   async listPublic(@Query() query: ListPublicFundraisersDto) {
+    console.log('listPublic', query);
     return await this.fundraisersService.listPublic(query);
   }
 
@@ -32,6 +38,7 @@ export class PublicFundraisersController {
    */
   @Public()
   @Get('slug/:slug')
+  @UseInterceptors(FundraiserSlugCacheInterceptor)
   async findPublicBySlug(@Param('slug') slug: string) {
     return await this.fundraisersService.findPublicBySlug(slug);
   }
@@ -42,6 +49,7 @@ export class PublicFundraisersController {
    */
   @Public()
   @Get('slug/:slug/donations')
+  @UseInterceptors(FundraiserDonationsCacheInterceptor)
   async listPublicDonations(
     @Param('slug') slug: string,
     @Query() query: ListDonationsDto,
@@ -55,6 +63,7 @@ export class PublicFundraisersController {
    */
   @Public()
   @Get('categories')
+  @UseInterceptors(FundraiserCategoriesCacheInterceptor)
   async getCategories() {
     return await this.fundraisersService.getCategoriesWithCounts();
   }
