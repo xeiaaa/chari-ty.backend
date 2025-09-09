@@ -11,6 +11,7 @@ import {
   HttpCode,
   Inject,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import {
@@ -56,6 +57,7 @@ export class GroupsController {
    * POST /api/v1/groups
    */
   @Post()
+  @Throttle({ default: { limit: 5, ttl: 3600000 } }) // 5 requests per hour per user
   async createGroup(
     @Body() createGroupDto: CreateGroupDto,
     @AuthUser() user: UserEntity,
@@ -106,6 +108,7 @@ export class GroupsController {
   @UseGuards(GroupAccessGuard)
   @GroupRoles(['owner', 'admin'])
   @Post(':groupId/invites')
+  @Throttle({ default: { limit: 20, ttl: 3600000 } }) // 20 requests per hour per user
   async inviteUser(
     @GroupParam() group: Group,
     @Body() createInviteDto: CreateInviteDto,
@@ -130,6 +133,7 @@ export class GroupsController {
   @UseGuards(GroupAccessGuard)
   @GroupRoles(['owner', 'admin'])
   @Post(':groupId/verification-request')
+  @Throttle({ default: { limit: 5, ttl: 3600000 } }) // 5 requests per hour per user
   async submitVerificationRequest(
     @Param('groupId') groupId: string,
     @Body() createVerificationRequestDto: CreateVerificationRequestDto,
@@ -231,6 +235,7 @@ export class GroupsController {
    * POST /api/v1/groups/:groupId/uploads
    */
   @Post(':groupId/uploads')
+  @Throttle({ default: { limit: 30, ttl: 60000 } }) // 30 requests per minute per user
   async addGroupUploads(
     @Param('groupId') groupId: string,
     @Body() data: AddGroupUploadsDto,
@@ -253,6 +258,7 @@ export class GroupsController {
    * PATCH /api/v1/groups/:groupId/uploads/reorder
    */
   @Patch(':groupId/uploads/reorder')
+  @Throttle({ default: { limit: 30, ttl: 60000 } }) // 30 requests per minute per user
   async reorderGroupUploads(
     @Param('groupId') groupId: string,
     @Body() data: ReorderGroupUploadsDto,
@@ -275,6 +281,7 @@ export class GroupsController {
    * PATCH /api/v1/groups/:groupId/uploads/:uploadItemId
    */
   @Patch(':groupId/uploads/:uploadItemId')
+  @Throttle({ default: { limit: 30, ttl: 60000 } }) // 30 requests per minute per user
   async updateGroupUpload(
     @Param('groupId') groupId: string,
     @Param('uploadItemId') uploadItemId: string,
@@ -300,6 +307,7 @@ export class GroupsController {
    */
   @Delete(':groupId/uploads/:uploadItemId')
   @HttpCode(204)
+  @Throttle({ default: { limit: 30, ttl: 60000 } }) // 30 requests per minute per user
   async deleteGroupUpload(
     @Param('groupId') groupId: string,
     @Param('uploadItemId') uploadItemId: string,

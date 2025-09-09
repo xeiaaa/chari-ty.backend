@@ -11,6 +11,7 @@ import {
   HttpStatus,
   UseGuards,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { LinksService } from './links.service';
 import { CreateLinkDto } from './dtos/create-link.dto';
 import { UpdateLinkDto } from './dtos/update-link.dto';
@@ -33,6 +34,7 @@ export class LinksController {
    */
   @UseGuards(FundraiserAccessGuard)
   @Get()
+  @Throttle({ default: { limit: 60, ttl: 60000 } }) // 60 requests per minute per user
   async getLinks(
     @Param('fundraiserId') fundraiserId: string,
     @Query() query: ListLinksDto,
@@ -46,6 +48,7 @@ export class LinksController {
    */
   @UseGuards(FundraiserAccessGuard)
   @Get(':linkId')
+  @Throttle({ default: { limit: 60, ttl: 60000 } }) // 60 requests per minute per user
   async getLinkById(
     @Param('fundraiserId') fundraiserId: string,
     @Param('linkId') linkId: string,
@@ -61,6 +64,7 @@ export class LinksController {
   @FundraiserRoles(['admin', 'owner', 'editor'])
   @Post()
   @HttpCode(HttpStatus.CREATED)
+  @Throttle({ default: { limit: 20, ttl: 60000 } }) // 20 requests per minute per user
   async createLink(
     @Param('fundraiserId') fundraiserId: string,
     @Body() createLinkDto: CreateLinkDto,

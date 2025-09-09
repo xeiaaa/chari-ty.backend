@@ -8,6 +8,7 @@ import {
   UseGuards,
   HttpCode,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { AuthGuard } from '../auth/auth.guard';
 import { AuthUser } from '../../common/decorators/user.decorator';
 import { User as UserEntity } from '../../../generated/prisma';
@@ -28,6 +29,7 @@ export class MilestonesController {
    */
   @UseGuards(MilestoneAccessGuard)
   @Post(':milestoneId/uploads')
+  @Throttle({ default: { limit: 30, ttl: 60000 } }) // 30 requests per minute per user
   async addMilestoneUploads(
     @Param('milestoneId') milestoneId: string,
     @Body() data: AddMilestoneUploadsDto,
@@ -46,6 +48,7 @@ export class MilestonesController {
    */
   @UseGuards(MilestoneAccessGuard)
   @Patch(':milestoneId/uploads/reorder')
+  @Throttle({ default: { limit: 30, ttl: 60000 } }) // 30 requests per minute per user
   async reorderMilestoneUploads(
     @Param('milestoneId') milestoneId: string,
     @Body() data: ReorderMilestoneUploadsDto,
@@ -62,6 +65,7 @@ export class MilestonesController {
    */
   @UseGuards(MilestoneAccessGuard)
   @Patch(':milestoneId/uploads/:uploadItemId')
+  @Throttle({ default: { limit: 30, ttl: 60000 } }) // 30 requests per minute per user
   async updateMilestoneUpload(
     @Param('milestoneId') milestoneId: string,
     @Param('uploadItemId') uploadItemId: string,
@@ -81,6 +85,7 @@ export class MilestonesController {
   @UseGuards(MilestoneAccessGuard)
   @Delete(':milestoneId/uploads/:uploadItemId')
   @HttpCode(204)
+  @Throttle({ default: { limit: 30, ttl: 60000 } }) // 30 requests per minute per user
   async deleteMilestoneUpload(
     @Param('milestoneId') milestoneId: string,
     @Param('uploadItemId') uploadItemId: string,

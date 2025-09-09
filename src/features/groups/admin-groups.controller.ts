@@ -7,6 +7,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { User as UserEntity } from '../../../generated/prisma';
 import { GroupsService } from './groups.service';
 import { UpdateVerificationRequestDto } from './dtos/update-verification-request.dto';
@@ -29,6 +30,7 @@ export class AdminGroupsController {
    */
   @UseGuards(AdminAccessGuard)
   @Get('verification-requests')
+  @Throttle({ default: { limit: 200, ttl: 60000 } }) // 200 requests per minute for admin
   async listVerificationRequests(@Query() query: ListVerificationRequestsDto) {
     return this.groupsService.listVerificationRequests(query);
   }
@@ -39,6 +41,7 @@ export class AdminGroupsController {
    */
   @UseGuards(AdminAccessGuard)
   @Patch(':groupId/verification-request')
+  @Throttle({ default: { limit: 200, ttl: 60000 } }) // 200 requests per minute for admin
   async updateVerificationRequest(
     @Param('groupId') groupId: string,
     @Body() updateVerificationRequestDto: UpdateVerificationRequestDto,

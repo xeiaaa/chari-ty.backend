@@ -12,6 +12,7 @@ import {
   NotFoundException,
   ForbiddenException,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { ConfigService } from '@nestjs/config';
 import { UsersService } from './users.service';
 import { UpdateUserDto } from './dtos/update-user.dto';
@@ -32,6 +33,7 @@ export class UsersController {
    * Get all users
    */
   @Get()
+  @Throttle({ default: { limit: 60, ttl: 60000 } }) // 60 requests per minute per user
   async getAllUsers(): Promise<User[]> {
     return this.usersService.getAllUsers();
   }
@@ -41,6 +43,7 @@ export class UsersController {
    * Used for invitation purposes
    */
   @Get('search')
+  @Throttle({ default: { limit: 60, ttl: 60000 } }) // 60 requests per minute per user
   async searchUsers(
     @Query('q') q: string,
     @Query('limit') limit?: string,
@@ -84,6 +87,7 @@ export class UsersController {
    */
   @Public()
   @Get('clerk/token')
+  @Throttle({ default: { limit: 200, ttl: 60000 } }) // 200 requests per minute for admin
   async generateClerkDevToken(@Query('email') email: string): Promise<{
     token: string;
     clerkId: string;
@@ -188,6 +192,7 @@ export class UsersController {
    */
   @Public()
   @Get('admin/test')
+  @Throttle({ default: { limit: 200, ttl: 60000 } }) // 200 requests per minute for admin
   adminTest(): { message: string; timestamp: string } {
     return {
       message: 'Users module is working correctly',

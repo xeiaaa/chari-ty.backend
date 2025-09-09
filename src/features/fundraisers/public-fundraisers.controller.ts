@@ -1,4 +1,5 @@
 import { Controller, Get, Query, Param, UseInterceptors } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { FundraisersListCacheInterceptor } from '../../common/interceptors/fundraisers-list-cache.interceptor';
 import { FundraiserSlugCacheInterceptor } from '../../common/interceptors/fundraiser-slug-cache.interceptor';
 import { FundraiserDonationsCacheInterceptor } from '../../common/interceptors/fundraiser-donations-cache.interceptor';
@@ -27,6 +28,7 @@ export class PublicFundraisersController {
   @Public()
   @Get()
   @UseInterceptors(FundraisersListCacheInterceptor)
+  @Throttle({ default: { limit: 100, ttl: 60000 } }) // 100 requests per minute per IP
   async listPublic(@Query() query: ListPublicFundraisersDto) {
     console.log('listPublic', query);
     return await this.fundraisersService.listPublic(query);
@@ -39,6 +41,7 @@ export class PublicFundraisersController {
   @Public()
   @Get('slug/:slug')
   @UseInterceptors(FundraiserSlugCacheInterceptor)
+  @Throttle({ default: { limit: 200, ttl: 60000 } }) // 200 requests per minute per IP
   async findPublicBySlug(@Param('slug') slug: string) {
     return await this.fundraisersService.findPublicBySlug(slug);
   }
@@ -50,6 +53,7 @@ export class PublicFundraisersController {
   @Public()
   @Get('slug/:slug/donations')
   @UseInterceptors(FundraiserDonationsCacheInterceptor)
+  @Throttle({ default: { limit: 200, ttl: 60000 } }) // 200 requests per minute per IP
   async listPublicDonations(
     @Param('slug') slug: string,
     @Query() query: ListDonationsDto,
@@ -64,6 +68,7 @@ export class PublicFundraisersController {
   @Public()
   @Get('categories')
   @UseInterceptors(FundraiserCategoriesCacheInterceptor)
+  @Throttle({ default: { limit: 100, ttl: 60000 } }) // 100 requests per minute per IP
   async getCategories() {
     return await this.fundraisersService.getCategoriesWithCounts();
   }

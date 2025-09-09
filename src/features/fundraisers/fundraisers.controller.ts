@@ -11,6 +11,7 @@ import {
   HttpCode,
   Inject,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { FundraisersService } from './fundraisers.service';
@@ -61,6 +62,7 @@ export class FundraisersController {
   @GroupRoles(['admin', 'owner', 'editor'])
   @UseGuards(AuthGuard)
   @Post()
+  @Throttle({ default: { limit: 10, ttl: 3600000 } }) // 10 requests per hour per user
   async create(
     @Body() data: CreateFundraiserDto,
     @AuthUser() user: UserEntity,
@@ -148,6 +150,7 @@ export class FundraisersController {
   @UseGuards(FundraiserAccessGuard)
   @FundraiserRoles(['admin', 'owner', 'editor'])
   @Patch(':fundraiserId/publish')
+  @Throttle({ default: { limit: 5, ttl: 3600000 } }) // 5 requests per hour per user
   async publish(
     @Param('fundraiserId') fundraiserId: string,
     @Body() data: PublishFundraiserDto,
@@ -165,6 +168,7 @@ export class FundraisersController {
   @UseGuards(FundraiserAccessGuard)
   @FundraiserRoles(['admin', 'owner', 'editor'])
   @Post(':fundraiserId/milestones')
+  @Throttle({ default: { limit: 20, ttl: 60000 } }) // 20 requests per minute per user
   async createMilestone(
     @Body() data: CreateMilestoneDto,
     @FundraiserParam() fundraiser: Fundraiser,
@@ -265,6 +269,7 @@ export class FundraisersController {
   @UseGuards(FundraiserAccessGuard)
   @FundraiserRoles(['admin', 'owner', 'editor'])
   @Post(':fundraiserId/gallery')
+  @Throttle({ default: { limit: 30, ttl: 60000 } }) // 30 requests per minute per user
   async addGalleryItems(
     @Param('fundraiserId') fundraiserId: string,
     @Body() data: AddGalleryItemsDto,
@@ -289,6 +294,7 @@ export class FundraisersController {
   @UseGuards(FundraiserAccessGuard)
   @FundraiserRoles(['admin', 'owner', 'editor'])
   @Patch(':fundraiserId/gallery/reorder')
+  @Throttle({ default: { limit: 30, ttl: 60000 } }) // 30 requests per minute per user
   async reorderGalleryItems(
     @Param('fundraiserId') fundraiserId: string,
     @Body() data: ReorderGalleryItemsDto,

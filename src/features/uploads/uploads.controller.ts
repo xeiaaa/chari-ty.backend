@@ -6,6 +6,7 @@ import {
   Delete,
   Param,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { UploadsService, UploadSignature } from './uploads.service';
 import { AuthGuard } from '../auth/auth.guard';
 import { CreateUploadSignatureDto } from './dtos/create-upload-signature.dto';
@@ -23,6 +24,7 @@ export class UploadsController {
    * POST /api/v1/uploads/signature
    */
   @Post('signature')
+  @Throttle({ default: { limit: 20, ttl: 60000 } }) // 20 requests per minute per user
   createUploadSignature(
     @Body() data: CreateUploadSignatureDto,
   ): UploadSignature {
@@ -34,6 +36,7 @@ export class UploadsController {
    * POST /api/v1/uploads
    */
   @Post()
+  @Throttle({ default: { limit: 30, ttl: 60000 } }) // 30 requests per minute per user
   async createUpload(
     @Body() asset: CloudinaryAssetDto,
     @AuthUser() user: UserEntity,
@@ -46,6 +49,7 @@ export class UploadsController {
    * DELETE /api/v1/uploads/cloudinary/:publicId
    */
   @Delete('cloudinary/:publicId')
+  @Throttle({ default: { limit: 30, ttl: 60000 } }) // 30 requests per minute per user
   async deleteCloudinaryResource(@Param('publicId') publicId: string) {
     return await this.uploadsService.deleteCloudinaryResource(publicId);
   }

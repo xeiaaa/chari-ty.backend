@@ -1,4 +1,5 @@
 import { Controller, Post, Body, UseGuards } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { AuthGuard } from '../auth/auth.guard';
 import { PaymentsService } from './payments.service';
 import { CreateConnectAccountDto } from './dtos/create-connect-account.dto';
@@ -18,6 +19,7 @@ export class PaymentsController {
    * Create a Stripe Connect account for a group
    */
   @UseGuards(AuthGuard)
+  @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 requests per minute
   @Post('stripe/connect')
   async createConnectAccount(
     @Body() createConnectAccountDto: CreateConnectAccountDto,
@@ -33,6 +35,7 @@ export class PaymentsController {
    * Disconnect a Stripe Connect account for a group
    */
   @UseGuards(AuthGuard)
+  @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 requests per minute
   @Post('stripe/disconnect')
   async disconnectAccount(
     @Body() disconnectAccountDto: DisconnectAccountDto,
@@ -49,6 +52,7 @@ export class PaymentsController {
    */
   @Post('stripe/create-intent')
   @Public()
+  @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 requests per minute per IP
   async createIntent(
     @Body() createIntentDto: CreateIntentDto,
   ): Promise<{ clientSecret: string }> {

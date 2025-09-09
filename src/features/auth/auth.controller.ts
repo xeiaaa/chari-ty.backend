@@ -7,6 +7,7 @@ import {
   BadRequestException,
   ConflictException,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { Public, AuthUser } from '../../common/decorators';
 import { OnboardingService } from './onboarding.service';
 import { User as UserEntity } from '../../../generated/prisma';
@@ -33,6 +34,7 @@ export class AuthController {
    * GET /api/v1/auth/me
    */
   @Get('me')
+  @Throttle({ default: { limit: 100, ttl: 60000 } }) // 100 requests per minute per user
   getCurrentUser(@AuthUser() user: UserEntity): UserEntity {
     // User is already fetched from database by AuthGuard
     return user;
@@ -43,6 +45,7 @@ export class AuthController {
    * GET /api/v1/auth/me/groups
    */
   @Get('me/groups')
+  @Throttle({ default: { limit: 60, ttl: 60000 } }) // 60 requests per minute per user
   async getCurrentUserGroups(
     @AuthUser() user: UserEntity,
   ): Promise<OrganizationDto[]> {
@@ -74,6 +77,7 @@ export class AuthController {
    * POST /api/v1/auth/onboarding
    */
   @Post('onboarding')
+  @Throttle({ default: { limit: 5, ttl: 3600000 } }) // 5 requests per hour per user
   async completeOnboarding(
     @AuthUser() user: UserEntity,
     @Body() onboardingData: OnboardingDto,
@@ -119,6 +123,7 @@ export class AuthController {
    * GET /api/v1/auth/me/invites
    */
   @Get('me/invites')
+  @Throttle({ default: { limit: 60, ttl: 60000 } }) // 60 requests per minute per user
   async getCurrentUserInvites(
     @AuthUser() user: UserEntity,
   ): Promise<OrganizationDto[]> {
@@ -149,6 +154,7 @@ export class AuthController {
    * POST /api/v1/auth/accept-invitation
    */
   @Post('accept-invitation')
+  @Throttle({ default: { limit: 10, ttl: 3600000 } }) // 10 requests per hour per user
   async acceptInvitation(
     @AuthUser() user: UserEntity,
     @Body() acceptInvitationData: AcceptInvitationDto,
@@ -285,6 +291,7 @@ export class AuthController {
    */
   @Public()
   @Get('admin/test')
+  @Throttle({ default: { limit: 200, ttl: 60000 } }) // 200 requests per minute for admin
   adminTest(): { message: string; timestamp: string } {
     return {
       message: 'Auth module is working correctly',
