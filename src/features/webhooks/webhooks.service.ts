@@ -1,5 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject } from '@nestjs/common';
 import { createHmac, timingSafeEqual } from 'crypto';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
 import {
   AccountType,
   DonationStatus,
@@ -27,6 +29,7 @@ export class WebhooksService {
     private readonly usersService: UsersService,
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
   ) {}
 
   /**
@@ -250,6 +253,9 @@ export class WebhooksService {
 
     // Send notifications to fundraiser owner and group admins
     await this.sendDonationNotifications(donation, totalAmount);
+
+    // Invalidate fundraiser caches
+    await this.invalidateFundraiserCaches(donation.fundraiser.slug);
 
     this.logger.log(
       `Updated milestone achievements for fundraiser ${metadata.fundraiserId}`,
@@ -540,6 +546,57 @@ export class WebhooksService {
     } catch (error) {
       this.logger.error('Error during webhook signature verification:', error);
       return false;
+    }
+  }
+
+  /**
+   * Invalidate fundraiser-specific caches
+   */
+  private async invalidateFundraiserCaches(
+    fundraiserSlug: string,
+  ): Promise<void> {
+    try {
+      // Clear fundraiser slug cache
+      await this.cacheManager.del(
+        `cache:public:fundraiser:slug:${fundraiserSlug}`,
+      );
+
+      // Clear fundraisers list cache (donation changes might affect fundraiser display)
+      await this.invalidateCacheByPattern('cache:public:fundraisers-list');
+
+      // Clear group fundraisers cache (donation changes might affect group fundraiser display)
+      await this.invalidateCacheByPattern('cache:public:group:slug');
+    } catch (error) {
+      // Log error but don't fail the request
+      this.logger.warn('Failed to invalidate fundraiser caches:', error);
+    }
+  }
+
+  /**
+   * Invalidate cache keys by pattern
+   */
+  private async invalidateCacheByPattern(pattern: string): Promise<void> {
+    try {
+      // For Redis, we need to use the store directly to get keys by pattern
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+      const store = (this.cacheManager as any).store;
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      if (store && typeof store.keys === 'function') {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+        const keys = await store.keys(`${pattern}*`);
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        if (keys && keys.length > 0) {
+          await Promise.all(
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+            keys.map((key: string) => this.cacheManager.del(key)),
+          );
+        }
+      } else {
+        // Fallback: clear the base key if pattern matching isn't available
+        await this.cacheManager.del(pattern);
+      }
+    } catch (error) {
+      this.logger.warn(`Failed to invalidate cache pattern ${pattern}:`, error);
     }
   }
 }
